@@ -1,0 +1,22 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+FROM ${REGISTRY}/${NAMESPACE}/base:noble
+
+LABEL authors="sarmn"
+
+ENV PATH=/deployment/bin:$PATH \
+    LANG=zh_CN.UTF-8 \
+    LANGUAGE=zh_CN:zh \
+    LC_ALL=zh_CN.UTF-8
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/base/install_desktop.sh /tmp/install_desktop.sh
+# --secret id=VNC_PASSWORD,env=VNC_PASSWORD
+RUN --mount=type=secret,id=VNC_PASSWORD,required=false \
+    set -eux; \
+    [ -s /run/secrets/VNC_PASSWORD ] && export VNC_PASSWORD="$(cat /run/secrets/VNC_PASSWORD)"; \
+    /bin/bash /tmp/install_desktop.sh; \
+    sed -i '/^VNC_PASSWORD=/d' /etc/environment 2>/dev/null; \
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+ENTRYPOINT ["/init"]

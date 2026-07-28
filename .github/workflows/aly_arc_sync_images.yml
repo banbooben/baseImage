@@ -1,0 +1,151 @@
+name: 同步基础镜像到阿里云仓库
+
+on:
+  # schedule:
+  #   # 每天UTC时间0点执行同步
+  #   - cron: '0 0 * * *'
+  workflow_dispatch:
+    # 手动触发支持指定镜像和版本
+    inputs:
+      target_images:
+        description: '需要同步的镜像列表(逗号分隔)'
+        required: false
+        default: 'ubuntu:noble,openeuler/openeuler:24.03'
+
+# 权限配置
+permissions:
+  contents: read
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.build.outputs.images }}
+    steps:
+      - name: Build images list
+        id: build
+        run: |
+          # 默认清单（与之前 matrix 中的值保持一致）
+          DEFAULT='ubuntu:noble,openeuler/openeuler:24.03'
+
+          # 使用 workflow_dispatch 输入优先，其次使用默认
+          if [ -n "${{ github.event.inputs.target_images }}" ]; then
+            RAW="${{ github.event.inputs.target_images }}"
+          else
+            RAW="$DEFAULT"
+          fi
+
+          # 构造 JSON 数组
+          IFS=',' read -ra ITEMS <<< "$RAW"
+          out='['
+          sep=''
+          for it in "${ITEMS[@]}"; do
+            val=$(echo "$it" | xargs)
+            out+="$sep\"$val\""
+            sep=','
+          done
+          out+=']'
+          echo "images=$out" >> $GITHUB_OUTPUT
+
+  sync-images:
+    needs: prepare-matrix
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ${{ secrets.REGISTRY }}
+      NAMESPACE: ${{ secrets.NAMESPACE }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 支持的架构列表
+        arch: [amd64, arm64]
+        # 从 prepare-matrix outputs 获取镜像列表
+        image: ${{ fromJson(needs.prepare-matrix.outputs.images) }}
+    steps:
+      # 1. 检出代码
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # 2. 设置 QEMU
+      - name: 设置 QEMU
+        uses: docker/setup-qemu-action@v2
+
+      # 3. 设置 Docker Buildx
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # 4. 登录到 ACR
+      - name: 登录到 ACR
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+      
+      - name: 准备镜像名称
+        id: prep
+        run: |
+          # matrix 提供的组合（形如 name:tag）
+          COMBINED='${{ matrix.image }}'
+
+          # 去除首尾空白
+          COMBINED=$(echo "$COMBINED" | xargs)
+
+          # 如果没有冒号，默认 tag 为 latest
+          if [[ "$COMBINED" == *":"* ]]; then
+            IMAGE="${COMBINED%%:*}"
+            VERSION="${COMBINED#*:}"
+
+            # 去除首尾空白，并替换 "/" 和 ":" 为 "-"
+            NEW_IMAGE=$(echo "$COMBINED" | xargs)
+            NEW_IMAGE="${NEW_IMAGE//\//-}"
+            NEW_IMAGE="${NEW_IMAGE//:/-}"
+          else
+            IMAGE="$COMBINED"
+            VERSION="latest"
+            NEW_IMAGE="$COMBINED-latest"
+          fi
+
+          # 处理特殊架构名称
+          if [[ "${{ matrix.arch }}" == "amd64" ]]; then
+            ARCH_TAG="amd64"
+          elif [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            ARCH_TAG="arm64"
+          else
+            ARCH_TAG="${{ matrix.arch }}"
+          fi
+
+          SOURCE_IMAGE="${IMAGE}:${VERSION}"
+          TARGET_IMAGE_BASE="${REGISTRY}/${NAMESPACE}/common:${NEW_IMAGE}"
+          TARGET_IMAGE_ARCH="${TARGET_IMAGE_BASE}-${ARCH_TAG}"
+
+          echo "source_image=${SOURCE_IMAGE}" >> $GITHUB_OUTPUT
+          echo "target_image=${TARGET_IMAGE_ARCH}" >> $GITHUB_OUTPUT
+          echo "target_image_base=${TARGET_IMAGE_BASE}" >> $GITHUB_OUTPUT
+          echo "arch_tag=${ARCH_TAG}" >> $GITHUB_OUTPUT
+      
+      - name: 拉取源镜像
+        run: |
+          docker pull --platform linux/${{ matrix.arch }} ${{ steps.prep.outputs.source_image }}
+      
+      - name: 标记镜像
+        run: |
+          docker tag ${{ steps.prep.outputs.source_image }} ${{ steps.prep.outputs.target_image }}
+      
+      - name: 推送镜像到阿里云
+        run: |
+          docker push ${{ steps.prep.outputs.target_image }}
+      
+      - name: 创建多架构镜像清单
+        if: ${{ matrix.arch == 'amd64' }}
+        run: |
+          # 使用 buildx imagetools 创建并推送 multi-arch manifest
+          docker buildx imagetools create --tag ${{ steps.prep.outputs.target_image_base }} \
+            ${{ steps.prep.outputs.target_image_base }}-amd64 \
+            ${{ steps.prep.outputs.target_image_base }}-arm64
+      
+      - name: 清理镜像
+        if: ${{ always() }}
+        run: |
+          docker rmi ${{ steps.prep.outputs.source_image }} || true
+          docker rmi ${{ steps.prep.outputs.target_image }} || true
+          docker manifest rm ${{ steps.prep.outputs.target_image_base }} || true

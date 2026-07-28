@@ -1,0 +1,114 @@
+name: 定时构建基础镜像
+
+on:
+  schedule:
+    # 每天 UTC 时间 14:00 执行（北京时间凌晨 00:00）
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ${{ secrets.REGISTRY }}
+  NAMESPACE: ${{ secrets.NAMESPACE }}
+
+jobs:
+  # 1. 同步官方 ubuntu:noble
+  sync-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 设置 QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录容器镜像仓库
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - name: 同步 ubuntu:noble
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ubuntu:noble \
+            docker.io/library/ubuntu:noble
+
+      - name: 验证同步结果
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ubuntu:noble
+
+  # 2. 构建 base:noble
+  build-base:
+    needs: sync-ubuntu
+    runs-on: ubuntu-latest
+    env:
+      ROOT_PASSWORD: ${{ secrets.ROOT_PASSWORD }}
+      SARMN_PASSWORD: ${{ secrets.SARMN_PASSWORD }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录容器镜像仓库
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - name: 构建 base:noble
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:noble \
+            -f ./docker_installer/dockerfiles/base/Dockerfile \
+            --build-arg REGISTRY=${{ env.REGISTRY }} \
+            --build-arg NAMESPACE=${{ env.NAMESPACE }} \
+            --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
+            --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD \
+            --push \
+            .
+
+  # 3. 构建 base:noble-desktop
+  build-base-desktop:
+    needs: build-base
+    runs-on: ubuntu-latest
+    env:
+      VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录容器镜像仓库
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - name: 构建 base:noble-desktop
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:noble-desktop \
+            -f ./docker_installer/dockerfiles/base/Dockerfile-desktop \
+            --build-arg REGISTRY=${{ env.REGISTRY }} \
+            --build-arg NAMESPACE=${{ env.NAMESPACE }} \
+            --secret id=VNC_PASSWORD,env=VNC_PASSWORD \
+            --push \
+            .

@@ -1,0 +1,36 @@
+# 仅手动；job 级 needs: [] 打断 stage 顺序
+
+code-server:
+  extends: .manual_only
+  stage: software
+  script:
+    - echo "开始构建code-server镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/software:noble-code-server
+      -f ./docker_installer/dockerfiles/software/code-server
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --secret id=CODE_SERVER_PASSWORD,env=CODE_SERVER_PASSWORD
+      --push
+      .
+
+docker:
+  extends: .manual_only
+  stage: software
+  script:
+    - echo "开始构建docker镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/software:noble-docker
+      -f ./docker_installer/dockerfiles/software/docker
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --push
+      .

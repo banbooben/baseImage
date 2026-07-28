@@ -1,0 +1,119 @@
+# 对应 .github/workflows/build-middleware-images.yml
+# Schedule（BUILD_GROUP=middleware）：rules 非空 needs → 等 base 链
+# 手动：继承 job 级 needs: []，base 未跑也能直接点
+
+redis-7.4:
+  stage: middleware-redis
+  extends: .schedule_middleware
+  script:
+    - echo "开始构建redis 7.4镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/redis/7.4.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="7.4.0"
+      fi
+      echo "Resolved Redis version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/middleware:noble-redis-7.4
+      -f ./docker_installer/dockerfiles/middleware/redis/Dockerfile.7.4
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg REDIS_PIN_VERSION=$VERSION
+      --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
+      --push
+      .
+
+
+redis-8.2:
+  stage: middleware-redis
+  extends: .schedule_middleware
+  script:
+    - echo "开始构建redis 8.2镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/redis/8.2.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="8.2.0"
+      fi
+      echo "Resolved Redis version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/middleware:noble-redis-8.2
+      -f ./docker_installer/dockerfiles/middleware/redis/Dockerfile.8.2
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg REDIS_PIN_VERSION=$VERSION
+      --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
+      --push
+      .
+
+
+# hadoop:
+#   stage: middleware
+#   script:
+#     - echo "构建hadoop镜像"
+#     - cd $ROOT_PATH/${project_repo_name}
+#     - >
+#       docker buildx build
+#       --builder builder
+#       --platform linux/amd64,linux/arm64
+#       -t ${REGISTRY}/${NAMESPACE}/middleware:noble-hadoop-3.4
+#       -f ./docker_installer/dockerfiles/middleware/hadoop/Dockerfile
+#       --build-arg REGISTRY=${REGISTRY}
+#       --build-arg NAMESPACE=${NAMESPACE}
+#       --push
+#       .
+
+#   when: manual
+#   tags:
+#     - sync
+
+# hive:
+#   stage: middleware
+#   script:
+#     - echo "构建hive镜像"
+#     - cd $ROOT_PATH/${project_repo_name}
+#     - >
+#       docker buildx build
+#       --builder builder
+#       --platform linux/amd64,linux/arm64
+#       -t ${REGISTRY}/${NAMESPACE}/middleware:noble-hive-4
+#       -f ./docker_installer/dockerfiles/middleware/hive/Dockerfile
+#       --build-arg REGISTRY=${REGISTRY}
+#       --build-arg NAMESPACE=${NAMESPACE}
+#       --secret id=HIVE_DB_PASSWORD,env=HIVE_DB_PASSWORD
+#       --push
+#       .
+
+#   when: manual
+#   tags:
+#     - sync
+
+# mariadb / hadoop / hive 未纳入 GitHub workflows，保持注释与其对齐
+# mariadb:
+#   stage: middleware-redis
+#   script:
+#     - echo "构建mariadb镜像"
+#     - cd $ROOT_PATH/${project_repo_name}
+#     - >
+#       docker buildx build
+#       --builder builder
+#       --platform linux/amd64,linux/arm64
+#       -t ${REGISTRY}/${NAMESPACE}/middleware:noble-mariadb-11.4
+#       -f ./docker_installer/dockerfiles/middleware/mariadb/Dockerfile
+#       --build-arg REGISTRY=${REGISTRY}
+#       --build-arg NAMESPACE=${NAMESPACE}
+#       --push
+#       .
+#
+#   when: manual
+#   tags:
+#     - sync

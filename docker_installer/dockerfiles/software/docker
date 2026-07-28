@@ -1,0 +1,12 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+FROM ${REGISTRY}/${NAMESPACE}/base:noble
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/backend/install_docker.sh /tmp/install_docker.sh
+RUN /bin/bash /tmp/install_docker.sh
+
+RUN /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
+
+ENTRYPOINT ["/init"]
+CMD tail -f /dev/null

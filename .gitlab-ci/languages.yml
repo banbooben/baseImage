@@ -1,0 +1,287 @@
+# 对应 .github/workflows/build-python-images.yml / build-java-images.yml
+# Schedule（BUILD_GROUP=languages）：rules 非空 needs → 等 base 链
+# 手动：继承 job 级 needs: []，base 未跑也能直接点
+
+python3.14:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建python3.14镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.14.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="3.14.0"
+      fi
+      echo "Resolved Python version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.14
+      -f ./docker_installer/dockerfiles/languages/python/python3.14
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg PYTHON_PIN_VERSION=$VERSION
+      --push
+      .
+
+
+python3.14-ft:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建python3.14-ft镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.14.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="3.14.0"
+      fi
+      echo "Resolved Python version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.14-ft
+      -f ./docker_installer/dockerfiles/languages/python/python3.14-ft
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg PYTHON_PIN_VERSION=$VERSION
+      --push
+      .
+
+
+python3.13-ft:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建python3.13-ft镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.13.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="3.13.0"
+      fi
+      echo "Resolved Python version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.13-ft
+      -f ./docker_installer/dockerfiles/languages/python/python3.13-ft
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg PYTHON_PIN_VERSION=$VERSION
+      --push
+      .
+
+
+python3.13:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建python3.13镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.13.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="3.13.0"
+      fi
+      echo "Resolved Python version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.13
+      -f ./docker_installer/dockerfiles/languages/python/python3.13
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg PYTHON_PIN_VERSION=$VERSION
+      --push
+      .
+
+
+python3.12:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建python3.12镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.12.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="3.12.0"
+      fi
+      echo "Resolved Python version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.12
+      -f ./docker_installer/dockerfiles/languages/python/python3.12
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg PYTHON_PIN_VERSION=$VERSION
+      --push
+      .
+
+
+python3.11:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建python3.11镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.11.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="3.11.0"
+      fi
+      echo "Resolved Python version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.11
+      -f ./docker_installer/dockerfiles/languages/python/python3.11
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg PYTHON_PIN_VERSION=$VERSION
+      --push
+      .
+
+
+python3.10:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建python3.10镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.10.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="3.10.0"
+      fi
+      echo "Resolved Python version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.10
+      -f ./docker_installer/dockerfiles/languages/python/python3.10
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg PYTHON_PIN_VERSION=$VERSION
+      --push
+      .
+
+
+miniconda3:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建miniconda3镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-miniconda3
+      -f ./docker_installer/dockerfiles/languages/python/miniconda3
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --push
+      .
+
+
+openjdk11:
+  stage: languages-java
+  extends: .schedule_languages
+  script:
+    - echo "开始构建openjdk11镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B11%2C12%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      VERSION="${VERSION%-LTS}"
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="11.0.0"
+      fi
+      export VERSION
+      echo "Resolved OpenJDK version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk.11
+      -f ./docker_installer/dockerfiles/languages/java/openjdk-11
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg JAVA_PIN_VERSION=$VERSION
+      --push
+      .
+
+
+openjdk24:
+  stage: languages-java
+  extends: .schedule_languages
+  script:
+    - echo "开始构建openjdk24镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B24%2C25%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      VERSION="${VERSION%-LTS}"
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="24.0.0"
+      fi
+      export VERSION
+      echo "Resolved OpenJDK version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk.24
+      -f ./docker_installer/dockerfiles/languages/java/openjdk-24
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg JAVA_PIN_VERSION=$VERSION
+      --push
+      .
+
+
+openjdk25:
+  stage: languages-java
+  extends: .schedule_languages
+  script:
+    - echo "开始构建openjdk25镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B25%2C26%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      VERSION="${VERSION%-LTS}"
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="25.0.0"
+      fi
+      export VERSION
+      echo "Resolved OpenJDK version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk.25
+      -f ./docker_installer/dockerfiles/languages/java/openjdk-25
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg JAVA_PIN_VERSION=$VERSION
+      --push
+      .
+

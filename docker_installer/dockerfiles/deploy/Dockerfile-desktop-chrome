@@ -1,0 +1,21 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble-desktop
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+ENV LANG=zh_CN.UTF-8 \
+    LANGUAGE=zh_CN:zh \
+    LC_ALL=zh_CN.UTF-8 \
+    DEBIAN_FRONTEND=noninteractive \
+    DISPLAY=:1 \
+    CHROMIUM_OPTS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/desktop/install_chrome.sh /tmp/install_chrome.sh
+RUN set -eux;\
+    /bin/bash /tmp/install_chrome.sh ;\
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+ENTRYPOINT ["/init"]

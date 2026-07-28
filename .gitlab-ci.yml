@@ -1,0 +1,99 @@
+include:
+  - local: '.gitlab-ci/base.yml'
+  - local: '.gitlab-ci/languages.yml'
+  - local: '.gitlab-ci/middleware.yml'
+  - local: '.gitlab-ci/software.yml'
+  - local: '.gitlab-ci/deployment.yml'
+
+stages:
+  - base
+  - languages-java
+  - languages-python
+  - middleware-redis
+  - software
+  - deployment
+
+variables:
+  DOCKER_BUILDKIT: 1  # 启用 BuildKit
+  GIT_STRATEGY: none
+  project_repo_name: baseImage
+  # 需在 GitLab / GitHub 配置同名变量（建议 Masked / Protected）：
+  #   REGISTRY, NAMESPACE
+  #   ALY_ARC_USERNAME, ALY_ARC_PASSWORD
+  #   SARMN_PASSWORD（默认业务用户，建议必配）
+  # 可选（不设则构建时随机生成，经 BuildKit secret 注入）：
+  #   ROOT_PASSWORD, VNC_PASSWORD, REDIS_PASSWORD,
+  #   CODE_SERVER_PASSWORD, HIVE_DB_PASSWORD
+  GIT_CLONE_BASE: "ssh://git@git.sarmn.cn:50518/deployment"
+
+# ---------------------------------------------------------------------------
+# 定时分组（GitLab 无法按 job 设 cron，用多个 Schedule + BUILD_GROUP 变量）
+#
+# Build → Pipeline schedules：
+#
+#   1) base        Interval: 0 16 * * *   BUILD_GROUP=base
+#   2) languages   Interval: 0 19 * * *   BUILD_GROUP=languages
+#   3) middleware  Interval: 0 19 * * *   BUILD_GROUP=middleware
+#
+# 注意：rules 里写 needs: [] 在多数 GitLab 版本会被静默忽略（仍按 stage 排队）。
+# 因此「无依赖」必须写在 job 级 needs: []；定时依赖用「非空」rules:needs 覆盖。
+# ---------------------------------------------------------------------------
+
+# base：定时（base/languages/middleware）自动跑；手动靠 job 级 needs:[] 可单独点
+.schedule_base:
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "base"
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      when: manual
+
+# languages：定时覆盖 needs 依赖 base；手动沿用 job 级 needs:[]
+.schedule_languages:
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "languages"
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      when: manual
+
+# middleware：定时覆盖 needs 依赖 base；手动沿用 job 级 needs:[]
+.schedule_middleware:
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "middleware"
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      when: manual
+
+# 仅手动、无 stage 依赖
+.manual_only:
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      when: manual
+
+before_script:
+  - echo "开始准备构建环境"
+  # 密码类变量未配置时置空，便于 --secret id=...,env=...（Dockerfile required=false）
+  - export ROOT_PASSWORD="${ROOT_PASSWORD:-}" SARMN_PASSWORD="${SARMN_PASSWORD:-}" VNC_PASSWORD="${VNC_PASSWORD:-}" REDIS_PASSWORD="${REDIS_PASSWORD:-}" CODE_SERVER_PASSWORD="${CODE_SERVER_PASSWORD:-}" HIVE_DB_PASSWORD="${HIVE_DB_PASSWORD:-}"
+  # 注册QEMU模拟ARM架构
+  - docker run --rm --privileged ${REGISTRY}/${NAMESPACE}/common:multiarch-qemu-user-static-latest --reset -p yes
+  # 初始化Buildx构建器
+  - docker buildx create --name builder --driver docker-container --driver-opt network=host --driver-opt image=${REGISTRY}/${NAMESPACE}/common:moby-buildkit-latest --use
+  - docker buildx inspect builder --bootstrap
+
+  - echo "登录容器镜像仓库"
+  - docker login --username="${ALY_ARC_USERNAME}" --password="${ALY_ARC_PASSWORD}" "${REGISTRY}"
+
+  - echo "克隆项目代码库"
+  - export ROOT_PATH=$(pwd)
+  - echo 'root path:' $ROOT_PATH
+  - git clone -b $CI_COMMIT_REF_NAME --depth=1 ${GIT_CLONE_BASE}/${project_repo_name}.git
+  - cd $ROOT_PATH/${project_repo_name}
+  - echo 'project repo path:' $(pwd)

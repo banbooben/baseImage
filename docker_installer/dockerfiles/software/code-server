@@ -1,0 +1,32 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble
+FROM ${BASE_IMAGE} as builder
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/backend/install_code_server.sh /tmp/install_code_server.sh
+
+# --secret id=CODE_SERVER_PASSWORD,env=CODE_SERVER_PASSWORD
+RUN --mount=type=secret,id=CODE_SERVER_PASSWORD,required=false \
+    set -eux; \
+    [ -s /run/secrets/CODE_SERVER_PASSWORD ] && export CODE_SERVER_PASSWORD="$(cat /run/secrets/CODE_SERVER_PASSWORD)"; \
+    /bin/bash /tmp/install_code_server.sh; \
+    sed -i '/^CODE_SERVER_PASSWORD=/d' /etc/environment 2>/dev/null; \
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+
+FROM ${BASE_IMAGE}
+LABEL authors="sarmn"
+
+COPY --from=builder /deployment/software/code-server /deployment/software/code-server
+COPY --from=builder /etc/s6-overlay/s6-rc.d/code-server /etc/s6-overlay/s6-rc.d/code-server
+COPY --from=builder /etc/s6-overlay/s6-rc.d/user/contents.d/code-server /etc/s6-overlay/s6-rc.d/user/contents.d/code-server
+COPY --from=builder /etc/cont-env.d/CODE_SERVER_VERSION /etc/cont-env.d/CODE_SERVER_VERSION
+
+ENV PATH=/deployment/software/code-server/bin:$PATH \
+    CODE_SERVER_HOME=/deployment/software/code-server \
+    CODE_SERVER_CONFIG=/deployment/software/code-server/config.yaml \
+    CODE_SERVER_PORT=8080
+
+EXPOSE 8080
+ENTRYPOINT ["/init"]

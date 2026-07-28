@@ -1,0 +1,22 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+FROM ${REGISTRY}/${NAMESPACE}/base:noble as builder
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/middleware/mariadb/install_mariadb.sh /tmp/install_mariadb.sh
+RUN /bin/bash /tmp/install_mariadb.sh
+
+FROM ${REGISTRY}/${NAMESPACE}/base:noble
+COPY --from=builder /deployment/mariadb /deployment/mariadb
+COPY --from=builder /etc/environment /etc/environments/env-mariadb
+COPY --from=builder /etc/s6-overlay/s6-rc.d/mariadb /etc/s6-overlay/s6-rc.d/mariadb
+COPY --from=builder /etc/s6-overlay/s6-rc.d/user/contents.d/mariadb /etc/s6-overlay/s6-rc.d/user/contents.d/mariadb
+COPY --from=builder /etc/cont-env.d/MARIADB_VERSION /etc/cont-env.d/MARIADB_VERSION
+COPY --from=builder /etc/cont-env.d/MARIADB_SERIES /etc/cont-env.d/MARIADB_SERIES
+
+ENV PATH=/deployment/mariadb/bin:$PATH \
+    MARIADB_SERIES=11.4
+
+RUN /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
+
+ENTRYPOINT ["/init"]

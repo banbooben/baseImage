@@ -1,0 +1,71 @@
+# 对应 .github/workflows/build-base-images.yml
+# Schedule：ubuntu → noble → noble-desktop（rules 非空 needs 覆盖）
+# 手动：job 级 needs: []，不依赖其它作业/stage
+
+# ubuntu-noble:
+#   extends: .schedule_base
+#   stage: base
+#   script:
+#     - echo "同步 docker.io/library/ubuntu:noble → ${REGISTRY}/${NAMESPACE}/ubuntu:noble"
+#     - >
+#       docker buildx imagetools create
+#       --tag ${REGISTRY}/${NAMESPACE}/ubuntu:noble
+#       docker.io/library/ubuntu:noble
+#     - docker buildx imagetools inspect ${REGISTRY}/${NAMESPACE}/ubuntu:noble
+
+noble:
+  stage: base
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "base"
+      # needs:
+      #   - ubuntu-noble
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      # needs:
+      #   - ubuntu-noble
+      when: manual
+  script:
+    - echo "开始构建基础镜像 ubuntu 24.04"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:noble
+      -f ./docker_installer/dockerfiles/base/Dockerfile
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD
+      --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD
+      --push
+      .
+
+noble-desktop:
+  stage: base
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "base"
+      needs:
+        - noble
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      needs:
+        - noble
+      when: manual
+  script:
+    - echo "开始构建基础镜像 ubuntu 24.04 desktop"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:noble-desktop
+      -f ./docker_installer/dockerfiles/base/Dockerfile-desktop
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --secret id=VNC_PASSWORD,env=VNC_PASSWORD
+      --push
+      .

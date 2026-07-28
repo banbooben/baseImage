@@ -1,0 +1,19 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+FROM ${REGISTRY}/${NAMESPACE}/base:noble as builder
+
+COPY ./docker_installer/installer/languages/python/install_miniconda.sh /tmp/install_miniconda.sh
+RUN /bin/bash /tmp/install_miniconda.sh
+
+FROM ${REGISTRY}/${NAMESPACE}/base:noble
+LABEL authors="sarmn"
+
+COPY --from=builder /deployment/miniconda /deployment/miniconda
+COPY --from=builder /etc/cont-env.d/MINICONDA_VERSION /etc/cont-env.d/MINICONDA_VERSION
+COPY --from=builder /etc/environment /etc/environments/env-miniconda
+ENV PATH="/deployment/miniconda/bin:$PATH"
+
+RUN /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
+
+ENTRYPOINT ["/init"]
+CMD tail -f /dev/null

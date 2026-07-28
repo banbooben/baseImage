@@ -1,0 +1,31 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+FROM ${REGISTRY}/${NAMESPACE}/base:noble as builder
+
+ARG REDIS_PIN_VERSION
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/middleware/redis/install_redis.8.2.sh /tmp/install_redis.sh
+# --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
+RUN --mount=type=secret,id=REDIS_PASSWORD,required=false \
+    set -eux; \
+    [ -s /run/secrets/REDIS_PASSWORD ] && export REDIS_PASSWORD="$(cat /run/secrets/REDIS_PASSWORD)"; \
+    /bin/bash /tmp/install_redis.sh
+
+FROM ${REGISTRY}/${NAMESPACE}/base:noble
+COPY --from=builder /deployment/software/redis /deployment/software/redis
+COPY --from=builder /etc/s6-overlay/s6-rc.d/redis /etc/s6-overlay/s6-rc.d/redis
+COPY --from=builder /etc/s6-overlay/s6-rc.d/user/contents.d/redis /etc/s6-overlay/s6-rc.d/user/contents.d/redis
+COPY --from=builder /etc/cont-env.d/REDIS_VERSION /etc/cont-env.d/REDIS_VERSION
+COPY --from=builder /etc/cont-env.d/REDIS_SERIES /etc/cont-env.d/REDIS_SERIES
+COPY --from=builder /etc/environment /etc/environments/env-redis
+
+ENV PATH=/deployment/bin:/deployment/software/redis/bin:$PATH \
+    REDIS_SERIES=8.2
+
+RUN ln -s /deployment/software/redis/bin/redis-server /deployment/bin/redis-server ;\
+    ln -s /deployment/software/redis/bin/redis-cli /deployment/bin/redis-cli ;\
+    /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
+
+EXPOSE 6379
+ENTRYPOINT ["/init"]

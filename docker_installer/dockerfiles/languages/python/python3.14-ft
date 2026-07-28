@@ -1,0 +1,26 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+FROM ${REGISTRY}/${NAMESPACE}/base:noble as builder
+
+ARG PYTHON_ENABLE_OPTIMIZATIONS
+ARG PYTHON_PIN_VERSION
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/languages/python/install_python_3.14_ft.sh /tmp/install_python.sh
+
+RUN set -eux ;\
+    /bin/bash /tmp/install_python.sh ;\
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+FROM ${REGISTRY}/${NAMESPACE}/base:noble
+LABEL authors="sarmn"
+
+COPY --from=builder /deployment/software/python /deployment/software/python
+COPY --from=builder /etc/cont-env.d/PYTHON_VERSION /etc/cont-env.d/PYTHON_VERSION
+COPY --from=builder /etc/cont-env.d/PYTHON_SERIES /etc/cont-env.d/PYTHON_SERIES
+ENV PATH="/deployment/software/python/bin:$PATH" \
+    PYTHONPATH="/deployment/software/python/lib/python3.14/site-packages:$PYTHONPATH" \
+    PYTHON_SERIES=3.14
+
+ENTRYPOINT ["/init"]
+CMD python3
