@@ -43,7 +43,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/java/openjdk-11
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-openjdk.11
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-openjdk-11
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -78,7 +78,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/java/openjdk-24
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-openjdk.24
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-openjdk-24
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -113,7 +113,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/java/openjdk-25
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-openjdk.25
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-openjdk-25
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}

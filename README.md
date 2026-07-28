@@ -37,18 +37,18 @@
 
 ### 语言镜像
 - Python
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python.3.14`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python.3.14-ft`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python.3.13`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python.3.13-ft`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python.3.12`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python.3.11`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python.3.10`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-miniconda3`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.14`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.14-ft`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.13`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.13-ft`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.12`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.11`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.10`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-miniconda-3`
 - Java
-  - `${REGISTRY}/${NAMESPACE}/language:noble-openjdk.11`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-openjdk.24`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-openjdk.25`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-openjdk-11`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-openjdk-24`
+  - `${REGISTRY}/${NAMESPACE}/language:noble-openjdk-25`
 
 ### middleware 镜像
 - Redis

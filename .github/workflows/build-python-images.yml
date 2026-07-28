@@ -42,7 +42,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.14
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python.3.14
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.14
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -76,7 +76,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.14-ft
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python.3.14-ft
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.14-ft
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -110,7 +110,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.13
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python.3.13
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.13
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -144,7 +144,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.13-ft
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python.3.13-ft
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.13-ft
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -178,7 +178,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.12
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python.3.12
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.12
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -212,7 +212,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.11
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python.3.11
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.11
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -246,7 +246,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.10
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python.3.10
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.10
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -269,7 +269,7 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/miniconda3
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-miniconda3
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-miniconda-3
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}

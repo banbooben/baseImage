@@ -19,7 +19,7 @@ python3.14:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.14
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.14
       -f ./docker_installer/dockerfiles/languages/python/python3.14
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -45,7 +45,7 @@ python3.14-ft:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.14-ft
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.14-ft
       -f ./docker_installer/dockerfiles/languages/python/python3.14-ft
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -71,7 +71,7 @@ python3.13-ft:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.13-ft
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.13-ft
       -f ./docker_installer/dockerfiles/languages/python/python3.13-ft
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -97,7 +97,7 @@ python3.13:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.13
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.13
       -f ./docker_installer/dockerfiles/languages/python/python3.13
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -123,7 +123,7 @@ python3.12:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.12
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.12
       -f ./docker_installer/dockerfiles/languages/python/python3.12
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -149,7 +149,7 @@ python3.11:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.11
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.11
       -f ./docker_installer/dockerfiles/languages/python/python3.11
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -175,7 +175,7 @@ python3.10:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python.3.10
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.10
       -f ./docker_installer/dockerfiles/languages/python/python3.10
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -194,7 +194,7 @@ miniconda3:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-miniconda3
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-miniconda-3
       -f ./docker_installer/dockerfiles/languages/python/miniconda3
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -221,7 +221,7 @@ openjdk11:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk.11
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk-11
       -f ./docker_installer/dockerfiles/languages/java/openjdk-11
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -249,7 +249,7 @@ openjdk24:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk.24
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk-24
       -f ./docker_installer/dockerfiles/languages/java/openjdk-24
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
@@ -277,7 +277,7 @@ openjdk25:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk.25
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk-25
       -f ./docker_installer/dockerfiles/languages/java/openjdk-25
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}

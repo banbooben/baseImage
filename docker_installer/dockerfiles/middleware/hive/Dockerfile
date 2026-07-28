@@ -1,6 +1,6 @@
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
-FROM ${REGISTRY}/${NAMESPACE}/language:noble-openjdk.11 as java
+FROM ${REGISTRY}/${NAMESPACE}/language:noble-openjdk-11 as java
 FROM ${REGISTRY}/${NAMESPACE}/base:noble as builder
 
 COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
