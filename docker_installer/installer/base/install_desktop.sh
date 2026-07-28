@@ -45,7 +45,12 @@ EOF
   git clone https://github.com/novnc/websockify /deployment/software/noVNC/utils/websockify
 
   ln -s /deployment/software/noVNC/vnc.html /deployment/software/noVNC/index.html
+  # 保证登录环境带上 DISPLAY；.vnc 必须属 sarmn（passwd 600，否则 VNC 起不来）
   su - sarmn -c 'env > /deployment/accounts/sarmn/.env'
+  grep -q '^DISPLAY=' /deployment/accounts/sarmn/.env \
+    || echo 'DISPLAY=:1' >> /deployment/accounts/sarmn/.env
+  write_cont_env DISPLAY ":1"
+  chown -R sarmn:sarmn /deployment/accounts/sarmn
 
   echo "RDP server installed and configured."
 }
@@ -60,27 +65,23 @@ initVncConfig(){
 oneshot
 EOF
 
-  # 启动
+  # 启动：先以 root 修正 home 属主，再降权给 sarmn 起 VNC
+  # （sarmn 无 NOPASSWD，不能在 start.sh 里 sudo chown）
   cat > /etc/s6-overlay/s6-rc.d/vnc/up << 'EOF'
 #!/bin/bash
+chown -R sarmn:sarmn /deployment/accounts/sarmn
 exec s6-setuidgid sarmn /etc/s6-overlay/s6-rc.d/vnc/start.sh
 EOF
 
   # VNC 相关配置
   cat > /etc/s6-overlay/s6-rc.d/vnc/start.sh <<'EOF'
 #!/bin/bash
-
-echo "设置环境变量"
-export $(xargs <  /deployment/accounts/sarmn/.env)
-
-echo "淇敼鏉冮檺"
-sudo chown -R sarmn:sarmn /deployment/accounts/sarmn/
-
-# 设置分辨率
+set -e
+export HOME=/deployment/accounts/sarmn
+export USER=sarmn
+export DISPLAY=:1
 RESOLUTION=${RESOLUTION:-1920x1080}
-xhost +local:
-
-vncserver :1 -geometry $RESOLUTION -depth 24
+vncserver :1 -geometry "$RESOLUTION" -depth 24
 EOF
 
   # 停止脚本

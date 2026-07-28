@@ -26,6 +26,7 @@ RUN set -eux; \
 ENV DBEAVER_HOME=/deployment/software/dbeaver \
     DBEAVER_DRIVERS=/deployment/software/dbeaver/drivers \
     DBEAVER_DATA=/deployment/software/dbeaver/data \
+    DISPLAY=:1 \
     PATH=/deployment/software/dbeaver:/deployment/bin:$PATH
 
 RUN /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
