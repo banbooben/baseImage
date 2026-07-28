@@ -69,7 +69,6 @@ EOF
   # （sarmn 无 NOPASSWD，不能在 start.sh 里 sudo chown）
   cat > /etc/s6-overlay/s6-rc.d/vnc/up << 'EOF'
 #!/bin/bash
-chown -R sarmn:sarmn /deployment/accounts/sarmn
 exec s6-setuidgid sarmn /etc/s6-overlay/s6-rc.d/vnc/start.sh
 EOF
 
