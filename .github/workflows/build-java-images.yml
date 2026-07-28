@@ -48,12 +48,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             JAVA_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:openjdk11
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:openjdk11,mode=max
 
   build-openjdk24:
     runs-on: ubuntu-latest
@@ -89,12 +83,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             JAVA_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:openjdk24
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:openjdk24,mode=max
 
   build-openjdk25:
     runs-on: ubuntu-latest
@@ -130,9 +118,3 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             JAVA_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:openjdk25
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:openjdk25,mode=max

@@ -47,12 +47,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.14
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.14,mode=max
 
   build-python3-14-ft:
     runs-on: ubuntu-latest
@@ -87,12 +81,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.14-ft
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.14-ft,mode=max
 
   build-python3-13:
     runs-on: ubuntu-latest
@@ -127,12 +115,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.13
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.13,mode=max
 
   build-python3-13-ft:
     runs-on: ubuntu-latest
@@ -167,12 +149,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.13-ft
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.13-ft,mode=max
 
   build-python3-12:
     runs-on: ubuntu-latest
@@ -207,12 +183,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.12
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.12,mode=max
 
   build-python3-11:
     runs-on: ubuntu-latest
@@ -247,12 +217,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.11
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.11,mode=max
 
   build-python3-10:
     runs-on: ubuntu-latest
@@ -287,12 +251,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.10
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:python3.10,mode=max
 
   build-miniconda3:
     runs-on: ubuntu-latest
@@ -315,9 +273,3 @@ jobs:
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:miniconda3
-          cache-to: |
-            type=gha,mode=max
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/buildcache:miniconda3,mode=max
