@@ -1,0 +1,33 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble-desktop
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+ARG DBEAVER_PIN_VERSION
+ARG MYSQL_JDBC_VERSION
+ARG MARIADB_JDBC_VERSION
+ARG POSTGRES_JDBC_VERSION
+ARG ORACLE_JDBC_VERSION
+ARG MSSQL_JDBC_VERSION
+ARG SQLITE_JDBC_VERSION
+ARG DAMENG_JDBC_VERSION
+ARG DAMENG_JDBC_URL
+ARG MAVEN_CENTRAL_PRIMARY
+ARG MAVEN_CENTRAL_FALLBACK
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/desktop/install_dbeaver.sh /tmp/install_dbeaver.sh
+RUN set -eux; \
+    /bin/bash /tmp/install_dbeaver.sh; \
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+ENV DBEAVER_HOME=/deployment/software/dbeaver \
+    DBEAVER_DRIVERS=/deployment/software/dbeaver/drivers \
+    DBEAVER_DATA=/deployment/software/dbeaver/data \
+    PATH=/deployment/software/dbeaver:/deployment/bin:$PATH
+
+RUN /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
+
+ENTRYPOINT ["/init"]
