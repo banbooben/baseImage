@@ -1,0 +1,25 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble-desktop
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+ARG CLASH_VERGE_PIN_VERSION
+ARG GITHUB_PROXY
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/desktop/install_clash_verge.sh /tmp/install_clash_verge.sh
+RUN set -eux; \
+    /bin/bash /tmp/install_clash_verge.sh; \
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+ENV CLASH_VERGE_HOME=/deployment/software/clash-verge \
+    CLASH_VERGE_DATA=/deployment/software/clash-verge/data \
+    CLASH_VERGE_AUTOSTART=1 \
+    DISPLAY=:1 \
+    PATH=/deployment/bin:$PATH
+
+RUN /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
+
+ENTRYPOINT ["/init"]

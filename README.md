@@ -64,6 +64,7 @@
 - `${REGISTRY}/${NAMESPACE}/software:noble-code-server`
 - `${REGISTRY}/${NAMESPACE}/software:noble-docker`
 - `${REGISTRY}/${NAMESPACE}/software:noble-dbeaver`
+- `${REGISTRY}/${NAMESPACE}/software:noble-clash-verge`
 - `${REGISTRY}/${NAMESPACE}/deployment:noble-desktop-chrome`
 
 ### CI 变量
