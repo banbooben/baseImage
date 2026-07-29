@@ -16,6 +16,7 @@ installDesktop() {
       tightvncserver \
       tigervnc-standalone-server \
       tigervnc-common \
+      autocutsel \
       openssl \
       websockify \
       xorg \
@@ -31,10 +32,14 @@ installDesktop() {
   echo "${VNC_PASSWORD}" | vncpasswd -f > /deployment/accounts/sarmn/.vnc/passwd
   unset VNC_PASSWORD
   chmod 600 /deployment/accounts/sarmn/.vnc/passwd
+  # vncconfig：VNC 协议剪贴板 <-> X11；autocutsel：PRIMARY/CLIPBOARD 互通（终端选中复制）
   cat > /deployment/accounts/sarmn/.vnc/xstartup << 'EOF'
 #!/bin/sh
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
+vncconfig -nowin &
+autocutsel -fork
+autocutsel -selection PRIMARY -fork
 exec startxfce4
 EOF
 
