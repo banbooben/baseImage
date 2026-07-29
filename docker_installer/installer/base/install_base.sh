@@ -165,10 +165,7 @@ EOF
 }
 
 initFolder(){
-
-  echo "@includedir /deployment/accounts/sudoers.d" >> /etc/sudoers
-  echo 'root ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-  # 基础目录
+  # 仅建目录；sudoers 必须在安装 sudo 包之后配置（见 initSudoers）
   mkdir -p /deployment/accounts/sudoers.d
   mkdir -p /deployment/software
   mkdir -p /deployment/scripts
@@ -176,9 +173,18 @@ initFolder(){
   mkdir -p /deployment/configs
   mkdir -p /deployment/logs
   mkdir -p /deployment/data
+}
 
-  # sshd 相关目录
-  mkdir -p /deployment/software
+initSudoers(){
+  # 保留 apt 安装的默认 /etc/sudoers（含 %sudo），再用 drop-in 引入自定义目录
+  mkdir -p /deployment/accounts/sudoers.d
+  chmod 750 /deployment/accounts/sudoers.d
+  echo '@includedir /deployment/accounts/sudoers.d' > /etc/sudoers.d/00-deployment-accounts
+  chmod 440 /etc/sudoers.d/00-deployment-accounts
+  echo 'root ALL=(ALL) NOPASSWD:ALL' > /deployment/accounts/sudoers.d/root
+  chmod 440 /deployment/accounts/sudoers.d/root
+  visudo -cf /etc/sudoers >/dev/null
+  visudo -cf /etc/sudoers.d/00-deployment-accounts >/dev/null
 }
 
 initSshd(){
@@ -191,7 +197,8 @@ initSshd(){
 
 installBase(){
   echo "install base"
-  apt install -y --no-install-recommends sudo -o Dpkg::Options::="--force-confold"
+  # 不要 force-confold：避免保留安装前误写的残缺 /etc/sudoers（会丢掉 %sudo）
+  apt install -y --no-install-recommends sudo
   apt install -y --no-install-recommends ca-certificates lsb-release software-properties-common gnupg dirmngr
   apt install -y --no-install-recommends \
           wget curl git unzip passwd vim \
@@ -203,8 +210,6 @@ installBase(){
           zlib1g-dev libbz2-dev libreadline-dev libncurses5-dev \
           xz-utils libxml2-dev libxmlsec1-dev liblzma-dev libexpat1-dev
   curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin bash
-
-
 }
 
 initChineseEnv(){
@@ -237,4 +242,4 @@ addUser(){
 }
 
 
-autoExecuteFunc setEnv initFolder installBase installS6 initSshd addUser initChineseEnv initConfigFile
+autoExecuteFunc setEnv initFolder installBase initSudoers installS6 initSshd addUser initChineseEnv initConfigFile

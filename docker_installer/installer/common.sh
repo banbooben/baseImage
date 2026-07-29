@@ -425,7 +425,8 @@ create_user() {
     sudo chown -R "$username:$username" "$home_dir"
     sudo chmod 700 "$home_dir"
 
-    # 配置 sudo 权限
+    # 配置 sudo 权限：仅加组不够——若 /etc/sudoers 缺 %sudo 规则会报「不在 sudoers 中」
+    # 因此同时写入 /deployment/accounts/sudoers.d（由 initSudoers 引入）
     if [[ "$use_sudo" == true ]]; then
         echo -e "${BLUE}将用户 '$username' 加入 sudo 组...${RESET}"
         sudo usermod -aG sudo "$username" || {
@@ -433,13 +434,25 @@ create_user() {
             return 1
         }
 
+        sudo mkdir -p /deployment/accounts/sudoers.d
+        local sudoers_file="/deployment/accounts/sudoers.d/${username}"
         if [[ "$no_passwd_sudo" == true ]]; then
             echo -e "${BLUE}配置免密 sudo...${RESET}"
-            sudo bash -c "echo '$username ALL=(ALL) NOPASSWD:ALL' >> /deployment/accounts/sudoers.d/$username" || {
+            echo "${username} ALL=(ALL) NOPASSWD:ALL" | sudo tee "$sudoers_file" >/dev/null || {
                 echo -e "${RED}Configure passwordless sudo failed${RESET}"
                 return 1
             }
+        else
+            echo "${username} ALL=(ALL:ALL) ALL" | sudo tee "$sudoers_file" >/dev/null || {
+                echo -e "${RED}Configure sudoers entry failed${RESET}"
+                return 1
+            }
         fi
+        sudo chmod 440 "$sudoers_file"
+        sudo visudo -cf "$sudoers_file" >/dev/null || {
+            echo -e "${RED}sudoers 语法校验失败: $sudoers_file${RESET}"
+            return 1
+        }
     fi
 
     # 生成 SSH 密钥

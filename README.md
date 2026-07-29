@@ -8,6 +8,7 @@
 - [middleware 镜像](#middleware-镜像)
 - [software 镜像](#software-镜像)
 - [CI 变量](#ci-变量)
+- [默认密码](#默认密码)
 - [使用说明](#使用说明)
 
 ### 使用说明
@@ -82,15 +83,28 @@ GitHub Secrets 与 GitLab CI/CD Variables **同名**：
 | `CODE_SERVER_PASSWORD` | 否 | code-server（GitLab） |
 | `HIVE_DB_PASSWORD` | 否 | Hive metastore（启用 hive 时） |
 
+### 默认密码
+
+CI / 本地构建未覆盖对应 secret 时，可按下列默认值配置（建议写入 Secrets，勿依赖镜像内明文）：
+
+| 用途 | 变量 | 默认密码 |
+|---|---|---|
+| root | `ROOT_PASSWORD` | `Sam.Tech` |
+| sarmn | `SARMN_PASSWORD` | `SArMnTop1` |
+| VNC | `VNC_PASSWORD` | `Sam.5H8g` |
+| Redis | `REDIS_PASSWORD` | `RdP.8G6h` |
+
 密码经 **BuildKit secret** 注入（`--secret`），不进入镜像 layer / `docker history`。
 
 本地构建示例：
 ```bash
 export REGISTRY=registry.cn-hangzhou.aliyuncs.com NAMESPACE=sarmn
-export SARMN_PASSWORD='your-password'
+export SARMN_PASSWORD='SArMnTop1'
+export ROOT_PASSWORD='Sam.Tech'
 docker buildx build \
   --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
   --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD \
+  --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
   -f docker_installer/dockerfiles/base/Dockerfile \
   -t $REGISTRY/$NAMESPACE/base:noble .
 ```
