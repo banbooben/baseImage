@@ -65,13 +65,21 @@ initVncConfig(){
   # 初始化目录
   mkdir -p /etc/s6-overlay/s6-rc.d/vnc/dependencies.d
 
+  # cont-init：以 root 修正 home 属主（VNC 需要 sarmn 拥有 ~/.vnc/passwd 等文件）
+  # s6-overlay v3 的 oneshot up 由 execlineb 解析，不能用 bash，所以 chown 放这里
+  mkdir -p /etc/cont-init.d
+  cat > /etc/cont-init.d/10-fix-sarmn-home << 'EOF'
+#!/bin/bash
+chown -R sarmn:sarmn /deployment/accounts/sarmn 2>/dev/null || true
+EOF
+  chmod 0755 /etc/cont-init.d/10-fix-sarmn-home
+
   # 启动类型
   cat > /etc/s6-overlay/s6-rc.d/vnc/type <<'EOF'
 oneshot
 EOF
 
-  # 启动：先以 root 修正 home 属主，再降权给 sarmn 起 VNC
-  # （sarmn 无 NOPASSWD，不能在 start.sh 里 sudo chown）
+  # 启动：降权给 sarmn 起 VNC（execline 语法，#!/bin/bash 视为注释）
   cat > /etc/s6-overlay/s6-rc.d/vnc/up << 'EOF'
 #!/bin/bash
 exec s6-setuidgid sarmn /etc/s6-overlay/s6-rc.d/vnc/start.sh
