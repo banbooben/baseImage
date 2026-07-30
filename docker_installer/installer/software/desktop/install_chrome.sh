@@ -28,7 +28,7 @@ check_target_arch(){
 
 setEnv() {
   # 设置环境变量
-  export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
   export DEBIAN_FRONTEND=noninteractive
   export DISPLAY=:1
   export CHROMIUM_OPTS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
