@@ -5,17 +5,21 @@ FROM ${BASE_IMAGE}
 
 LABEL authors="sarmn"
 
-ENV LANG=zh_CN.UTF-8 \
-    LANGUAGE=zh_CN:zh \
-    LC_ALL=zh_CN.UTF-8 \
-    DEBIAN_FRONTEND=noninteractive \
-    DISPLAY=:1 \
-    CHROMIUM_OPTS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
+ARG CHROME_PIN_VERSION
 
 COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
 COPY ./docker_installer/installer/software/desktop/install_chrome.sh /tmp/install_chrome.sh
-RUN set -eux;\
-    /bin/bash /tmp/install_chrome.sh ;\
+RUN set -eux; \
+    /bin/bash /tmp/install_chrome.sh; \
     echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+ENV CHROME_HOME=/deployment/software/chrome \
+    CHROME_DATA=/deployment/software/chrome/data \
+    CHROME_AUTOSTART=1 \
+    DISPLAY=:1 \
+    CHROME_OPTS="--no-sandbox --disable-gpu --disable-dev-shm-usage" \
+    PATH=/deployment/bin:$PATH
+
+RUN /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
 
 ENTRYPOINT ["/init"]
