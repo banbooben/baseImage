@@ -44,7 +44,7 @@ installChrome(){
   add-apt-repository ppa:xtradeb/apps -y
   apt-get update
   apt-get install -y --no-install-recommends \
-    chromium-browser chromium-codecs-ffmpeg \
+    chromium \
     libva-drm2 libva-x11-2 libva-wayland2
 
   # ── 复制到 INSTALL_PATH，保持 COPY-friendly 布局 ─────────────
@@ -55,11 +55,11 @@ installChrome(){
            "${INSTALL_PATH}/usr/lib/${multiarch}" \
            "${INSTALL_PATH}/usr/share"
 
-  # 二进制
-  if [ -x /usr/bin/chromium-browser ]; then
-    cp -a /usr/bin/chromium-browser "${INSTALL_PATH}/usr/bin/"
-  elif [ -x /usr/bin/chromium ]; then
+  # 二进制（PPA 包名为 chromium，二进制路径 /usr/bin/chromium）
+  if [ -x /usr/bin/chromium ]; then
     cp -a /usr/bin/chromium "${INSTALL_PATH}/usr/bin/"
+  elif [ -x /usr/bin/chromium-browser ]; then
+    cp -a /usr/bin/chromium-browser "${INSTALL_PATH}/usr/bin/"
   fi
 
   # Chromium 相关的 .so
@@ -68,14 +68,14 @@ installChrome(){
   fi
 
   # 资源文件
-  for src_dir in /usr/share/chromium-browser /usr/share/chromium; do
+  for src_dir in /usr/share/chromium /usr/share/chromium-browser; do
     if [ -d "${src_dir}" ]; then
       cp -a "${src_dir}" "${INSTALL_PATH}/usr/share/" 2>/dev/null || true
       break
     fi
   done
 
-  CHROME_VERSION="$(chromium-browser --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")"
+  CHROME_VERSION="$(chromium --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")"
   apt-get clean -y
   export CHROME_VERSION
 
@@ -83,10 +83,10 @@ installChrome(){
 
   # ── 定位可执行文件 ──────────────────────────────────────────
   local bin_path=""
-  if [ -x "${INSTALL_PATH}/usr/bin/chromium-browser" ]; then
-    bin_path="${INSTALL_PATH}/usr/bin/chromium-browser"
-  elif [ -x "${INSTALL_PATH}/usr/bin/chromium" ]; then
+  if [ -x "${INSTALL_PATH}/usr/bin/chromium" ]; then
     bin_path="${INSTALL_PATH}/usr/bin/chromium"
+  elif [ -x "${INSTALL_PATH}/usr/bin/chromium-browser" ]; then
+    bin_path="${INSTALL_PATH}/usr/bin/chromium-browser"
   else
     bin_path="$(find "${INSTALL_PATH}/usr/bin" -type f -name 'chromium*' -perm -111 2>/dev/null | head -n 1 || true)"
   fi
