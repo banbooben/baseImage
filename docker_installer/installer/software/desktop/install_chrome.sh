@@ -26,7 +26,7 @@ installDeps(){
     ca-certificates wget software-properties-common \
     libgtk-3-0 libx11-6 libxcb1 libxtst6 libxfixes3 \
     libnss3 libnspr4 libgbm1 \
-    libasound2 \
+    libasound2t64 \
     libatk-bridge2.0-0 libatspi2.0-0 \
     libcups2 libdrm2 libxcomposite1 libxdamage1 libxrandr2 \
     libxkbcommon0 libpango-1.0-0 libcairo2 \
