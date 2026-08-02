@@ -11,6 +11,7 @@ COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
 COPY ./docker_installer/installer/software/desktop/install_chrome.sh /tmp/install_chrome.sh
 RUN set -eux; \
     /bin/bash /tmp/install_chrome.sh; \
+    ldconfig; \
     echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
 
 ENV CHROME_HOME=/deployment/software/chrome \

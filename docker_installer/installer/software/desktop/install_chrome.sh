@@ -140,7 +140,7 @@ installChrome(){
   fi
 
   # ── 移动到 INSTALL_PATH ─────────────────────────────────────
-  mkdir -p "${INSTALL_PATH}"
+  mkdir -p "${INSTALL_PATH}"/{opt,usr,etc}
   for d in opt usr etc; do
     if [ -d "${extract_tmp}/${d}" ]; then
       # 避免覆盖 arm64 已复制的文件
@@ -200,15 +200,19 @@ export CHROME_BIN="\${CHROME_BIN:-${CHROME_BIN}}"
 
 mkdir -p "\${CHROME_DATA}"
 
-# Google Chrome 自带 .so 在 opt/google/chrome 下
+# 系统库路径（ALSA / GTK / CUPS 等不被 Chrome 自带，必须从系统加载）
+ARCH_LIBDIR="/usr/lib/\$(uname -m | sed 's/x86_64/x86_64-linux-gnu/;s/aarch64/aarch64-linux-gnu/')"
+export LD_LIBRARY_PATH="\${LD_LIBRARY_PATH:-}:\${ARCH_LIBDIR}:/usr/lib"
+
+# Google Chrome 自带 .so 在 opt/google/chrome 下（libEGL/libGLESv2/SwiftShader 等）
 if [ -d "\${CHROME_HOME}/opt/google/chrome" ]; then
-  export LD_LIBRARY_PATH="\${CHROME_HOME}/opt/google/chrome:\${LD_LIBRARY_PATH:-}"
+  export LD_LIBRARY_PATH="\${LD_LIBRARY_PATH}:\${CHROME_HOME}/opt/google/chrome"
 fi
 # Chromium (arm64) 可能有额外 lib 目录
 if [ -d "\${CHROME_HOME}/usr/lib" ]; then
-  export LD_LIBRARY_PATH="\${CHROME_HOME}/usr/lib:\${LD_LIBRARY_PATH:-}"
+  export LD_LIBRARY_PATH="\${LD_LIBRARY_PATH}:\${CHROME_HOME}/usr/lib"
   for d in "\${CHROME_HOME}/usr/lib"/*; do
-    [ -d "\$d" ] && export LD_LIBRARY_PATH="\$d:\${LD_LIBRARY_PATH}"
+    [ -d "\$d" ] && export LD_LIBRARY_PATH="\${LD_LIBRARY_PATH}:\$d"
   done
 fi
 
