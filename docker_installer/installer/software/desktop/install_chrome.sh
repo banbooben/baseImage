@@ -23,7 +23,7 @@ installDeps(){
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
   apt-get install -y --no-install-recommends \
-    ca-certificates wget software-properties-common \
+    ca-certificates wget software-properties-common dbus \
     libgtk-3-0 libx11-6 libxcb1 libxtst6 libxfixes3 \
     libnss3 libnspr4 libgbm1 \
     libasound2t64 \
@@ -203,6 +203,9 @@ EOF
 
   cat > /etc/s6-overlay/s6-rc.d/chrome/run <<'EOF'
 #!/bin/bash
+# 启动 D-Bus system daemon（消除 Chromium dbus 连接报错）
+mkdir -p /run/dbus
+dbus-daemon --system --fork 2>/dev/null || true
 exec s6-setuidgid sarmn /etc/s6-overlay/s6-rc.d/chrome/start.sh
 EOF
 
