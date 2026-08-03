@@ -1,18 +1,9 @@
-# 仅手动；job 级 needs: [] 打断 stage 顺序
-
-noble-desktop-chrome:
-  extends: .manual_only
-  stage: deployment
-  script:
-    - echo "开始构建含有chrome的桌面镜像 ubuntu 24.04"
-    - cd $ROOT_PATH/${project_repo_name}
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/deployment:noble-desktop-chrome
-      -f ./docker_installer/dockerfiles/deploy/Dockerfile-desktop-chrome
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --push
-      .
+# 组合部署镜像（多软件层合并，待实现）
+# 示例：desktop + chrome + dbeaver → deployment:noble-desktop-full
+#
+# noble-desktop-full:
+#   extends: .manual_only
+#   stage: deployment
+#   script:
+#     - echo "开始构建组合部署镜像"
+#     - ...

@@ -185,75 +185,9 @@ COPY --from=<src> /deployment/software/chrome/data /deployment/software/chrome/d
 
 Chromium flags（可通过 CHROME_OPTS 环境变量覆盖）:
   --no-sandbox --disable-gpu --disable-dev-shm-usage
-
-容器启动时 s6 会自动拉起 Chromium（依赖 desktop/VNC）。
-关闭：-e CHROME_AUTOSTART=0
 EOF
 
   chown -R sarmn:sarmn "${INSTALL_PATH}"
 }
 
-initS6Config(){
-  # ── s6 自启服务，依赖 desktop/VNC ───────────────────────────
-  mkdir -p /etc/s6-overlay/s6-rc.d/chrome/dependencies.d
-
-  cat > /etc/s6-overlay/s6-rc.d/chrome/type <<'EOF'
-longrun
-EOF
-
-  cat > /etc/s6-overlay/s6-rc.d/chrome/run <<'EOF'
-#!/bin/bash
-# 启动 D-Bus system daemon（消除 Chromium dbus 连接报错）
-mkdir -p /run/dbus
-dbus-daemon --system --fork 2>/dev/null || true
-exec s6-setuidgid sarmn /etc/s6-overlay/s6-rc.d/chrome/start.sh
-EOF
-
-  cat > /etc/s6-overlay/s6-rc.d/chrome/start.sh <<'EOF'
-#!/bin/bash
-set -e
-# 允许关闭自动启动
-if [ "${CHROME_AUTOSTART:-1}" = "0" ] || [ "${CHROME_AUTOSTART:-1}" = "false" ]; then
-  echo "CHROME_AUTOSTART disabled; idle"
-  exec s6-pause
-fi
-
-export HOME=/deployment/accounts/sarmn
-export USER=sarmn
-export DISPLAY="${DISPLAY:-:1}"
-
-# 等 X / VNC 就绪（最多约 60s）
-for i in $(seq 1 60); do
-  if [ -S "/tmp/.X11-unix/X${DISPLAY#:}" ] 2>/dev/null || [ -e "/tmp/.X11-unix/X${DISPLAY#:}" ]; then
-    break
-  fi
-  sleep 1
-done
-sleep 2
-
-exec /deployment/bin/chrome
-EOF
-
-  cat > /etc/s6-overlay/s6-rc.d/chrome/finish <<'EOF'
-#!/bin/bash
-pkill -u sarmn -f '[c]hromium' 2>/dev/null || true
-exit 0
-EOF
-
-  # 等 noVNC/desktop 后再起 GUI
-  cat > /etc/s6-overlay/s6-rc.d/chrome/dependencies.d/desktop <<'EOF'
-EOF
-
-  cat > /etc/s6-overlay/s6-rc.d/user/contents.d/chrome <<'EOF'
-EOF
-
-  chmod 0755 /etc/s6-overlay/s6-rc.d/chrome/run
-  chmod 0755 /etc/s6-overlay/s6-rc.d/chrome/start.sh
-  chmod 0755 /etc/s6-overlay/s6-rc.d/chrome/finish
-  chmod 0644 /etc/s6-overlay/s6-rc.d/chrome/type
-  chmod 0644 /etc/s6-overlay/s6-rc.d/chrome/dependencies.d/desktop
-
-  write_cont_env CHROME_AUTOSTART "1"
-}
-
-autoExecuteFunc setEnv installDeps installChrome initConfig initS6Config
+autoExecuteFunc setEnv installDeps installChrome initConfig

@@ -97,23 +97,4 @@ redis-8.2:
 #   tags:
 #     - sync
 
-# mariadb / hadoop / hive 未纳入 GitHub workflows，保持注释与其对齐
-# mariadb:
-#   stage: middleware-redis
-#   script:
-#     - echo "构建mariadb镜像"
-#     - cd $ROOT_PATH/${project_repo_name}
-#     - >
-#       docker buildx build
-#       --builder builder
-#       --platform linux/amd64,linux/arm64
-#       -t ${REGISTRY}/${NAMESPACE}/middleware:noble-mariadb-11.4
-#       -f ./docker_installer/dockerfiles/middleware/mariadb/Dockerfile
-#       --build-arg REGISTRY=${REGISTRY}
-#       --build-arg NAMESPACE=${NAMESPACE}
-#       --push
-#       .
-#
-#   when: manual
-#   tags:
-#     - sync
+# hadoop / hive 未纳入 GitHub workflows，保持注释与其对齐

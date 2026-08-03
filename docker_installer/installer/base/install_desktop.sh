@@ -22,6 +22,9 @@ installDesktop() {
       xorg \
       xdg-utils \
       xfce4 xfce4-goodies dbus-x11 \
+      fcitx5 fcitx5-chinese-addons \
+      fcitx5-frontend-gtk3 fcitx5-frontend-gtk2 fcitx5-frontend-qt5 \
+      fcitx5-module-cloudpinyin \
       python3-numpy
 
   apt-get install -y --no-install-recommends build-essential libssl-dev zlib1g-dev libbz2-dev \
@@ -33,15 +36,25 @@ installDesktop() {
   unset VNC_PASSWORD
   chmod 600 /deployment/accounts/sarmn/.vnc/passwd
   # vncconfig：VNC 协议剪贴板 <-> X11；autocutsel：PRIMARY/CLIPBOARD 互通（终端选中复制）
-  cat > /deployment/accounts/sarmn/.vnc/xstartup << 'EOF'
+  cat > /deployment/accounts/sarmn/.vnc/xstartup << 'XSTARTUP'
 #!/bin/sh
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
 vncconfig -nowin &
 autocutsel -fork
 autocutsel -selection PRIMARY -fork
+
+# ── 输入法环境变量 ──────────────────────────────────────────
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+export SDL_IM_MODULE=fcitx
+
+# 启动 fcitx5 输入法守护进程
+fcitx5 -d --verbose 2>/dev/null || true
+
 exec startxfce4
-EOF
+XSTARTUP
 
   chmod +x /deployment/accounts/sarmn/.vnc/xstartup
 
@@ -49,7 +62,26 @@ EOF
 
   git clone https://github.com/novnc/websockify /deployment/software/noVNC/utils/websockify
 
-  ln -s /deployment/software/noVNC/vnc.html /deployment/software/noVNC/index.html
+  # 自定义首页：跳转到 vnc.html 并开启自适应缩放
+  cat > /deployment/software/noVNC/index.html << 'NOVNC_INDEX'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Desktop</title>
+  <meta http-equiv="refresh" content="0;url=vnc.html?resize=scale&autoconnect=true">
+  <style>
+    body { background:#1e1e1e; color:#ccc; text-align:center;
+           padding-top:40vh; font-family:system-ui,sans-serif; }
+    a { color:#7ecfff; }
+  </style>
+</head>
+<body>
+  <p>Loading desktop&hellip;</p>
+  <p><small><a href="vnc.html">Open without scaling</a></small></p>
+</body>
+</html>
+NOVNC_INDEX
   # 保证登录环境带上 DISPLAY；.vnc 必须属 sarmn（passwd 600，否则 VNC 起不来）
   su - sarmn -c 'env > /deployment/accounts/sarmn/.env'
   grep -q '^DISPLAY=' /deployment/accounts/sarmn/.env \
@@ -175,8 +207,48 @@ EOF
 }
 
 
+initInputMethodConfig(){
+  # ── fcitx5 默认配置：英文键盘 + 中文拼音，Ctrl+Space 切换 ──
+  local fcitx5_conf="/deployment/accounts/sarmn/.config/fcitx5"
+  mkdir -p "${fcitx5_conf}/conf" "${fcitx5_conf}/profile"
+
+  # profile：输入法列表（keyboard-us + pinyin）
+  cat > "${fcitx5_conf}/profile" <<'FCITX5_PROFILE'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=pinyin
+
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+
+[Groups/0/Items/1]
+Name=pinyin
+Layout=
+
+[GroupOrder]
+0=Default
+
+[Profile]
+EnabledIMList=pinyin,keyboard-us
+FCITX5_PROFILE
+
+  # 候选项数 & 云拼音（可选，依赖 fcitx5-module-cloudpinyin）
+  cat > "${fcitx5_conf}/conf/classicui.conf" <<'FCITX5_UI'
+Vertical Candidate List=False
+PerScreenDPI=True
+Font="Sans Serif 11"
+MenuFont="Sans Serif 11"
+TrayFont="Sans Serif 11"
+FCITX5_UI
+
+  chown -R sarmn:sarmn "/deployment/accounts/sarmn/.config"
+  echo "fcitx5 input method configured (pinyin, Ctrl+Space toggle)"
+}
+
 source /deployment/scripts/common.sh
-autoExecuteFunc setEnv installDesktop initVncConfig initDesktopConfig
+autoExecuteFunc setEnv installDesktop initVncConfig initDesktopConfig initInputMethodConfig
 
 
 

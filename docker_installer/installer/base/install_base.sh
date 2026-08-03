@@ -87,48 +87,6 @@ installS6(){
 
 initConfigFile(){
 
-  # # 配置 supervisor 监控 /deployment/supervisor.d 文件夹
-  # echo "[unix_http_server]
-  # [unix_http_server]
-  # file=/var/run/supervisor.sock
-  # chmod=0700
-
-  # [supervisord]
-  # logfile=/deployment/logs/supervisor/supervisord.log ; 主日志文件路径
-  # logfile_maxbytes=50MB                      ; 日志文件最大大小
-  # logfile_backups=10                         ; 日志文件备份数量
-  # loglevel=info                              ; 日志级别 (可选: critical, error, warn, info, debug, trace)
-  # pidfile=/deployment/software/supervisor/supervisor.pid           ; PID 文件路径
-  # nodaemon=true                              ; 是否以守护进程方式运行
-  # minfds=1024                                ; 最小文件描述符限制
-  # minprocs=200                               ; 最小进程数限制
-
-  # [rpcinterface:supervisor]
-  # supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
-
-  # [supervisorctl]
-  # serverurl=unix:///deployment/software/supervisor/supervisor.sock
-
-  # [include]
-  # files = /deployment/software/supervisor/supervisor.d/*.conf
-  # " > /deployment/software/supervisor/supervisord.conf
-
-  #   echo "
-  # [supervisord]
-  # nodaemon=true
-
-  # [program:sshd]
-  # command=sleep 1
-  # command = /bin/bash -c 'mkdir -p /run/sshd && /usr/sbin/sshd -D'
-  # autorestart = true
-  # autostart = true
-  # stderr_logfile = /deployment/logs/supervisor/sshd.err
-  # stdout_logfile = /deployment/logs/supervisor/sshd.log
-  # " > /deployment/software/sshd/sshd.conf
-
-  # echo "supervisord -c /deployment/software/supervisor/supervisord.conf" > /deployment/software/supervisor/start.sh
-  # chmod +x /deployment/software/supervisor/start.sh
-
   mkdir -p /etc/s6-overlay/s6-rc.d/sshd/dependencies.d
 
   # 启动脚本

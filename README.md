@@ -56,7 +56,6 @@
   - `${REGISTRY}/${NAMESPACE}/middleware:noble-redis-7.4`
   - `${REGISTRY}/${NAMESPACE}/middleware:noble-redis-8.2`
 - （可选，CI 中默认注释）
-  - `${REGISTRY}/${NAMESPACE}/middleware:noble-mariadb-11.4`
   - `${REGISTRY}/${NAMESPACE}/middleware:noble-hadoop-3.4`
   - `${REGISTRY}/${NAMESPACE}/middleware:noble-hive-4`
 
@@ -65,7 +64,7 @@
 - `${REGISTRY}/${NAMESPACE}/software:noble-docker`
 - `${REGISTRY}/${NAMESPACE}/software:noble-dbeaver`
 - `${REGISTRY}/${NAMESPACE}/software:noble-clash-verge`
-- `${REGISTRY}/${NAMESPACE}/deployment:noble-desktop-chrome`
+- `${REGISTRY}/${NAMESPACE}/software:noble-chrome`
 
 ### CI 变量
 
