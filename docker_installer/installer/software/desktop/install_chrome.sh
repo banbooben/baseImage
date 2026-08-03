@@ -23,7 +23,7 @@ installDeps(){
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
   apt-get install -y --no-install-recommends \
-    ca-certificates wget software-properties-common dbus \
+    ca-certificates wget software-properties-common \
     libgtk-3-0 libx11-6 libxcb1 libxtst6 libxfixes3 \
     libnss3 libnspr4 libgbm1 \
     libasound2t64 \
