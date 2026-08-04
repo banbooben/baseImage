@@ -7,8 +7,7 @@
  #
  # Upstream: https://www.wps.com/download/
  #   amd64: 官方主 CDN，持续更新最新版
- #   arm64: 个人版已从 linux.wps.cn 下架（改为 WPS 365），
- #          最后一个免费 ARM64 个人版 11.1.0.11664 托管在 wps-linux-personal.wpscdn.cn
+ #   arm64: wdl1.cache.wps.cn（11.1.0.9719）
  # 版本通过 WPS_PIN_VERSION 或 WPS_DEB_URL 覆盖。
 ###
 source /deployment/scripts/common.sh
@@ -39,9 +38,9 @@ setEnv(){
   export INSTALL_PATH=/deployment/software/wps
 
   if [ "${DEB_ARCH}" = "arm64" ]; then
-    # ARM64 个人版（11.1.0.11664 为最后一个免费版本）
-    WPS_VERSION="${WPS_PIN_VERSION:-11.1.0.11664}"
-    WPS_DEB_URL="${WPS_DEB_URL:-https://wps-linux-personal.wpscdn.cn/wps/download/ep/Linux2019/11664/wps-office_${WPS_VERSION}_arm64.deb}"
+    # ARM64 个人版
+    WPS_VERSION="${WPS_PIN_VERSION:-11.1.0.9719}"
+    WPS_DEB_URL="${WPS_DEB_URL:-https://wdl1.cache.wps.cn/wps/download/ep/Linux2019/9719/wps-office_${WPS_VERSION}_arm64.deb}"
   else
     # amd64：官方主 CDN 最新版
     WPS_VERSION="${WPS_PIN_VERSION:-11.1.0.11723.XA}"
@@ -96,7 +95,19 @@ installWps(){
     find "${extract_tmp}" -maxdepth 3 -print >&2
     return 1
   fi
+
+  # ── WPS 字体（deb 内嵌时提取） ────────────────────────────────
+  if [ -d "${extract_tmp}/usr/share/fonts/wps-office" ]; then
+    mkdir -p /usr/share/fonts/wps-office
+    cp -a "${extract_tmp}/usr/share/fonts/wps-office/." /usr/share/fonts/wps-office/
+  fi
+
   rm -rf "${extract_tmp}"
+
+  # ── ARM64: 从同版本 amd64 deb 提取中文 MUI 和字体 ────────────
+  if [ "${DEB_ARCH}" = "arm64" ]; then
+    installWpsMuiAndFonts
+  fi
 
   # ── 定位可执行文件 ──────────────────────────────────────────
   local wps_bin="${INSTALL_PATH}/opt/office6/wps"
@@ -117,6 +128,49 @@ installWps(){
   write_cont_env WPS_VERSION "${WPS_VERSION}"
   write_cont_env WPS_HOME "${INSTALL_PATH}"
   write_cont_env WPS_BIN "${WPS_BIN}"
+}
+
+# ARM64 deb 不含中文 MUI 和字体，从同版本 amd64 deb 中提取（均为架构无关数据文件）
+installWpsMuiAndFonts(){
+  local amd64_url="https://wdl1.cache.wps.cn/wps/download/ep/Linux2019/9719/wps-office_${WPS_VERSION}_amd64.deb"
+  local amd64_tmp="/tmp/wps-office_${WPS_VERSION}_amd64.deb"
+  local amd64_extract="/tmp/wps-amd64-extract"
+
+  # 如果 MUI 已存在则跳过
+  if [ -d "${INSTALL_PATH}/opt/office6/mui/zh_CN" ]; then
+    echo "WPS zh_CN MUI already present, skipping extraction"
+    return 0
+  fi
+
+  echo "Downloading WPS amd64 package for MUI/fonts extraction..."
+  wget -q --timeout=300 -O "${amd64_tmp}" "${amd64_url}" || {
+    echo "WARNING: Failed to download amd64 WPS for MUI/fonts, Chinese UI may not be available" >&2
+    return 0
+  }
+
+  rm -rf "${amd64_extract}"
+  mkdir -p "${amd64_extract}"
+  dpkg-deb -x "${amd64_tmp}" "${amd64_extract}" || {
+    echo "WARNING: Failed to extract amd64 WPS for MUI/fonts" >&2
+    rm -rf "${amd64_tmp}" "${amd64_extract}"
+    return 0
+  }
+  rm -f "${amd64_tmp}"
+
+  # 复制中文 MUI（架构无关的 .qm/.rcc 资源文件）
+  if [ -d "${amd64_extract}/opt/kingsoft/wps-office/office6/mui/zh_CN" ]; then
+    cp -a "${amd64_extract}/opt/kingsoft/wps-office/office6/mui/zh_CN" "${INSTALL_PATH}/opt/office6/mui/"
+    echo "WPS zh_CN MUI installed"
+  fi
+
+  # 复制 WPS 字体（架构无关）
+  if [ -d "${amd64_extract}/usr/share/fonts/wps-office" ]; then
+    mkdir -p /usr/share/fonts/wps-office
+    cp -a "${amd64_extract}/usr/share/fonts/wps-office/." /usr/share/fonts/wps-office/
+    echo "WPS fonts installed"
+  fi
+
+  rm -rf "${amd64_extract}"
 }
 
 initConfig(){
@@ -191,7 +245,7 @@ COPY --from=<wps-image> /deployment/bin/wps /deployment/bin/wps
 
 Supports amd64 + arm64.
   amd64: 官方主 CDN（最新版）
-  arm64: wps-linux-personal.wpscdn.cn（11.1.0.11664，最后一个免费个人版）
+  arm64: wdl1.cache.wps.cn（11.1.0.9719）
 EOF
 
   chown -R sarmn:sarmn "${INSTALL_PATH}"
