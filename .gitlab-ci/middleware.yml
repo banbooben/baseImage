@@ -56,45 +56,5 @@ redis-8.2:
       .
 
 
-# hadoop:
-#   stage: middleware
-#   script:
-#     - echo "构建hadoop镜像"
-#     - cd $ROOT_PATH/${project_repo_name}
-#     - >
-#       docker buildx build
-#       --builder builder
-#       --platform linux/amd64,linux/arm64
-#       -t ${REGISTRY}/${NAMESPACE}/middleware:noble-hadoop-3.4
-#       -f ./docker_installer/dockerfiles/middleware/hadoop/Dockerfile
-#       --build-arg REGISTRY=${REGISTRY}
-#       --build-arg NAMESPACE=${NAMESPACE}
-#       --push
-#       .
 
-#   when: manual
-#   tags:
-#     - sync
 
-# hive:
-#   stage: middleware
-#   script:
-#     - echo "构建hive镜像"
-#     - cd $ROOT_PATH/${project_repo_name}
-#     - >
-#       docker buildx build
-#       --builder builder
-#       --platform linux/amd64,linux/arm64
-#       -t ${REGISTRY}/${NAMESPACE}/middleware:noble-hive-4
-#       -f ./docker_installer/dockerfiles/middleware/hive/Dockerfile
-#       --build-arg REGISTRY=${REGISTRY}
-#       --build-arg NAMESPACE=${NAMESPACE}
-#       --secret id=HIVE_DB_PASSWORD,env=HIVE_DB_PASSWORD
-#       --push
-#       .
-
-#   when: manual
-#   tags:
-#     - sync
-
-# hadoop / hive 未纳入 GitHub workflows，保持注释与其对齐

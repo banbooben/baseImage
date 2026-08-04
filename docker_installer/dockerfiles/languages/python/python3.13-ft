@@ -2,7 +2,7 @@ ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
 FROM ${REGISTRY}/${NAMESPACE}/base:noble as builder
 
-ARG PYTHON_PERF_FLAGS
+ARG PYTHON_ENABLE_OPTIMIZATIONS
 ARG PYTHON_PIN_VERSION
 
 COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh

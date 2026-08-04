@@ -4,9 +4,9 @@ FROM ${REGISTRY}/${NAMESPACE}/ubuntu:noble
 LABEL authors="sarmn"
 
 # ENV PATH=/deployment/bin:$PATH
-ENV LANG zh_CN.UTF-8
-ENV LANGUAGE zh_CN:zh
-ENV LC_ALL zh_CN.UTF-8
+ENV LANG=zh_CN.UTF-8 \
+    LANGUAGE=zh_CN:zh \
+    LC_ALL=zh_CN.UTF-8
 COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
 COPY ./docker_installer/installer/base/install_base.sh /tmp/install_base.sh
 # 密码通过 BuildKit secret 注入（不进 layer / history）：

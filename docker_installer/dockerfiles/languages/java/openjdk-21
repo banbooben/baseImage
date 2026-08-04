@@ -5,7 +5,7 @@ FROM ${REGISTRY}/${NAMESPACE}/base:noble as builder
 ARG JAVA_PIN_VERSION
 
 COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
-COPY ./docker_installer/installer/languages/java/install_openjdk_11.sh /tmp/install_java.sh
+COPY ./docker_installer/installer/languages/java/install_openjdk_21.sh /tmp/install_java.sh
 RUN /bin/bash /tmp/install_java.sh
 
 FROM ${REGISTRY}/${NAMESPACE}/base:noble
@@ -17,7 +17,7 @@ COPY --from=builder /etc/cont-env.d/OPENJDK_VERSION /etc/cont-env.d/OPENJDK_VERS
 COPY --from=builder /etc/environment /etc/environments/env-java
 ENV PATH=/deployment/openjdk/bin:$PATH \
     JAVA_HOME=/deployment/openjdk \
-    JAVA_VERSION=11
+    JAVA_VERSION=21
 RUN /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
 
 ENTRYPOINT ["/init"]

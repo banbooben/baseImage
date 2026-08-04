@@ -6,7 +6,7 @@ ARG PYTHON_ENABLE_OPTIMIZATIONS
 ARG PYTHON_PIN_VERSION
 
 COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
-COPY ./docker_installer/installer/languages/python/install_python_3.14_ft.sh /tmp/install_python.sh
+COPY ./docker_installer/installer/languages/python/install_python_3.14-ft.sh /tmp/install_python.sh
 
 RUN set -eux ;\
     /bin/bash /tmp/install_python.sh ;\

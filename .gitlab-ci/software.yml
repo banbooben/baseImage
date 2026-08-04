@@ -85,3 +85,20 @@ chrome:
       --build-arg NAMESPACE=${NAMESPACE}
       --push
       .
+
+wps:
+  extends: .manual_only
+  stage: software
+  script:
+    - echo "开始构建 WPS 桌面镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/software:noble-wps
+      -f ./docker_installer/dockerfiles/software/desktop/wps
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --push
+      .

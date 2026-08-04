@@ -31,11 +31,20 @@ make_install(){
   buildArch="$(dpkg --print-architecture)"
   cpuCount="$(nproc)"
   armExtraCflags=""
-  PYTHON_PERF_FLAGS="${PYTHON_PERF_FLAGS:---enable-optimizations --with-lto}"
+
+  # 兼容两套参数名：PYTHON_ENABLE_OPTIMIZATIONS (新) 优先级高于 PYTHON_PERF_FLAGS (旧)
+  if [ -n "${PYTHON_PERF_FLAGS+set}" ]; then
+    # 旧参数：显式覆盖全部 configure 标志（保持向后兼容）
+    local perf_flags="${PYTHON_PERF_FLAGS}"
+  elif [ "${PYTHON_ENABLE_OPTIMIZATIONS:-true}" != "false" ]; then
+    local perf_flags="--enable-optimizations --with-lto"
+  else
+    local perf_flags=""
+  fi
 
   if [ "$buildArch" = "arm64" ]; then
     echo "arm64 build detected, disabling PGO/LTO for better build stability"
-    PYTHON_PERF_FLAGS=""
+    perf_flags=""
     makeJobs="${PYTHON_MAKE_JOBS:-1}"
     armExtraCflags="${PYTHON_ARM_EXTRA_CFLAGS:--O2 -fno-strict-aliasing}"
   else
@@ -53,7 +62,7 @@ make_install(){
     --enable-option-checking=fatal \
     --enable-shared \
     --disable-gil \
-    $PYTHON_PERF_FLAGS \
+    $perf_flags \
     --with-system-expat \
     --with-ensurepip
 

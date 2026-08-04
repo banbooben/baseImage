@@ -202,18 +202,18 @@ miniconda3:
       .
 
 
-openjdk11:
+openjdk21:
   stage: languages-java
   extends: .schedule_languages
   script:
-    - echo "开始构建openjdk11镜像"
+    - echo "开始构建openjdk21镜像"
     - cd $ROOT_PATH/${project_repo_name}
     - |
-      export VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B11%2C12%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      export VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B21%2C22%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
       VERSION="${VERSION%-LTS}"
       if [ -z "$VERSION" ]; then
         echo "Failed to resolve version, using fallback" >&2
-        VERSION="11.0.0"
+        VERSION="21.0.0"
       fi
       export VERSION
       echo "Resolved OpenJDK version: $VERSION"
@@ -221,8 +221,8 @@ openjdk11:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk-11
-      -f ./docker_installer/dockerfiles/languages/java/openjdk-11
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk-21
+      -f ./docker_installer/dockerfiles/languages/java/openjdk-21
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg JAVA_PIN_VERSION=$VERSION

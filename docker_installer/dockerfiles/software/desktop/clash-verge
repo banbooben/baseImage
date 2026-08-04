@@ -20,6 +20,4 @@ ENV CLASH_VERGE_HOME=/deployment/software/clash-verge \
     DISPLAY=:1 \
     PATH=/deployment/bin:$PATH
 
-RUN /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
-
 ENTRYPOINT ["/init"]

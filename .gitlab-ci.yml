@@ -23,7 +23,7 @@ variables:
   #   SARMN_PASSWORD（默认业务用户，建议必配）
   # 可选（不设则构建时随机生成，经 BuildKit secret 注入）：
   #   ROOT_PASSWORD, VNC_PASSWORD, REDIS_PASSWORD,
-  #   CODE_SERVER_PASSWORD, HIVE_DB_PASSWORD
+  #   CODE_SERVER_PASSWORD
   GIT_CLONE_BASE: "ssh://git@git.sarmn.cn:50518/deployment"
 
 # ---------------------------------------------------------------------------
@@ -81,7 +81,7 @@ variables:
 before_script:
   - echo "开始准备构建环境"
   # 密码类变量未配置时置空，便于 --secret id=...,env=...（Dockerfile required=false）
-  - export ROOT_PASSWORD="${ROOT_PASSWORD:-}" SARMN_PASSWORD="${SARMN_PASSWORD:-}" VNC_PASSWORD="${VNC_PASSWORD:-}" REDIS_PASSWORD="${REDIS_PASSWORD:-}" CODE_SERVER_PASSWORD="${CODE_SERVER_PASSWORD:-}" HIVE_DB_PASSWORD="${HIVE_DB_PASSWORD:-}"
+  - export ROOT_PASSWORD="${ROOT_PASSWORD:-}" SARMN_PASSWORD="${SARMN_PASSWORD:-}" VNC_PASSWORD="${VNC_PASSWORD:-}" REDIS_PASSWORD="${REDIS_PASSWORD:-}" CODE_SERVER_PASSWORD="${CODE_SERVER_PASSWORD:-}"
   # 注册QEMU模拟ARM架构
   - docker run --rm --privileged ${REGISTRY}/${NAMESPACE}/common:multiarch-qemu-user-static-latest --reset -p yes
   # 初始化Buildx构建器

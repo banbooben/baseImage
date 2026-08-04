@@ -215,9 +215,11 @@ register_s6_longrun_cmd() {
   : > "/etc/s6-overlay/s6-rc.d/user/contents.d/${name}"
 
   if [ -n "$run_user" ]; then
+    local escaped_body
+    escaped_body="$(printf '%q' "${run_body}")"
     cat > "${svc}/run" <<EOF
 #!/command/with-contenv bash
-exec s6-setuidgid ${run_user} bash -lc $(printf '%q' "${run_body}")
+exec s6-setuidgid ${run_user} bash -lc "${escaped_body}"
 EOF
   else
     cat > "${svc}/run" <<EOF
