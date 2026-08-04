@@ -224,6 +224,20 @@ EOF
 
   cat > /etc/s6-overlay/s6-rc.d/clash-verge/run <<'EOF'
 #!/bin/bash
+# 写入全局代理环境变量（容器桌面无 D-Bus 系统代理，用 env 代替）
+# 端口 7891=HTTP, 7890=SOCKS5 — 对应 mihomo 内核默认监听端口
+mkdir -p /etc/environments
+cat > /etc/environments/proxy-clash <<'PROXY'
+HTTP_PROXY=http://127.0.0.1:7891
+HTTPS_PROXY=http://127.0.0.1:7891
+ALL_PROXY=socks5://127.0.0.1:7890
+NO_PROXY=localhost,127.0.0.1,::1
+PROXY
+# 如果 /etc/environment 没有这些变量则追加（避免重复堆叠）
+while IFS='=' read -r key _; do
+  grep -q "^${key}=" /etc/environment 2>/dev/null || \
+    grep "^${key}=" /etc/environments/proxy-clash >> /etc/environment
+done < /etc/environments/proxy-clash
 exec s6-setuidgid sarmn /etc/s6-overlay/s6-rc.d/clash-verge/start.sh
 EOF
 
@@ -248,6 +262,14 @@ for i in $(seq 1 60); do
   sleep 1
 done
 sleep 2
+
+# 读取 D-Bus session bus 地址（VNC xstartup 写入），Clash Verge 系统代理需要
+if [ -f /tmp/.dbus-session-address ]; then
+  export DBUS_SESSION_BUS_ADDRESS="$(cat /tmp/.dbus-session-address)"
+  echo "Clash Verge: D-Bus session address loaded"
+else
+  echo "Clash Verge: WARNING - D-Bus session address not found, system proxy unavailable" >&2
+fi
 
 exec /deployment/bin/clash-verge
 EOF

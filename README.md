@@ -3,6 +3,7 @@
 基础镜像的安装与更新。推送地址由 CI 变量 `REGISTRY` / `NAMESPACE` 决定。
 
 ### 目录
+
 - [基础镜像](#基础镜像)
 - [语言镜像](#语言镜像)
 - [middleware 镜像](#middleware-镜像)
@@ -12,59 +13,101 @@
 - [使用说明](#使用说明)
 
 ### 使用说明
+
 #### 镜像安装的基础软件列表
-- 软件
-  - vim、curl、wget、git、cron
+
+- 基础工具
+  - vim、curl、wget、git、unzip、passwd
+- 编译工具链
+  - build-essential、pkg-config、llvm
+  - libssl-dev、libffi-dev、libsqlite3-dev、zlib1g-dev 等
 - 管理工具
-  - s6-overlay
+  - s6-overlay (v3)
+  - openssh-server（按需启动）
+  - sudo
+- Python 工具
+  - uv（/usr/local/bin/uv）
+- 中文字体（base-desktop）
+  - fonts-wqy-zenhei、fonts-wqy-microhei
 
 #### 软件安装目录结构
-- `/deployment`
-  - `/deployment/bin`
-  - `/deployment/software/python`
-  - `/deployment/openjdk`
-  - `/deployment/hadoop`
-  - `/deployment/hive`
-  - `/deployment/software/redis`
-  - `/deployment/scripts`
+
+```text
+/deployment
+├── bin/                    # 可执行文件链接
+├── software/               # 软件安装目录
+│   ├── python/             # Python 各版本
+│   ├── wps/                # WPS Office
+│   ├── redis/              # Redis
+│   └── code-server/        # VS Code Server
+├── openjdk/                # OpenJDK 各版本
+├── scripts/                # 公共脚本（common.sh）
+├── accounts/               # 用户/权限配置
+│   └── sudoers.d/
+├── workspace/              # 工作区
+├── configs/                # 配置文件
+├── logs/                   # 日志
+└── data/                   # 数据目录
+```
 
 镜像名写法：`${REGISTRY}/${NAMESPACE}/<repo>:<tag>`  
 例：`registry.cn-hangzhou.aliyuncs.com/sarmn/base:noble`
 
 ### 基础镜像
-- `${REGISTRY}/${NAMESPACE}/ubuntu:noble`
-- `${REGISTRY}/${NAMESPACE}/base:noble`
-- `${REGISTRY}/${NAMESPACE}/base:noble-desktop`
+
+| 镜像 | 说明 |
+|---|---|
+| `${REGISTRY}/${NAMESPACE}/ubuntu:noble` | 官方 ubuntu:noble 同步镜像 |
+| `${REGISTRY}/${NAMESPACE}/base:noble` | 基础镜像（s6、SSH、开发工具、用户） |
+| `${REGISTRY}/${NAMESPACE}/base:noble-desktop` | 桌面基础镜像（Xfce + VNC + 中文字体） |
 
 ### 语言镜像
-- Python
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.14`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.14-ft`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.13`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.13-ft`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.12`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.11`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-python-3.10`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-miniconda-3`
-- Java
-  - `${REGISTRY}/${NAMESPACE}/language:noble-openjdk-11`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-openjdk-24`
-  - `${REGISTRY}/${NAMESPACE}/language:noble-openjdk-25`
+
+**Python**（均基于 `base:noble`）
+
+| 镜像 | 说明 |
+|---|---|
+| `${REGISTRY}/${NAMESPACE}/language:noble-python-3.10` | Python 3.10 |
+| `${REGISTRY}/${NAMESPACE}/language:noble-python-3.11` | Python 3.11 |
+| `${REGISTRY}/${NAMESPACE}/language:noble-python-3.12` | Python 3.12 |
+| `${REGISTRY}/${NAMESPACE}/language:noble-python-3.13` | Python 3.13 |
+| `${REGISTRY}/${NAMESPACE}/language:noble-python-3.13-ft` | Python 3.13 free-threaded |
+| `${REGISTRY}/${NAMESPACE}/language:noble-python-3.14` | Python 3.14 |
+| `${REGISTRY}/${NAMESPACE}/language:noble-python-3.14-ft` | Python 3.14 free-threaded |
+| `${REGISTRY}/${NAMESPACE}/language:noble-miniconda-3` | Miniconda 3 |
+
+**Java / OpenJDK**（基于 `base:noble`，多阶段构建）
+
+| 镜像 | 说明 |
+|---|---|
+| `${REGISTRY}/${NAMESPACE}/language:noble-openjdk-21` | OpenJDK 21 (amd64/arm64) |
+| `${REGISTRY}/${NAMESPACE}/language:noble-openjdk-24` | OpenJDK 24 (amd64/arm64) |
+| `${REGISTRY}/${NAMESPACE}/language:noble-openjdk-25` | OpenJDK 25 (amd64/arm64) |
 
 ### middleware 镜像
-- Redis
-  - `${REGISTRY}/${NAMESPACE}/middleware:noble-redis-7.4`
-  - `${REGISTRY}/${NAMESPACE}/middleware:noble-redis-8.2`
-- （可选，CI 中默认注释）
-  - `${REGISTRY}/${NAMESPACE}/middleware:noble-hadoop-3.4`
-  - `${REGISTRY}/${NAMESPACE}/middleware:noble-hive-4`
+
+| 镜像 | 说明 |
+|---|---|
+| `${REGISTRY}/${NAMESPACE}/middleware:noble-redis-7.4` | Redis 7.4 |
+| `${REGISTRY}/${NAMESPACE}/middleware:noble-redis-8.2` | Redis 8.2 |
 
 ### software 镜像
-- `${REGISTRY}/${NAMESPACE}/software:noble-code-server`
-- `${REGISTRY}/${NAMESPACE}/software:noble-docker`
-- `${REGISTRY}/${NAMESPACE}/software:noble-dbeaver`
-- `${REGISTRY}/${NAMESPACE}/software:noble-clash-verge`
-- `${REGISTRY}/${NAMESPACE}/software:noble-chrome`
+
+**后端服务**（基于 `base:noble`）
+
+| 镜像 | 说明 |
+|---|---|
+| `${REGISTRY}/${NAMESPACE}/software:noble-code-server` | VS Code Server（密码通过 secret 注入） |
+| `${REGISTRY}/${NAMESPACE}/software:noble-docker` | Docker CLI + docker-compose |
+
+**桌面应用**（基于 `base:noble-desktop`，均支持 amd64/arm64）
+
+| 镜像 | 说明 |
+|---|---|
+| `${REGISTRY}/${NAMESPACE}/software:noble-dbeaver` | DBeaver 数据库管理工具（桌面快捷方式） |
+| `${REGISTRY}/${NAMESPACE}/software:noble-chrome` | Chromium 浏览器（桌面快捷方式） |
+| `${REGISTRY}/${NAMESPACE}/software:noble-clash-verge` | Clash Verge 代理客户端（s6 自启动） |
+| `${REGISTRY}/${NAMESPACE}/software:noble-wps` | WPS Office 办公套件（桌面快捷方式） |
 
 ### CI 变量
 
@@ -77,11 +120,10 @@ GitHub Secrets 与 GitLab CI/CD Variables **同名**：
 | `ALY_ARC_USERNAME` | 是 | 仓库登录用户名 |
 | `ALY_ARC_PASSWORD` | 是 | 仓库登录密码 |
 | `SARMN_PASSWORD` | 建议 | 默认业务用户 `sarmn` 密码 |
-| `ROOT_PASSWORD` | 否 | 未设则构建时随机生成 |
-| `VNC_PASSWORD` | 否 | desktop 镜像 VNC |
+| `ROOT_PASSWORD` | 否 | root 密码，未设则构建时随机生成 |
+| `VNC_PASSWORD` | 否 | desktop 镜像 VNC 密码 |
 | `REDIS_PASSWORD` | 否 | Redis `requirepass` |
-| `CODE_SERVER_PASSWORD` | 否 | code-server（GitLab） |
-| `HIVE_DB_PASSWORD` | 否 | Hive metastore（启用 hive 时） |
+| `CODE_SERVER_PASSWORD` | 否 | code-server 登录密码 |
 
 ### 默认密码
 
@@ -93,10 +135,12 @@ CI / 本地构建未覆盖对应 secret 时，可按下列默认值配置（建�
 | sarmn | `SARMN_PASSWORD` | `SArMnTop1` |
 | VNC | `VNC_PASSWORD` | `Sam.5H8g` |
 | Redis | `REDIS_PASSWORD` | `RdP.8G6h` |
+| code-server | `CODE_SERVER_PASSWORD` | 随机生成 |
 
 密码经 **BuildKit secret** 注入（`--secret`），不进入镜像 layer / `docker history`。
 
 本地构建示例：
+
 ```bash
 export REGISTRY=registry.cn-hangzhou.aliyuncs.com NAMESPACE=sarmn
 export SARMN_PASSWORD='SArMnTop1'

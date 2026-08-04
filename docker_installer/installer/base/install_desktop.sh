@@ -39,10 +39,17 @@ installDesktop() {
   cat > /deployment/accounts/sarmn/.vnc/xstartup << 'XSTARTUP'
 #!/bin/sh
 unset SESSION_MANAGER
-unset DBUS_SESSION_BUS_ADDRESS
 vncconfig -nowin &
 autocutsel -fork
 autocutsel -selection PRIMARY -fork
+
+# ── D-Bus session bus ────────────────────────────────────────
+# 显式启动 dbus-daemon 并保存地址，供 s6 服务（如 clash-verge）读取
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+  eval "$(dbus-launch --sh-syntax --exit-with-session)"
+fi
+echo "${DBUS_SESSION_BUS_ADDRESS}" > /tmp/.dbus-session-address
+chmod 644 /tmp/.dbus-session-address
 
 # ── 输入法环境变量 ──────────────────────────────────────────
 export GTK_IM_MODULE=fcitx
