@@ -1,0 +1,177 @@
+name: 构建全量开发环境镜像
+
+on:
+  schedule:
+    # 每天 UTC 时间 18:00 执行（北京时间凌晨 2:00），在所有依赖镜像构建之后
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ${{ secrets.REGISTRY }}
+  NAMESPACE: ${{ secrets.NAMESPACE }}
+
+jobs:
+  # ── Desktop: Python extension pack (all versions) ─────────────────────
+  build-desktop-python-ext:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./deployment/noble/desktop/python-extension-pack/py-all-codeserver-sshd-chrome-dbeaver-wps
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-desktop-python-extension-pack
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+
+  # ── Desktop: single Python 3.12 ───────────────────────────────────────
+  build-desktop-python-312-ext:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./deployment/noble/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-desktop-python3.12-extension-pack
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+
+  # ── Desktop: single Python 3.14 ───────────────────────────────────────
+  build-desktop-python-314-ext:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./deployment/noble/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-desktop-python3.14-extension-pack
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+
+  # ── Server: Python extension pack (all versions) ──────────────────────
+  build-server-python-ext:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./deployment/noble/server/python-extension-pack/py-all-codeserver-sshd
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-server-python-extension-pack
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+
+  # ── Server: single Python 3.12 ────────────────────────────────────────
+  build-server-python-312-ext:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./deployment/noble/server/python-extension-pack/py-3.12-codeserver-sshd
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-server-python3.12-extension-pack
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+
+  # ── Server: single Python 3.14 ────────────────────────────────────────
+  build-server-python-314-ext:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./deployment/noble/server/python-extension-pack/py-3.14-codeserver-sshd
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-server-python3.14-extension-pack
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}

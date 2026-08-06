@@ -1,2 +1,7 @@
 .idea/
 docker_installer/cache/
+
+# Deployment runtime files
+deployment/.env
+deployment/workspace/
+deployment/clash-config/
