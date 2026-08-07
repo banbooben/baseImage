@@ -2,8 +2,8 @@ name: 定时构建基础镜像
 
 on:
   schedule:
-    # 每天 UTC 时间 14:00 执行（北京时间凌晨 00:00）
-    - cron: '0 14 * * *'
+    # 每天 UTC 时间 18:00 执行（北京时间凌晨 02:00）
+    - cron: '0 18 * * *'
   workflow_dispatch:
 
 permissions:
