@@ -1,0 +1,19 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+ARG CLAUDE_PIN_VERSION
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/backend/install_claude.sh /tmp/install_claude.sh
+RUN set -eux; \
+    /bin/bash /tmp/install_claude.sh; \
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+ENV CLAUDE_HOME=/deployment/software/claude \
+    PATH=/deployment/bin:/deployment/software/claude/bin:$PATH
+
+ENTRYPOINT ["/init"]
