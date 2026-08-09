@@ -57,6 +57,15 @@ export QT_IM_MODULE=fcitx
 export XMODIFIERS=@im=fcitx
 export SDL_IM_MODULE=fcitx
 
+# ── 导入容器环境变量到桌面会话 ──────────────────────────────
+# VNC xstartup 不走 PAM，GUI 应用不会自动读取容器 ENV。
+# VNC start.sh 已将 PID 1 环境 dump 到 /tmp/container-env
+if [ -r /tmp/container-env ]; then
+  while IFS='=' read -r k v; do
+    [ -n "${k}" ] && export "${k}=${v}"
+  done < /tmp/container-env
+fi
+
 # 启动 fcitx5 输入法守护进程
 fcitx5 -d --verbose 2>/dev/null || true
 
@@ -132,6 +141,8 @@ export HOME=/deployment/accounts/sarmn
 export USER=sarmn
 export DISPLAY=:1
 RESOLUTION=${RESOLUTION:-1920x1080}
+# 导出容器环境变量供桌面会话导入（xstartup 不走 PAM）
+cat /proc/1/environ | tr '\0' '\n' > /tmp/container-env
 vncserver :1 -geometry "$RESOLUTION" -depth 24
 EOF
 
