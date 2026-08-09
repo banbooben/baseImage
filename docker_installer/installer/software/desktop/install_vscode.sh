@@ -121,7 +121,10 @@ installVscode(){
   echo "Installing VS Code extensions..."
   for ext in "${extensions[@]}"; do
     echo "  ${ext}"
-    "${VSCODE_BIN}" --extensions-dir "${VSCODE_EXTENSIONS}" --install-extension "${ext}" --no-sandbox 2>/dev/null || true
+    "${VSCODE_BIN}" --extensions-dir "${VSCODE_EXTENSIONS}" --user-data-dir "${INSTALL_PATH}/data" \
+      --install-extension "${ext}" \
+      --no-sandbox --disable-gpu \
+      || { echo "FAILED to install extension: ${ext}" >&2; return 1; }
   done
 
   echo "VS Code version: ${VSCODE_VERSION}"
@@ -130,11 +133,13 @@ installVscode(){
   write_cont_env VSCODE_VERSION "${VSCODE_VERSION}"
   write_cont_env VSCODE_HOME "${INSTALL_PATH}"
   write_cont_env VSCODE_EXTENSIONS "${VSCODE_EXTENSIONS}"
+  write_cont_env VSCODE_DATA "${INSTALL_PATH}/data"
   write_cont_env VSCODE_BIN "${VSCODE_BIN}"
 
   {
     echo "export VSCODE_HOME=${INSTALL_PATH}"
     echo "export VSCODE_EXTENSIONS=${VSCODE_EXTENSIONS}"
+    echo "export VSCODE_DATA=${INSTALL_PATH}/data"
     echo "export VSCODE_BIN=${VSCODE_BIN}"
     echo "export VSCODE_VERSION=${VSCODE_VERSION}"
     echo "export PATH=/deployment/bin:\$PATH"
@@ -146,12 +151,16 @@ initConfig(){
   cat > "${INSTALL_PATH}/vscode.sh" <<EOF
 #!/bin/bash
 export VSCODE_HOME="\${VSCODE_HOME:-${INSTALL_PATH}}"
-export VSCODE_EXTENSIONS="\${VSCODE_EXTENSIONS:-${VSCODE_EXTENSIONS}}"
+export VSCODE_EXTENSIONS="\${VSCODE_EXTENSIONS:-${INSTALL_PATH}/extensions}"
+export VSCODE_DATA="\${VSCODE_DATA:-${INSTALL_PATH}/data}"
 export VSCODE_BIN="\${VSCODE_BIN:-${VSCODE_BIN}}"
+
+mkdir -p "\${VSCODE_DATA}"
 
 exec "\${VSCODE_BIN}" \\
   --no-sandbox \\
   --extensions-dir "\${VSCODE_EXTENSIONS}" \\
+  --user-data-dir "\${VSCODE_DATA}" \\
   "\$@"
 EOF
   chmod +x "${INSTALL_PATH}/vscode.sh"

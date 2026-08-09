@@ -2,7 +2,6 @@ ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
 
 FROM ${REGISTRY}/${NAMESPACE}/software:noble-code-server AS codeserver
-FROM ${REGISTRY}/${NAMESPACE}/software:noble-vscode AS vscode
 FROM ${REGISTRY}/${NAMESPACE}/language:noble-python-3.12 AS py312
 
 
@@ -27,16 +26,19 @@ ARG MAVEN_CENTRAL_PRIMARY
 ARG MAVEN_CENTRAL_FALLBACK
 ARG WPS_PIN_VERSION
 ARG WPS_DEB_URL
+ARG VSCODE_PIN_VERSION
 
-# install chrome、 dbeaver、wps
+# install chrome、 dbeaver、wps、vscode
 COPY ./docker_installer/installer/software/desktop/install_chrome.sh /tmp/install_chrome.sh
 COPY ./docker_installer/installer/software/desktop/install_dbeaver.sh /tmp/install_dbeaver.sh
 COPY ./docker_installer/installer/software/desktop/install_wps.sh /tmp/install_wps.sh
+COPY ./docker_installer/installer/software/desktop/install_vscode.sh /tmp/install_vscode.sh
 
 RUN set -eux; \
     /bin/bash /tmp/install_chrome.sh; \
     /bin/bash /tmp/install_dbeaver.sh; \
     /bin/bash /tmp/install_wps.sh; \
+    /bin/bash /tmp/install_vscode.sh; \
     ldconfig;
 
 # 统一 ENV（避免分散定义导致 PATH/DISPLAY 互相覆盖）
@@ -49,6 +51,7 @@ ENV CHROME_HOME=/deployment/software/chrome \
     WPS_HOME=/deployment/software/wps \
     VSCODE_HOME=/deployment/software/vscode \
     VSCODE_EXTENSIONS=/deployment/software/vscode/extensions \
+    VSCODE_DATA=/deployment/software/vscode/data \
     DISPLAY=:1 \
     PATH=/deployment/software/dbeaver:/deployment/software/code-server/bin:/deployment/bin:$PATH
 
@@ -58,9 +61,6 @@ COPY --from=py312 /deployment/software/python /deployment/software/python3.12
 COPY --from=codeserver /deployment/software/code-server /deployment/software/code-server
 COPY --from=codeserver /etc/s6-overlay/s6-rc.d/code-server /etc/s6-overlay/s6-rc.d/code-server
 COPY --from=codeserver /etc/s6-overlay/s6-rc.d/user/contents.d/code-server /etc/s6-overlay/s6-rc.d/user/contents.d/code-server
-
-COPY --from=vscode /deployment/software/vscode /deployment/software/vscode
-COPY --from=vscode /deployment/bin/vscode /deployment/bin/vscode
 
 # 启用 sshd（s6-overlay v3 用空文件标记启用）
 RUN : > /etc/s6-overlay/s6-rc.d/user/contents.d/sshd; \
