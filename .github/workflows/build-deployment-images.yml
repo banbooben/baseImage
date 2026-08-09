@@ -33,7 +33,7 @@ jobs:
       - uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./deployment/noble/desktop/python-extension-pack/py-all-codeserver-sshd-chrome-dbeaver-wps
+          file: ./deployment/noble/desktop/python-extension-pack/py-all-codeserver-sshd-chrome-dbeaver-wps-vscode
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-desktop-python-extension-pack
@@ -60,7 +60,7 @@ jobs:
       - uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./deployment/noble/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps
+          file: ./deployment/noble/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-desktop-python3.12-extension-pack
@@ -87,7 +87,7 @@ jobs:
       - uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./deployment/noble/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps
+          file: ./deployment/noble/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-desktop-python3.14-extension-pack

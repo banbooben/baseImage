@@ -2,7 +2,8 @@ ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
 
 FROM ${REGISTRY}/${NAMESPACE}/software:noble-code-server AS codeserver
-FROM ${REGISTRY}/${NAMESPACE}/language:noble-python-3.14 AS py314
+FROM ${REGISTRY}/${NAMESPACE}/software:noble-vscode AS vscode
+FROM ${REGISTRY}/${NAMESPACE}/language:noble-python-3.12 AS py312
 
 
 FROM ${REGISTRY}/${NAMESPACE}/base:noble-desktop
@@ -46,20 +47,25 @@ ENV CHROME_HOME=/deployment/software/chrome \
     DBEAVER_DRIVERS=/deployment/software/dbeaver/drivers \
     DBEAVER_DATA=/deployment/software/dbeaver/data \
     WPS_HOME=/deployment/software/wps \
+    VSCODE_HOME=/deployment/software/vscode \
+    VSCODE_EXTENSIONS=/deployment/software/vscode/extensions \
     DISPLAY=:1 \
     PATH=/deployment/software/dbeaver:/deployment/software/code-server/bin:/deployment/bin:$PATH
 
 
-COPY --from=py314 /deployment/software/python /deployment/software/python3.14
+COPY --from=py312 /deployment/software/python /deployment/software/python3.12
 
 COPY --from=codeserver /deployment/software/code-server /deployment/software/code-server
 COPY --from=codeserver /etc/s6-overlay/s6-rc.d/code-server /etc/s6-overlay/s6-rc.d/code-server
 COPY --from=codeserver /etc/s6-overlay/s6-rc.d/user/contents.d/code-server /etc/s6-overlay/s6-rc.d/user/contents.d/code-server
 
+COPY --from=vscode /deployment/software/vscode /deployment/software/vscode
+COPY --from=vscode /deployment/bin/vscode /deployment/bin/vscode
+
 # 启用 sshd（s6-overlay v3 用空文件标记启用）
 RUN : > /etc/s6-overlay/s6-rc.d/user/contents.d/sshd; \
     ln -s /deployment/software/code-server/bin/code-server /deployment/bin/code-server; \
-    ln -s /deployment/software/python3.14/bin/python3.14 /deployment/bin/python3.14; \
-    ln -s /deployment/software/python3.14/bin/pip3.14 /deployment/bin/pip3.14
+    ln -s /deployment/software/python3.12/bin/python3.12 /deployment/bin/python3.12; \
+    ln -s /deployment/software/python3.12/bin/pip3.12 /deployment/bin/pip3.12
 
 ENTRYPOINT ["/init"]
