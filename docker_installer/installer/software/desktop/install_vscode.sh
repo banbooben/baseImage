@@ -161,6 +161,7 @@ exec "\${VSCODE_BIN}" \\
   --no-sandbox \\
   --extensions-dir "\${VSCODE_EXTENSIONS}" \\
   --user-data-dir "\${VSCODE_DATA}" \\
+  --disable-workspace-trust \\
   "\$@"
 EOF
   chmod +x "${INSTALL_PATH}/vscode.sh"
