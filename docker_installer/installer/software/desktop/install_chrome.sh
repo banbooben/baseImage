@@ -1,10 +1,11 @@
 #!/bin/bash
 ###
- # Install Chromium under /deployment/software/chrome.
+ # Install Chromium &amp; Chromedriver under /deployment/software/chrome.
  # Layer layout (COPY-friendly):
  #   /deployment/software/chrome/               # usr/bin/, usr/lib/, usr/share/
  #   /deployment/software/chrome/data/          # user-data-dir (runtime)
  #   /deployment/bin/chrome                     # launcher
+ #   /deployment/bin/chromedriver               # WebDriver launcher
  #
  # Upstream: ppa:xtradeb/apps (amd64 + arm64)
  # Chromium apt 安装统一 amd64/arm64，无需架构差异分支。
@@ -44,7 +45,7 @@ installChrome(){
   add-apt-repository ppa:xtradeb/apps -y
   apt-get update
   apt-get install -y --no-install-recommends \
-    chromium \
+    chromium chromium-chromedriver \
     libva-drm2 libva-x11-2 libva-wayland2
 
   # ── 复制到 INSTALL_PATH，保持 COPY-friendly 布局 ─────────────
@@ -60,6 +61,16 @@ installChrome(){
     cp -a /usr/bin/chromium "${INSTALL_PATH}/usr/bin/"
   elif [ -x /usr/bin/chromium-browser ]; then
     cp -a /usr/bin/chromium-browser "${INSTALL_PATH}/usr/bin/"
+  fi
+
+  # Chromedriver（与 chromium 版本匹配）
+  if [ -x /usr/bin/chromedriver ]; then
+    cp -a /usr/bin/chromedriver "${INSTALL_PATH}/usr/bin/"
+    echo "Chromedriver copied to ${INSTALL_PATH}/usr/bin/"
+  elif [ -x /usr/lib/chromium-browser/chromedriver ]; then
+    cp -a /usr/lib/chromium-browser/chromedriver "${INSTALL_PATH}/usr/bin/"
+  else
+    echo "WARNING: chromedriver not found, WebDriver unavailable" >&2
   fi
 
   # Chromium 相关的 .so
@@ -99,6 +110,14 @@ installChrome(){
   export CHROME_BIN="${bin_path}"
   echo "Chromium binary: ${CHROME_BIN}"
 
+  # Chromedriver 路径
+  local driver_path=""
+  if [ -x "${INSTALL_PATH}/usr/bin/chromedriver" ]; then
+    driver_path="${INSTALL_PATH}/usr/bin/chromedriver"
+    export CHROMEDRIVER_BIN="${driver_path}"
+    echo "Chromedriver binary: ${CHROMEDRIVER_BIN}"
+  fi
+
   # ── 运行时数据目录 & 环境持久化 ─────────────────────────────
   mkdir -p "${CHROME_DATA}" /deployment/bin
 
@@ -114,6 +133,11 @@ installChrome(){
     echo "export CHROME_VERSION=${CHROME_VERSION}"
     echo "export PATH=/deployment/bin:\$PATH"
   } >> /etc/environment
+
+  if [ -n "${CHROMEDRIVER_BIN:-}" ]; then
+    write_cont_env CHROMEDRIVER_BIN "${CHROMEDRIVER_BIN}"
+    echo "export CHROMEDRIVER_BIN=${CHROMEDRIVER_BIN}" >> /etc/environment
+  fi
 }
 
 initConfig(){
@@ -149,6 +173,17 @@ EOF
   chmod +x "${INSTALL_PATH}/chrome.sh"
   ln -sfn "${INSTALL_PATH}/chrome.sh" /deployment/bin/chrome
 
+  # Chromedriver 启动器
+  if [ -x "${INSTALL_PATH}/usr/bin/chromedriver" ]; then
+    cat > "${INSTALL_PATH}/chromedriver.sh" <<'EOF'
+#!/bin/bash
+CHROME_HOME="${CHROME_HOME:-/deployment/software/chrome}"
+exec "${CHROME_HOME}/usr/bin/chromedriver" "$@"
+EOF
+    chmod +x "${INSTALL_PATH}/chromedriver.sh"
+    ln -sfn "${INSTALL_PATH}/chromedriver.sh" /deployment/bin/chromedriver
+  fi
+
   # ── 桌面菜单 ────────────────────────────────────────────────
   mkdir -p /usr/share/applications
   local icon=""
@@ -176,6 +211,7 @@ Runtime user data: \`${CHROME_DATA}\`.
 \`\`\`dockerfile
 COPY --from=<chrome-image> /deployment/software/chrome /deployment/software/chrome
 COPY --from=<chrome-image> /deployment/bin/chrome /deployment/bin/chrome
+COPY --from=<chrome-image> /deployment/bin/chromedriver /deployment/bin/chromedriver
 \`\`\`
 
 Only user-data after use:
@@ -185,6 +221,9 @@ COPY --from=<src> /deployment/software/chrome/data /deployment/software/chrome/d
 
 Chromium flags（可通过 CHROME_OPTS 环境变量覆盖）:
   --no-sandbox --disable-gpu --disable-dev-shm-usage
+
+Chromedriver:
+  /deployment/bin/chromedriver
 EOF
 
   chown -R sarmn:sarmn "${INSTALL_PATH}"
