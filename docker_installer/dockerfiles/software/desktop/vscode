@@ -1,0 +1,21 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble-desktop
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+ARG VSCODE_PIN_VERSION
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/desktop/install_vscode.sh /tmp/install_vscode.sh
+RUN set -eux; \
+    /bin/bash /tmp/install_vscode.sh; \
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+ENV VSCODE_HOME=/deployment/software/vscode \
+    VSCODE_EXTENSIONS=/deployment/software/vscode/extensions \
+    DISPLAY=:1 \
+    PATH=/deployment/bin:$PATH
+
+ENTRYPOINT ["/init"]
