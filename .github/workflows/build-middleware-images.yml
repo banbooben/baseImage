@@ -2,8 +2,8 @@ name: 定时构建中间件镜像
 
 on:
   schedule:
-    # 每天 UTC 时间 20:00 执行（北京时间凌晨 04:00），在 base 镜像构建之后
-    - cron: '0 20 * * *'
+    # 每周一 UTC 20:00（周二凌晨 04:00 北京时间），在 base 镜像构建之后
+    - cron: '0 20 * * 1'
   workflow_dispatch:
 
 permissions:
