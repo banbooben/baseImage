@@ -2,8 +2,8 @@ name: 构建全量开发环境镜像
 
 on:
   schedule:
-    # 每周二 UTC 22:00（周三凌晨 06:00 北京时间），在所有依赖镜像构建之后
-    - cron: '0 22 * * 2'
+    # 每周日 UTC 22:00（周一凌晨 06:00 北京时间），在所有依赖镜像构建之后
+    - cron: '0 22 * * 0'
   workflow_dispatch:
 
 permissions:
