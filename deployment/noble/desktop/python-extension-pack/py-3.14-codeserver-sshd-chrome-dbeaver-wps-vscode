@@ -63,9 +63,11 @@ COPY --from=codeserver /etc/s6-overlay/s6-rc.d/code-server /etc/s6-overlay/s6-rc
 COPY --from=codeserver /etc/s6-overlay/s6-rc.d/user/contents.d/code-server /etc/s6-overlay/s6-rc.d/user/contents.d/code-server
 
 # 启用 sshd（s6-overlay v3 用空文件标记启用）
-RUN : > /etc/s6-overlay/s6-rc.d/user/contents.d/sshd; \
+RUN mkdir -p /deployment/software/python/bin; \
+    : > /etc/s6-overlay/s6-rc.d/user/contents.d/sshd; \
     ln -s /deployment/software/code-server/bin/code-server /deployment/bin/code-server; \
     ln -s /deployment/software/python3.14/bin/python3.14 /deployment/bin/python3.14; \
-    ln -s /deployment/software/python3.14/bin/pip3.14 /deployment/bin/pip3.14
+    ln -s /deployment/software/python3.14/bin/pip3.14 /deployment/bin/pip3.14; \
+    ln -sfn /deployment/software/python3.14/bin/python3.14 /deployment/software/python/bin/python3.14
 
 ENTRYPOINT ["/init"]
