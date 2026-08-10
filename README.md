@@ -8,6 +8,7 @@
 - [语言镜像](#语言镜像)
 - [middleware 镜像](#middleware-镜像)
 - [software 镜像](#software-镜像)
+- [deployment 镜像](#deployment-镜像)
 - [CI 变量](#ci-变量)
 - [默认密码](#默认密码)
 - [使用说明](#使用说明)
@@ -29,6 +30,9 @@
   - uv（/usr/local/bin/uv）
 - 中文字体（base-desktop）
   - fonts-wqy-zenhei、fonts-wqy-microhei
+- 桌面环境（base-desktop）
+  - Xfce4 + VNC + noVNC
+  - fcitx5（中文输入法）
 
 #### 软件安装目录结构
 
@@ -37,9 +41,15 @@
 ├── bin/                    # 可执行文件链接
 ├── software/               # 软件安装目录
 │   ├── python/             # Python 各版本
+│   ├── code-server/        # VS Code Server
+│   ├── vscode/             # VS Code Desktop
+│   ├── chrome/             # Chromium 浏览器
+│   ├── dbeaver/            # DBeaver 数据库管理
 │   ├── wps/                # WPS Office
-│   ├── redis/              # Redis
-│   └── code-server/        # VS Code Server
+│   ├── claude/             # Claude Code CLI
+│   ├── clash-verge/        # Clash Verge 代理
+│   ├── docker/             # Docker CLI
+│   └── redis/              # Redis
 ├── openjdk/                # OpenJDK 各版本
 ├── scripts/                # 公共脚本（common.sh）
 ├── accounts/               # 用户/权限配置
@@ -99,15 +109,37 @@
 |---|---|
 | `${REGISTRY}/${NAMESPACE}/software:noble-code-server` | VS Code Server（密码通过 secret 注入） |
 | `${REGISTRY}/${NAMESPACE}/software:noble-docker` | Docker CLI + docker-compose |
+| `${REGISTRY}/${NAMESPACE}/software:noble-claude` | Claude Code CLI（基于 Node.js 22） |
 
 **桌面应用**（基于 `base:noble-desktop`，均支持 amd64/arm64）
 
 | 镜像 | 说明 |
 |---|---|
-| `${REGISTRY}/${NAMESPACE}/software:noble-dbeaver` | DBeaver 数据库管理工具（桌面快捷方式） |
 | `${REGISTRY}/${NAMESPACE}/software:noble-chrome` | Chromium 浏览器（桌面快捷方式） |
-| `${REGISTRY}/${NAMESPACE}/software:noble-clash-verge` | Clash Verge 代理客户端（s6 自启动） |
+| `${REGISTRY}/${NAMESPACE}/software:noble-dbeaver` | DBeaver 数据库管理工具（桌面快捷方式） |
 | `${REGISTRY}/${NAMESPACE}/software:noble-wps` | WPS Office 办公套件（桌面快捷方式） |
+| `${REGISTRY}/${NAMESPACE}/software:noble-vscode` | VS Code Desktop（含 Python 扩展） |
+| `${REGISTRY}/${NAMESPACE}/software:noble-clash-verge` | Clash Verge 代理客户端（s6 自启动） |
+
+### deployment 镜像
+
+deployment 镜像在 software/language 分层基础上组合为**开箱即用**的场景镜像，CI 每日 UTC 22:00（北京时间 06:00）构建。
+
+**桌面开发环境**（基于 `base:noble-desktop`，含 Xfce + Chrome + DBeaver + WPS + VS Code + code-server + SSH）
+
+| 镜像 | Python | tag |
+|---|---|---|
+| `${REGISTRY}/${NAMESPACE}/deployment:noble-desktop-python3.12-extension-pack` | 3.12 | `noble-desktop-python3.12-extension-pack` |
+| `${REGISTRY}/${NAMESPACE}/deployment:noble-desktop-python3.14-extension-pack` | 3.14 | `noble-desktop-python3.14-extension-pack` |
+
+**服务器开发环境**（基于 `base:noble`，含 code-server + SSH）
+
+| 镜像 | Python | tag |
+|---|---|---|
+| `${REGISTRY}/${NAMESPACE}/deployment:noble-server-python3.12-extension-pack` | 3.12 | `noble-server-python3.12-extension-pack` |
+| `${REGISTRY}/${NAMESPACE}/deployment:noble-server-python3.14-extension-pack` | 3.14 | `noble-server-python3.14-extension-pack` |
+
+> Dockerfile 位于 `deployment/noble/<desktop|server>/python-extension-pack/`，构建上下文为仓库根目录。
 
 ### CI 变量
 

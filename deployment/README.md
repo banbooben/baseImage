@@ -1,103 +1,97 @@
 # Deployment — 场景化开发镜像
 
-在现有分层镜像基础上，组合多个软件为**开箱即用**的场景镜像。
-
-每个子目录对应一个 Dockerfile，构建上下文为仓库根目录。
+在分层镜像基础上，组合多个软件为**开箱即用**的场景镜像。Dockerfile 位于 `deployment/noble/` 下，构建上下文为仓库根目录。
 
 ## 镜像列表
 
-| 镜像 | 基础 | 包含组件 |
-| --- | --- | --- |
-| [python-ide](python-ide/) | `base:noble` | Python 3.14 + code-server + uv |
-| [java-ide](java-ide/) | `base:noble` | OpenJDK 25 + code-server |
-| [polyglot](polyglot/) | `base:noble` | Python 3.14 + OpenJDK 25 + code-server |
-| [workstation](workstation/) | `base:noble-desktop` | Xfce + Chrome + DBeaver + WPS + Clash Verge + code-server |
+### 桌面开发环境
+
+基于 `base:noble-desktop`，含 Xfce 桌面 + VNC/noVNC + 中文输入法。
+
+| 镜像 | 包含组件 |
+| --- | --- |
+| [desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode](noble/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode) | Python 3.12 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
+| [desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode](noble/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode) | Python 3.14 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
+
+### 服务器开发环境
+
+基于 `base:noble`，纯命令行环境。
+
+| 镜像 | 包含组件 |
+| --- | --- |
+| [server/python-extension-pack/py-3.12-codeserver-sshd](noble/server/python-extension-pack/py-3.12-codeserver-sshd) | Python 3.12 + code-server + SSH |
+| [server/python-extension-pack/py-3.14-codeserver-sshd](noble/server/python-extension-pack/py-3.14-codeserver-sshd) | Python 3.14 + code-server + SSH |
 
 ## 构建
 
 ```bash
-# 所有构建均从仓库根目录发起
 REGISTRY=registry.cn-hangzhou.aliyuncs.com NAMESPACE=sarmn
 
-# Python IDE（需先构建 base:noble 及依赖层）
+# Desktop + Python 3.12
 docker build \
-  -f deployment/python-ide/Dockerfile \
-  -t $REGISTRY/$NAMESPACE/python-ide:noble .
+  -f deployment/noble/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode \
+  -t $REGISTRY/$NAMESPACE/deployment:noble-desktop-python3.12-extension-pack \
+  --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE .
 
-# Java IDE
+# Server + Python 3.14
 docker build \
-  -f deployment/java-ide/Dockerfile \
-  -t $REGISTRY/$NAMESPACE/java-ide:noble .
-
-# 多语言 IDE
-docker build \
-  -f deployment/polyglot/Dockerfile \
-  -t $REGISTRY/$NAMESPACE/polyglot:noble .
-
-# 远程工作站（code-server 密码通过 secret 注入）
-export CODE_SERVER_PASSWORD="your-password"
-docker build \
-  -f deployment/workstation/Dockerfile \
-  --secret id=CODE_SERVER_PASSWORD,env=CODE_SERVER_PASSWORD \
-  -t $REGISTRY/$NAMESPACE/workstation:noble .
+  -f deployment/noble/server/python-extension-pack/py-3.14-codeserver-sshd \
+  -t $REGISTRY/$NAMESPACE/deployment:noble-server-python3.14-extension-pack \
+  --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE .
 ```
 
 ## 使用
 
-### Python IDE
+### 桌面环境
 
 ```bash
-docker run -d --name py-ide \
-  -p 8080:8080 -p 2222:22 \
+docker run -d --name dev-desktop \
+  -p 6080:6080 -p 8080:8080 -p 2222:22 \
   -v $(pwd)/workspace:/deployment/workspace \
-  $REGISTRY/$NAMESPACE/python-ide:noble
-# → http://localhost:8080 打开 code-server
+  -e VNC_PASSWORD="your-vnc-password" \
+  $REGISTRY/$NAMESPACE/deployment:noble-desktop-python3.12-extension-pack
+# → http://localhost:6080 noVNC 桌面
+# → http://localhost:8080 code-server
 # → ssh sarmn@localhost -p 2222
 ```
 
-### Java IDE
+### 服务器环境
 
 ```bash
-docker run -d --name java-ide \
+docker run -d --name dev-server \
   -p 8080:8080 -p 2222:22 \
   -v $(pwd)/workspace:/deployment/workspace \
-  $REGISTRY/$NAMESPACE/java-ide:noble
-```
-
-### Polyglot（Python + Java）
-
-```bash
-docker run -d --name polyglot \
-  -p 8080:8080 -p 2222:22 \
-  -v $(pwd)/workspace:/deployment/workspace \
-  $REGISTRY/$NAMESPACE/polyglot:noble
-```
-
-### Workstation（远程桌面）
-
-```bash
-docker run -d --name workstation \
-  -p 6080:6080 -p 8080:8080 -p 2222:22 \
-  -v $(pwd)/workspace:/deployment/workspace \
-  -v $(pwd)/clash-config:/deployment/software/clash-verge/data/config \
-  -e VNC_PASSWORD="your-vnc-password" \
-  $REGISTRY/$NAMESPACE/workstation:noble
-# → http://localhost:6080 打开桌面（Xfce）
+  $REGISTRY/$NAMESPACE/deployment:noble-server-python3.14-extension-pack
 # → http://localhost:8080 code-server
+# → ssh sarmn@localhost -p 2222
 ```
 
-## 切换版本
+## 目录结构
 
-修改 Dockerfile 中的 `COPY` 路径即可：
-
-```dockerfile
-# Python 3.14 → 3.13
-COPY ./docker_installer/installer/languages/python/install_python_3.13.sh  /tmp/install_python.sh
-
-# OpenJDK 25 → 21
-COPY ./docker_installer/installer/languages/java/install_openjdk_21.sh  /tmp/install_java.sh
+```text
+deployment/noble/
+├── desktop/
+│   └── python-extension-pack/
+│       ├── py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
+│       └── py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
+└── server/
+    └── python-extension-pack/
+        ├── py-3.12-codeserver-sshd
+        └── py-3.14-codeserver-sshd
 ```
 
-## 自定义
+## 依赖关系
 
-每个 Dockerfile 可自由添加/移除组件，只需在 `RUN` 中增减对应的 `/tmp/install_xxx.sh` 调用行，并在 `ENV` 中补充相应的环境变量。
+```text
+ubuntu:noble ──► base:noble ──► base:noble-desktop
+                    │                    │
+                    ▼                    ▼
+          language:noble-python-3.1x   software:noble-code-server
+                    │           software:noble-chrome
+                    │           software:noble-dbeaver
+                    │           software:noble-wps
+                    │           software:noble-vscode
+                    │                    │
+                    ▼                    ▼
+               deployment ── (COPY --from 各层)
+```
