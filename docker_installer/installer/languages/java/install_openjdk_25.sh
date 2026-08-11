@@ -17,10 +17,10 @@ download_and_install(){
 	arch="$(dpkg --print-architecture)"; \
 	case "$arch" in \
 		'amd64') \
-			downloadUrl="https://download.oracle.com/java/${JDK_VERSION}/latest/jdk-${JDK_VERSION}_linux-x64_bin.tar.gz"; \
+			downloadUrl="https://download.oracle.com/java/${JDK_VERSION}/archive/jdk-${JDK_VERSION}_linux-x64_bin.tar.gz"; \
 			;; \
 		'arm64') \
-			downloadUrl="https://download.oracle.com/java/${JDK_VERSION}/latest/jdk-${JDK_VERSION}_linux-aarch64_bin.tar.gz"; \
+			downloadUrl="https://download.oracle.com/java/${JDK_VERSION}/archive/jdk-${JDK_VERSION}_linux-aarch64_bin.tar.gz"; \
 			;; \
 		*) echo >&2 "error: unsupported architecture: '$arch'"; exit 1 ;; \
 	esac; \
