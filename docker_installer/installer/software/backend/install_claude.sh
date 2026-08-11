@@ -49,27 +49,46 @@ installDeps(){
   rm -rf /var/lib/apt/lists/*
 
   # 安装 Node.js（官方二进制，统一 amd64/arm64）
-  local node_url="https://nodejs.org/dist/v${NODE_VERSION}.0.0/node-v${NODE_VERSION}.0.0-linux-${NODE_ARCH}.tar.xz"
-  local node_tmp="/tmp/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
+  # 动态获取最新 v${NODE_VERSION}.x 精确版本号
+  local node_shasums="https://nodejs.org/dist/latest-v${NODE_VERSION}.x/SHASUMS256.txt"
+  local latest_info
+  latest_info=$(curl -fsSL --connect-timeout 30 --max-time 60 "${node_shasums}" | grep "linux-${NODE_ARCH}" | head -1) || {
+    echo "Failed to fetch Node.js version list from ${node_shasums}" >&2
+    return 1
+  }
+
+  local node_full
+  node_full=$(echo "${latest_info}" | grep -oP 'node-v\K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  if [ -z "${node_full}" ]; then
+    echo "Failed to determine latest Node.js v${NODE_VERSION} version" >&2
+    return 1
+  fi
+
+  local node_url="https://nodejs.org/dist/v${node_full}/node-v${node_full}-linux-${NODE_ARCH}.tar.xz"
+  local node_tmp="/tmp/node-v${node_full}-linux-${NODE_ARCH}.tar.xz"
   local node_extract="/tmp/node-extract"
 
   mkdir -p /usr/local/lib/nodejs
   rm -rf "${node_extract}" "${node_tmp}"
 
-  echo "Downloading Node.js ${NODE_VERSION} from ${node_url}"
+  echo "Downloading Node.js ${node_full} from ${node_url}"
   curl -fsSL --connect-timeout 30 --max-time 300 -o "${node_tmp}" "${node_url}" || {
     echo "Failed to download Node.js" >&2
     return 1
   }
 
   mkdir -p "${node_extract}"
-  tar -xJf "${node_tmp}" -C "${node_extract}"
+  tar -xJf "${node_tmp}" -C "${node_extract}" || {
+    echo "Failed to extract Node.js tarball" >&2
+    rm -f "${node_tmp}"
+    return 1
+  }
   rm -f "${node_tmp}"
 
   local node_dir
   node_dir="$(find "${node_extract}" -maxdepth 1 -type d -name 'node-*' | head -n 1)"
   if [ -z "${node_dir}" ] || [ ! -d "${node_dir}" ]; then
-    echo "Failed to extract Node.js" >&2
+    echo "Failed to find Node.js directory in extracted tarball" >&2
     return 1
   fi
 
@@ -80,6 +99,12 @@ installDeps(){
   ln -sfn /usr/local/lib/nodejs/bin/node   /usr/local/bin/node
   ln -sfn /usr/local/lib/nodejs/bin/npm    /usr/local/bin/npm
   ln -sfn /usr/local/lib/nodejs/bin/npx    /usr/local/bin/npx
+
+  # 验证 node 可执行
+  if [ ! -x /usr/local/lib/nodejs/bin/node ]; then
+    echo "Node.js binary not found or not executable" >&2
+    return 1
+  fi
 
   echo "Node.js $(node --version) installed"
 }
