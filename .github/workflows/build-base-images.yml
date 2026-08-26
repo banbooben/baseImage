@@ -75,6 +75,8 @@ jobs:
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
             --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
             --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD \
+            --provenance=false \
+            --sbom=false \
             --push \
             .
 
@@ -110,5 +112,7 @@ jobs:
             --build-arg REGISTRY=${{ env.REGISTRY }} \
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
             --secret id=VNC_PASSWORD,env=VNC_PASSWORD \
+            --provenance=false \
+            --sbom=false \
             --push \
             .

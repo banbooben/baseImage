@@ -38,6 +38,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/middleware/redis/Dockerfile.7.4
           platforms: linux/amd64,linux/arm64
@@ -74,6 +76,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/middleware/redis/Dockerfile.8.2
           platforms: linux/amd64,linux/arm64

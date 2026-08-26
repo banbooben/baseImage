@@ -39,6 +39,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/languages/java/openjdk-21
           platforms: linux/amd64,linux/arm64
@@ -74,6 +76,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/languages/java/openjdk-24
           platforms: linux/amd64,linux/arm64
@@ -109,6 +113,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/languages/java/openjdk-25
           platforms: linux/amd64,linux/arm64

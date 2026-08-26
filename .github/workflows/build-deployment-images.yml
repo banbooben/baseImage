@@ -32,6 +32,8 @@ jobs:
 
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./deployment/noble/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
           platforms: linux/amd64,linux/arm64
@@ -59,6 +61,8 @@ jobs:
 
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./deployment/noble/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
           platforms: linux/amd64,linux/arm64
@@ -86,6 +90,8 @@ jobs:
 
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./deployment/noble/server/python-extension-pack/py-3.12-codeserver-sshd
           platforms: linux/amd64,linux/arm64
@@ -113,6 +119,8 @@ jobs:
 
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./deployment/noble/server/python-extension-pack/py-3.14-codeserver-sshd
           platforms: linux/amd64,linux/arm64

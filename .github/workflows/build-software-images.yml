@@ -27,6 +27,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/software/backend/code-server
           platforms: linux/amd64,linux/arm64
@@ -51,6 +53,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/software/backend/docker
           platforms: linux/amd64,linux/arm64
@@ -73,6 +77,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/software/backend/claude
           platforms: linux/amd64,linux/arm64
@@ -95,6 +101,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/software/desktop/dbeaver
           platforms: linux/amd64,linux/arm64
@@ -117,6 +125,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/software/desktop/clash-verge
           platforms: linux/amd64,linux/arm64
@@ -139,6 +149,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/software/desktop/chrome
           platforms: linux/amd64,linux/arm64
@@ -161,6 +173,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/software/desktop/wps
           platforms: linux/amd64,linux/arm64
@@ -183,6 +197,8 @@ jobs:
           password: ${{ secrets.ALY_ARC_PASSWORD }}
       - uses: docker/build-push-action@v5
         with:
+          provenance: false
+          sbom: false
           context: .
           file: ./docker_installer/dockerfiles/software/desktop/vscode
           platforms: linux/amd64,linux/arm64
