@@ -56,5 +56,3 @@ initS6Config(){
 }
 
 autoExecuteFunc setEnv install_openresty clear_folder initS6Config
-
-sudo docker run -i --rm -p 8080:80 registry.cn-hangzhou.aliyuncs.com/sarmn/software:noble-openresty
