@@ -110,6 +110,7 @@
 | `${REGISTRY}/${NAMESPACE}/software:noble-code-server` | VS Code Server（密码通过 secret 注入） |
 | `${REGISTRY}/${NAMESPACE}/software:noble-docker` | Docker CLI + docker-compose |
 | `${REGISTRY}/${NAMESPACE}/software:noble-claude` | Claude Code CLI（基于 Node.js 22） |
+| `${REGISTRY}/${NAMESPACE}/software:noble-openresty` | OpenResty（Nginx + LuaJIT，源码编译，s6 自启动，端口 80） |
 
 **桌面应用**（基于 `base:noble-desktop`，均支持 amd64/arm64）
 

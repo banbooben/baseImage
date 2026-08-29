@@ -1,0 +1,29 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+FROM ${REGISTRY}/${NAMESPACE}/base:noble as builder
+
+ARG OPENRESTY_PIN_VERSION
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/backend/install_openresty.sh /tmp/install_openresty.sh
+RUN set -eux; \
+    /bin/bash /tmp/install_openresty.sh
+
+FROM ${REGISTRY}/${NAMESPACE}/base:noble
+LABEL authors="sarmn"
+
+COPY --from=builder /deployment/software/openresty /deployment/software/openresty
+COPY --from=builder /etc/s6-overlay/s6-rc.d/openresty /etc/s6-overlay/s6-rc.d/openresty
+COPY --from=builder /etc/s6-overlay/s6-rc.d/user/contents.d/openresty /etc/s6-overlay/s6-rc.d/user/contents.d/openresty
+COPY --from=builder /etc/cont-env.d/OPENRESTY_VERSION /etc/cont-env.d/OPENRESTY_VERSION
+COPY --from=builder /etc/environment /etc/environments/env-openresty
+
+ENV PATH=/deployment/bin:/deployment/software/openresty/bin:$PATH
+
+RUN mkdir -p /deployment/bin ;\
+    ln -sf /deployment/software/openresty/bin/openresty /deployment/bin/openresty ;\
+    ln -sf /deployment/software/openresty/bin/resty /deployment/bin/resty ;\
+    /bin/bash -c "source /deployment/scripts/common.sh && merge_and_save_env"
+
+EXPOSE 80
+ENTRYPOINT ["/init"]

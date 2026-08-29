@@ -1,0 +1,29 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+
+FROM ${REGISTRY}/${NAMESPACE}/software:noble-code-server AS codeserver
+
+# 以 OpenResty 镜像为基础（s6 自启动 openresty 已在该镜像内启用）
+FROM ${REGISTRY}/${NAMESPACE}/software:noble-openresty
+
+LABEL authors="sarmn"
+
+# code-server 层（软件目录 + s6 服务定义 + 启用标记）
+COPY --from=codeserver /deployment/software/code-server /deployment/software/code-server
+COPY --from=codeserver /etc/s6-overlay/s6-rc.d/code-server /etc/s6-overlay/s6-rc.d/code-server
+COPY --from=codeserver /etc/s6-overlay/s6-rc.d/user/contents.d/code-server /etc/s6-overlay/s6-rc.d/user/contents.d/code-server
+
+# COPY --from 不带 ENV，补齐 code-server 环境变量
+# （$PATH 在现有值前追加，保留 openresty 的 PATH）
+ENV PATH=/deployment/software/code-server/bin:$PATH \
+    CODE_SERVER_HOME=/deployment/software/code-server \
+    CODE_SERVER_CONFIG=/deployment/software/code-server/config.yaml \
+    CODE_SERVER_PORT=8080
+
+RUN mkdir -p /deployment/bin; \
+    ln -sf /deployment/software/code-server/bin/code-server /deployment/bin/code-server
+
+# 80: openresty  8080: code-server
+EXPOSE 80 8080
+
+ENTRYPOINT ["/init"]

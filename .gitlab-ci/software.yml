@@ -35,6 +35,23 @@ docker:
       --push
       .
 
+openresty:
+  extends: .manual_only
+  stage: software
+  script:
+    - echo "开始构建 OpenResty 镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/software:noble-openresty
+      -f ./docker_installer/dockerfiles/software/backend/openresty
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --push
+      .
+
 dbeaver:
   extends: .manual_only
   stage: software

@@ -21,6 +21,7 @@
 | --- | --- |
 | [server/python-extension-pack/py-3.12-codeserver-sshd](noble/server/python-extension-pack/py-3.12-codeserver-sshd) | Python 3.12 + code-server + SSH |
 | [server/python-extension-pack/py-3.14-codeserver-sshd](noble/server/python-extension-pack/py-3.14-codeserver-sshd) | Python 3.14 + code-server + SSH |
+| [server/nginx-code/openresty-nginx](noble/server/nginx-code/openresty-nginx) | OpenResty + code-server |
 
 ## 构建
 
@@ -66,6 +67,16 @@ docker run -d --name dev-server \
 # → ssh sarmn@localhost -p 2222
 ```
 
+### OpenResty + code-server
+
+```bash
+docker run -d --name nginx-code \
+  -p 80:80 -p 8080:8080 \
+  $REGISTRY/$NAMESPACE/deployment:noble-server-nginx-code
+# → http://localhost:80   OpenResty
+# → http://localhost:8080 code-server
+```
+
 ## 目录结构
 
 ```text
@@ -75,6 +86,8 @@ deployment/noble/
 │       ├── py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
 │       └── py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
 └── server/
+    ├── nginx-code/
+    │   └── openresty-nginx
     └── python-extension-pack/
         ├── py-3.12-codeserver-sshd
         └── py-3.14-codeserver-sshd

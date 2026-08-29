@@ -1,9 +1,19 @@
-# 组合部署镜像（多软件层合并，待实现）
-# 示例：desktop + chrome + dbeaver → deployment:noble-desktop-full
-#
-# noble-desktop-full:
-#   extends: .manual_only
-#   stage: deployment
-#   script:
-#     - echo "开始构建组合部署镜像"
-#     - ...
+# 组合部署镜像（多软件层合并）
+# 仅手动；job 级 needs: [] 打断 stage 顺序
+
+nginx-code:
+  extends: .manual_only
+  stage: deployment
+  script:
+    - echo "开始构建 OpenResty + code-server 组合镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/deployment:noble-server-nginx-code
+      -f ./deployment/noble/server/nginx-code/openresty-nginx
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --push
+      .

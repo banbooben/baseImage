@@ -101,6 +101,35 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
 
+  # ── Server: OpenResty + code-server ───────────────────────────────────
+  build-server-nginx-code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          provenance: false
+          sbom: false
+          context: .
+          file: ./deployment/noble/server/nginx-code/openresty-nginx
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-server-nginx-code
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+
   # ── Server: single Python 3.14 ────────────────────────────────────────
   build-server-python-314-ext:
     runs-on: ubuntu-latest
