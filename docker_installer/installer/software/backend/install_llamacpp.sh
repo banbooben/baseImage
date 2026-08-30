@@ -61,6 +61,11 @@ install_build_deps(){
     cuda-cudart-dev-${CUDA_SERIES} \
     libcublas-dev-${CUDA_SERIES} \
     cuda-driver-dev-${CUDA_SERIES}
+
+  # nvcc 装在 /usr/local/cuda/bin，不在默认 PATH；显式导出供 cmake 定位 CUDA 编译器
+  export PATH=/usr/local/cuda/bin:$PATH
+  export CUDACXX=/usr/local/cuda/bin/nvcc
+  nvcc --version
 }
 
 build_llamacpp(){
@@ -73,12 +78,12 @@ build_llamacpp(){
   cd llama.cpp-${LLAMACPP_VERSION}
 
   # GGML_NATIVE=OFF：避免按构建机 CPU 特性（-march=native）生成不可移植代码
+  # LLAMA_CURL 已弃用：新版 llama.cpp 自动探测 libcurl，无需显式开关
   cmake -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DGGML_NATIVE=OFF \
     -DGGML_CUDA=ON \
     -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHITECTURES}" \
-    -DLLAMA_CURL=ON \
     -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH}
   cmake --build build -j$(nproc)
   cmake --install build
