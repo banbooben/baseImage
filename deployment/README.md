@@ -23,6 +23,14 @@
 | [server/python-extension-pack/py-3.14-codeserver-sshd](noble/server/python-extension-pack/py-3.14-codeserver-sshd) | Python 3.14 + code-server + SSH |
 | [server/nginx-code/openresty-nginx](noble/server/nginx-code/openresty-nginx) | OpenResty + code-server |
 
+### GPU 推理环境
+
+基于 `base:noble`，含 llama.cpp CUDA 版（不注册 s6 服务，`llama-server` 由用户自行启动）。仅支持 amd64；宿主机需安装 NVIDIA 驱动 + nvidia-container-toolkit，容器经 `--gpus all` 使用 GPU（镜像内只带 CUDA 运行时，不含驱动）。
+
+| 镜像 | 包含组件 |
+| --- | --- |
+| [server/llamacpp/llamacpp-cuda](noble/server/llamacpp/llamacpp-cuda) | llama.cpp（CUDA 12.8 编译）+ CUDA 运行时 |
+
 ## 构建
 
 ```bash
@@ -39,6 +47,13 @@ docker build \
   -f deployment/noble/server/python-extension-pack/py-3.14-codeserver-sshd \
   -t $REGISTRY/$NAMESPACE/deployment:noble-server-python3.14-extension-pack \
   --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE .
+
+# llama.cpp CUDA（GPU 推理，仅 amd64）
+docker build \
+  -f deployment/noble/server/llamacpp/llamacpp-cuda \
+  -t $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-cuda \
+  --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE .
+# 可选 build-arg：LLAMACPP_PIN_VERSION=b10690 / CUDA_SERIES=12-8 / CUDA_ARCHITECTURES="89;90"
 ```
 
 ## 使用
@@ -77,6 +92,26 @@ docker run -d --name nginx-code \
 # → http://localhost:8080 code-server
 ```
 
+### llama.cpp CUDA（GPU 推理）
+
+```bash
+docker run -d --name llamacpp --gpus all \
+  -p 8000:8000 \
+  -v $(pwd)/models:/deployment/workspace/apps/models \
+  -e LLAMA_MODEL=/deployment/workspace/apps/models/qwen3-8b-q4_k_m.gguf \
+  -e N_GPU_LAYERS=999 \
+  $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-cuda
+
+# 镜像不含自启动服务，手动启动 llama-server：
+docker exec -d llamacpp /deployment/software/llamacpp/start.sh
+# 或直接指定参数：
+docker exec -d llamacpp llama-server \
+  --model /deployment/workspace/apps/models/qwen3-8b-q4_k_m.gguf --host 0.0.0.0 --port 8000 --n-gpu-layers 999
+# → http://localhost:8000 llama-server（OpenAI 兼容 API: /v1/chat/completions）
+```
+
+模型不烤进镜像，挂载到 `/deployment/workspace/apps/models` 或用 `LLAMA_MODEL` 指定路径。`start.sh` 支持的环境变量：`LLAMA_MODEL` / `LLAMA_HOST` / `LLAMA_PORT` / `N_GPU_LAYERS` / `LLAMA_EXTRA_ARGS`。
+
 ## 目录结构
 
 ```text
@@ -86,6 +121,8 @@ deployment/noble/
 │       ├── py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
 │       └── py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
 └── server/
+    ├── llamacpp/
+    │   └── llamacpp-cuda
     ├── nginx-code/
     │   └── openresty-nginx
     └── python-extension-pack/

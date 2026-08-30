@@ -17,3 +17,21 @@ nginx-code:
       --build-arg NAMESPACE=${NAMESPACE}
       --push
       .
+
+# CUDA 编译仅支持 amd64
+llamacpp-cuda:
+  extends: .manual_only
+  stage: deployment
+  script:
+    - echo "开始构建 llama.cpp CUDA 推理镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64
+      -t ${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda
+      -f ./deployment/noble/server/llamacpp/llamacpp-cuda
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --push
+      .

@@ -1,0 +1,57 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble
+
+# ── builder：基于 base 编译 llama.cpp CUDA 版 ──────────────────────────────
+FROM ${BASE_IMAGE} AS builder
+
+# LLAMACPP_PIN_VERSION  固定 llama.cpp 版本（如 b10690），默认取发布列表第一条
+# CUDA_SERIES           CUDA 版本系列，默认 12-8（需宿主机驱动 >= 525）
+# CUDA_ARCHITECTURES    目标 SM 架构，分号分隔，默认 75;80;86;89;90;100;120
+ARG LLAMACPP_PIN_VERSION
+ARG CUDA_SERIES=12-8
+ARG CUDA_ARCHITECTURES
+ENV LLAMACPP_PIN_VERSION=${LLAMACPP_PIN_VERSION} \
+    CUDA_SERIES=${CUDA_SERIES} \
+    CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}
+
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/backend/install_llamacpp.sh /tmp/install_llamacpp.sh
+RUN set -eux; \
+    /bin/bash /tmp/install_llamacpp.sh
+
+# ── 最终镜像：base + CUDA 运行时 + llama.cpp ───────────────────────────────
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+ARG CUDA_SERIES=12-8
+
+# NVIDIA 驱动说明：内核驱动在宿主机（nvidia-driver + nvidia-container-toolkit），
+# 容器经 --gpus all 映射使用 GPU；镜像内只需 CUDA 运行时库，不应安装驱动。
+RUN set -eux; \
+    install -m 0755 -d /etc/apt/keyrings; \
+    curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/3bf863cc.pub \
+      | gpg --dearmor -o /etc/apt/keyrings/cuda.gpg; \
+    chmod a+r /etc/apt/keyrings/cuda.gpg; \
+    echo "deb [signed-by=/etc/apt/keyrings/cuda.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/ /" \
+      > /etc/apt/sources.list.d/cuda.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      cuda-cudart-${CUDA_SERIES} \
+      cuda-nvrtc-${CUDA_SERIES} \
+      libcublas-${CUDA_SERIES}; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+
+# llama.cpp 软件目录（不含 s6 服务，llama-server 由用户自行启动）
+COPY --from=builder /deployment/software/llamacpp /deployment/software/llamacpp
+
+ENV PATH=/deployment/bin:/deployment/software/llamacpp/bin:$PATH
+
+RUN mkdir -p /deployment/bin /deployment/workspace/apps/models; \
+    ln -sf /deployment/software/llamacpp/bin/llama-server /deployment/bin/llama-server; \
+    ln -sf /deployment/software/llamacpp/bin/llama-cli /deployment/bin/llama-cli
+
+EXPOSE 8000
+ENTRYPOINT ["/init"]
