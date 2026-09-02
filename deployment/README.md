@@ -30,6 +30,7 @@
 | 镜像 | 包含组件 |
 | --- | --- |
 | [server/llamacpp/llamacpp-cuda](noble/server/llamacpp/llamacpp-cuda) | llama.cpp（CUDA 12.8 编译）+ CUDA 运行时 |
+| [server/llamacpp/llamacpp-cuda-py3.12-codeserver](noble/server/llamacpp/llamacpp-cuda-py3.12-codeserver) | llama.cpp CUDA + Python 3.12 + code-server + SSH（开发镜像） |
 
 ## 构建
 
@@ -112,6 +113,24 @@ docker exec -d llamacpp llama-server \
 
 模型不烤进镜像，挂载到 `/deployment/workspace/apps/models` 或用 `LLAMA_MODEL` 指定路径。`start.sh` 支持的环境变量：`LLAMA_MODEL` / `LLAMA_HOST` / `LLAMA_PORT` / `N_GPU_LAYERS` / `LLAMA_EXTRA_ARGS`。
 
+### llama.cpp 开发镜像（+ Python 3.12 + code-server + SSH）
+
+在 `llamacpp-cuda` 基础上叠加 Python 3.12、code-server（s6 自启动）和 sshd，用于 GPU 推理服务开发：
+
+```bash
+docker run -d --name llamacpp-dev --gpus all \
+  -p 8000:8000 -p 8080:8080 -p 2222:22 \
+  -v $(pwd)/workspace:/deployment/workspace \
+  $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-cuda-py3.12-codeserver
+# → http://localhost:8080 code-server
+# → ssh sarmn@localhost -p 2222
+# 手动启动推理服务：
+docker exec -d llamacpp-dev /deployment/software/llamacpp/start.sh
+# → http://localhost:8000 llama-server
+```
+
+业务代码约定放在 `/deployment/workspace/apps/api`（已加入 `PYTHONPATH`），模型放 `/deployment/workspace/apps/models`。
+
 ## 目录结构
 
 ```text
@@ -122,7 +141,8 @@ deployment/noble/
 │       └── py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
 └── server/
     ├── llamacpp/
-    │   └── llamacpp-cuda
+    │   ├── llamacpp-cuda
+    │   └── llamacpp-cuda-py3.12-codeserver
     ├── nginx-code/
     │   └── openresty-nginx
     └── python-extension-pack/

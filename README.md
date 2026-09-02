@@ -145,6 +145,7 @@ deployment 镜像在 software/language 分层基础上组合为**开箱即用**�
 | 镜像 | 说明 | tag |
 |---|---|---|
 | `${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda` | llama.cpp（CUDA 12.8 编译）+ CUDA 运行时 | `noble-server-llamacpp-cuda` |
+| `${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda-py3.12-codeserver` | llama.cpp CUDA + Python 3.12 + code-server + SSH（开发镜像） | `noble-server-llamacpp-cuda-py3.12-codeserver` |
 
 > Dockerfile 位于 `deployment/noble/<desktop|server>/python-extension-pack/`，构建上下文为仓库根目录。
 

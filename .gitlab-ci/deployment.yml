@@ -35,3 +35,22 @@ llamacpp-cuda:
       --build-arg NAMESPACE=${NAMESPACE}
       --push
       .
+
+# llama.cpp 开发镜像（llamacpp-cuda + Python 3.12 + code-server + sshd）
+# 需先构建并推送 llamacpp-cuda
+llamacpp-cuda-dev:
+  extends: .manual_only
+  stage: deployment
+  script:
+    - echo "开始构建 llama.cpp 开发镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64
+      -t ${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda-py3.12-codeserver
+      -f ./deployment/noble/server/llamacpp/llamacpp-cuda-py3.12-codeserver
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --push
+      .

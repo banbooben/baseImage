@@ -1,0 +1,41 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+
+FROM ${REGISTRY}/${NAMESPACE}/software:noble-code-server AS codeserver
+FROM ${REGISTRY}/${NAMESPACE}/language:noble-python-3.12 AS py312
+
+# 以 llama.cpp CUDA 镜像为基础（CUDA 运行时 + llama-server，手动启动）
+FROM ${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda
+
+LABEL authors="sarmn"
+
+ARG UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
+ENV UV_DEFAULT_INDEX=${UV_DEFAULT_INDEX} \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/deployment/software/python
+
+# Python 3.12 层
+COPY --from=py312 /deployment/software/python /deployment/software/python
+
+# code-server 层（软件目录 + s6 服务定义 + 启用标记）
+COPY --from=codeserver /deployment/software/code-server /deployment/software/code-server
+COPY --from=codeserver /etc/s6-overlay/s6-rc.d/code-server /etc/s6-overlay/s6-rc.d/code-server
+COPY --from=codeserver /etc/s6-overlay/s6-rc.d/user/contents.d/code-server /etc/s6-overlay/s6-rc.d/user/contents.d/code-server
+
+# 统一 ENV（避免分散定义导致 PATH 互相覆盖）
+ENV PATH=/deployment/software/python/bin:/deployment/software/code-server/bin:/deployment/bin:$PATH \
+    PYTHONPATH=/deployment/workspace/apps/api
+
+# 启用 sshd（s6-overlay v3 用空文件标记启用）；常用命令软链；业务目录
+RUN mkdir -p /deployment/bin \
+      /deployment/workspace/apps/api/data \
+      /deployment/workspace/apps/models; \
+    : > /etc/s6-overlay/s6-rc.d/user/contents.d/sshd; \
+    ln -sf /deployment/software/code-server/bin/code-server /deployment/bin/code-server; \
+    ln -sf /deployment/software/python/bin/python3.12 /deployment/bin/python3; \
+    ln -sf /deployment/software/python/bin/pip3.12 /deployment/bin/pip3
+
+# 8000: llama-server  8080: code-server  22: sshd
+EXPOSE 8000 8080 22
+
+ENTRYPOINT ["/init"]
