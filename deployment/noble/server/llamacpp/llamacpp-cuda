@@ -53,5 +53,10 @@ RUN mkdir -p /deployment/bin /deployment/workspace/apps/models; \
     ln -sf /deployment/software/llamacpp/bin/llama-server /deployment/bin/llama-server; \
     ln -sf /deployment/software/llamacpp/bin/llama-cli /deployment/bin/llama-cli
 
+# 产物校验：builder 阶段若静默失败（缺二进制），此处直接让构建失败
+RUN test -x /deployment/software/llamacpp/bin/llama-server \
+ && test -x /deployment/software/llamacpp/bin/llama-cli \
+ && /deployment/software/llamacpp/bin/llama-server --version
+
 EXPOSE 8000
 ENTRYPOINT ["/init"]

@@ -69,24 +69,37 @@ install_build_deps(){
 }
 
 build_llamacpp(){
+  # 注意：本脚本由 RUN 以子 bash 执行，不继承外层 set -e；
+  # 且 executeWithRetry 只看函数返回码，关键命令必须显式 || return 1，
+  # 否则 cmake 失败后脚本继续走、ln -sf 对缺失文件也会"成功"，导致空镜像
   mkdir -p ${BASE_PATH}/bin ${INSTALL_PATH}/install
-  cd ${INSTALL_PATH}/install
+  cd ${INSTALL_PATH}/install || return 1
 
   LLAMACPP_DOWNLOAD_URL=https://github.com/ggml-org/llama.cpp/archive/refs/tags/${LLAMACPP_VERSION}.tar.gz
-  wget -O llama.cpp.tar.gz ${LLAMACPP_DOWNLOAD_URL} --no-check-certificate
-  tar -xvf llama.cpp.tar.gz
-  cd llama.cpp-${LLAMACPP_VERSION}
+  wget -O llama.cpp.tar.gz ${LLAMACPP_DOWNLOAD_URL} --no-check-certificate || return 1
+  tar -xvf llama.cpp.tar.gz || return 1
+  cd llama.cpp-${LLAMACPP_VERSION} || return 1
 
   # GGML_NATIVE=OFF：避免按构建机 CPU 特性（-march=native）生成不可移植代码
   # LLAMA_CURL 已弃用：新版 llama.cpp 自动探测 libcurl，无需显式开关
+  # TESTS/EXAMPLES=OFF：测试目标不纳入默认构建但带安装规则，会导致
+  #   cmake --install 找不到 test-* 二进制而失败；生产镜像也不需要它们
   cmake -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DGGML_NATIVE=OFF \
     -DGGML_CUDA=ON \
     -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHITECTURES}" \
-    -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH}
-  cmake --build build -j$(nproc)
-  cmake --install build
+    -DLLAMA_BUILD_TESTS=OFF \
+    -DLLAMA_BUILD_EXAMPLES=OFF \
+    -DCMAKE_INSTALL_PREFIX=${INSTALL_PATH} || return 1
+  cmake --build build -j$(nproc) || return 1
+  cmake --install build || return 1
+
+  # 产物校验：二进制缺失即失败，让 executeWithRetry 重试/终止
+  if [ ! -x ${INSTALL_PATH}/bin/llama-server ] || [ ! -x ${INSTALL_PATH}/bin/llama-cli ]; then
+    echo "llama.cpp 构建产物缺失: ${INSTALL_PATH}/bin" >&2
+    return 1
+  fi
 
   ln -sf ${INSTALL_PATH}/bin/llama-server ${BASE_PATH}/bin/llama-server
   ln -sf ${INSTALL_PATH}/bin/llama-cli ${BASE_PATH}/bin/llama-cli
