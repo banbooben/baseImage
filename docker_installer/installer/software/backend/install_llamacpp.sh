@@ -65,7 +65,15 @@ install_build_deps(){
   # nvcc 装在 /usr/local/cuda/bin，不在默认 PATH；显式导出供 cmake 定位 CUDA 编译器
   export PATH=/usr/local/cuda/bin:$PATH
   export CUDACXX=/usr/local/cuda/bin/nvcc
-  nvcc --version
+  nvcc --version || return 1
+
+  # 无 GPU 构建机靠 libcuda.so stub 链接，但 stub 目录只有 libcuda.so、
+  # 没有 SONAME 对应的 libcuda.so.1，链接可执行文件时会报 undefined reference
+  # （运行时由 nvidia-container-toolkit 挂载宿主机真实驱动库，不受影响）
+  local stubs=/usr/local/cuda/targets/x86_64-linux/lib/stubs
+  if [ -f ${stubs}/libcuda.so ] && [ ! -e ${stubs}/libcuda.so.1 ]; then
+    ln -sf libcuda.so ${stubs}/libcuda.so.1
+  fi
 }
 
 build_llamacpp(){
