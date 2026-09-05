@@ -2,10 +2,12 @@ ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble
 
-# ── builder：基于 base 编译 llama.cpp CUDA 版 ──────────────────────────────
-FROM ${BASE_IMAGE} AS builder
+# 单阶段：基于 base 直接编译安装 llama.cpp CUDA 版（无跨阶段 COPY）
+FROM ${BASE_IMAGE}
 
-# LLAMACPP_PIN_VERSION  固定 llama.cpp 版本（如 b10690），默认取发布列表第一条
+LABEL authors="sarmn"
+
+# LLAMACPP_PIN_VERSION  固定 llama.cpp 版本（如 v0.4.0、b10690），默认取发布列表第一条
 # CUDA_SERIES           CUDA 版本系列，默认 12-8（需宿主机驱动 >= 525）
 # CUDA_ARCHITECTURES    目标 SM 架构，分号分隔，默认 75;80;86;89;90;100;120
 ARG LLAMACPP_PIN_VERSION
@@ -15,37 +17,35 @@ ENV LLAMACPP_PIN_VERSION=${LLAMACPP_PIN_VERSION} \
     CUDA_SERIES=${CUDA_SERIES} \
     CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}
 
-COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
-COPY ./docker_installer/installer/software/backend/install_llamacpp.sh /tmp/install_llamacpp.sh
-RUN set -eux; \
-    /bin/bash /tmp/install_llamacpp.sh
-
-# ── 最终镜像：base + CUDA 运行时 + llama.cpp ───────────────────────────────
-FROM ${BASE_IMAGE}
-
-LABEL authors="sarmn"
-
-ARG CUDA_SERIES=12-8
-
 # NVIDIA 驱动说明：内核驱动在宿主机（nvidia-driver + nvidia-container-toolkit），
 # 容器经 --gpus all 映射使用 GPU；镜像内只需 CUDA 运行时库，不应安装驱动。
+COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
+COPY ./docker_installer/installer/software/backend/install_llamacpp.sh /tmp/install_llamacpp.sh
+# 同一 RUN 内完成编译 + 产物校验 + 清除编译依赖：
+# 单阶段构建中跨 RUN 删除文件不减小镜像体积，必须在一层内完成
 RUN set -eux; \
-    install -m 0755 -d /etc/apt/keyrings; \
-    curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/3bf863cc.pub \
-      | gpg --dearmor -o /etc/apt/keyrings/cuda.gpg; \
-    chmod a+r /etc/apt/keyrings/cuda.gpg; \
-    echo "deb [signed-by=/etc/apt/keyrings/cuda.gpg] https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/ /" \
-      > /etc/apt/sources.list.d/cuda.list; \
+    /bin/bash /tmp/install_llamacpp.sh; \
+    # 产物校验：无 GPU 构建机上 libcuda.so.1 由 stub 提供（随即被 purge），
+    # libllama*/libggml* 尚未注册进 ldconfig，两者都走 LD_LIBRARY_PATH
+    LD_LIBRARY_PATH=/deployment/software/llamacpp/lib:/usr/local/cuda/targets/x86_64-linux/lib/stubs \
+      /deployment/software/llamacpp/bin/llama-server --version; \
+    # 安装脚本 endInstall 已清空 apt lists，需重新 update
     apt-get update; \
+    # 运行时库显式安装（标记 manual，防止 purge --auto-remove 连带删除）
     apt-get install -y --no-install-recommends \
       cuda-cudart-${CUDA_SERIES} \
       cuda-nvrtc-${CUDA_SERIES} \
       libcublas-${CUDA_SERIES}; \
+    # 编译期专用包全部清除（nvcc/头文件/dev 包/stub，约数 GB）
+    apt-get purge -y --auto-remove \
+      cuda-nvcc-${CUDA_SERIES} \
+      cuda-cudart-dev-${CUDA_SERIES} \
+      libcublas-dev-${CUDA_SERIES} \
+      cuda-driver-dev-${CUDA_SERIES} \
+      libcurl4-openssl-dev \
+      cmake ninja-build; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
-
-# llama.cpp 软件目录（不含 s6 服务，llama-server 由用户自行启动）
-COPY --from=builder /deployment/software/llamacpp /deployment/software/llamacpp
 
 ENV PATH=/deployment/bin:/deployment/software/llamacpp/bin:$PATH
 
@@ -58,10 +58,9 @@ RUN mkdir -p /deployment/bin /deployment/workspace/apps/models; \
 RUN echo /deployment/software/llamacpp/lib > /etc/ld.so.conf.d/llamacpp.conf \
  && ldconfig
 
-# 产物校验：builder 阶段若静默失败（缺二进制），此处直接让构建失败
+# 静态校验：二进制存在且可执行（动态加载校验已在构建 RUN 内完成）
 RUN test -x /deployment/software/llamacpp/bin/llama-server \
- && test -x /deployment/software/llamacpp/bin/llama-cli \
- && /deployment/software/llamacpp/bin/llama-server --version
+ && test -x /deployment/software/llamacpp/bin/llama-cli
 
 EXPOSE 8000
 ENTRYPOINT ["/init"]
