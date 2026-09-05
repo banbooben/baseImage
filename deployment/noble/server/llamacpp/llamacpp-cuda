@@ -53,6 +53,11 @@ RUN mkdir -p /deployment/bin /deployment/workspace/apps/models; \
     ln -sf /deployment/software/llamacpp/bin/llama-server /deployment/bin/llama-server; \
     ln -sf /deployment/software/llamacpp/bin/llama-cli /deployment/bin/llama-cli
 
+# llama.cpp 共享库（libllama*/libggml*）注册进动态链接器搜索路径，
+# 否则 llama-server 启动时报 libllama-server-impl.so 找不到
+RUN echo /deployment/software/llamacpp/lib > /etc/ld.so.conf.d/llamacpp.conf \
+ && ldconfig
+
 # 产物校验：builder 阶段若静默失败（缺二进制），此处直接让构建失败
 RUN test -x /deployment/software/llamacpp/bin/llama-server \
  && test -x /deployment/software/llamacpp/bin/llama-cli \
