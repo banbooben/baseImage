@@ -86,7 +86,8 @@ build_llamacpp(){
   LLAMACPP_DOWNLOAD_URL=https://github.com/ggml-org/llama.cpp/archive/refs/tags/${LLAMACPP_VERSION}.tar.gz
   wget -O llama.cpp.tar.gz ${LLAMACPP_DOWNLOAD_URL} --no-check-certificate || return 1
   tar -xvf llama.cpp.tar.gz || return 1
-  cd llama.cpp-${LLAMACPP_VERSION} || return 1
+  # tar 解压目录会去掉 tag 前导 v（v0.4.0 → llama.cpp-0.4.0；b10797 不变）
+  cd llama.cpp-${LLAMACPP_VERSION#v} || return 1
 
   # GGML_NATIVE=OFF：避免按构建机 CPU 特性（-march=native）生成不可移植代码
   # LLAMA_CURL 已弃用：新版 llama.cpp 自动探测 libcurl，无需显式开关
