@@ -25,12 +25,12 @@
 
 ### GPU 推理环境
 
-基于 `base:noble`，含 llama.cpp CUDA 版（不注册 s6 服务，`llama-server` 由用户自行启动）。仅支持 amd64；宿主机需安装 NVIDIA 驱动 + nvidia-container-toolkit，容器经 `--gpus all` 使用 GPU（镜像内只带 CUDA 运行时，不含驱动）。
+基于 `base:noble`，仅含 CUDA 运行时（GPU 驱动映射所需的运行时库），**不含 llama.cpp**——由用户自行编译安装或挂载预编译产物。仅支持 amd64；宿主机需安装 NVIDIA 驱动 + nvidia-container-toolkit，容器经 `--gpus all` 使用 GPU（镜像内只带 CUDA 运行时，不含驱动）。
 
 | 镜像 | 包含组件 |
 | --- | --- |
-| [server/llamacpp/llamacpp-cuda](noble/server/llamacpp/llamacpp-cuda) | llama.cpp（CUDA 12.8 编译）+ CUDA 运行时 |
-| [server/llamacpp/llamacpp-cuda-py3.12-codeserver](noble/server/llamacpp/llamacpp-cuda-py3.12-codeserver) | llama.cpp CUDA + Python 3.12 + code-server + SSH（开发镜像） |
+| [server/llamacpp/llamacpp-cuda](noble/server/llamacpp/llamacpp-cuda) | CUDA 12.8 运行时（cudart/nvrtc/cublas）+ libgomp |
+| [server/llamacpp/llamacpp-cuda-py3.12-codeserver](noble/server/llamacpp/llamacpp-cuda-py3.12-codeserver) | CUDA 运行时 + Python 3.12 + code-server + SSH（开发镜像） |
 
 ## 构建
 
@@ -95,27 +95,32 @@ docker run -d --name nginx-code \
 
 ### llama.cpp CUDA（GPU 推理）
 
+`llamacpp-cuda` 只提供 CUDA 运行时，llama.cpp 需自行安装。两种方式：
+
 ```bash
 docker run -d --name llamacpp --gpus all \
   -p 8000:8000 \
   -v $(pwd)/models:/deployment/workspace/apps/models \
-  -e LLAMA_MODEL=/deployment/workspace/apps/models/qwen3-8b-q4_k_m.gguf \
-  -e N_GPU_LAYERS=999 \
   $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-cuda
 
-# 镜像不含自启动服务，手动启动 llama-server：
-docker exec -d llamacpp /deployment/software/llamacpp/start.sh
-# 或直接指定参数：
-docker exec -d llamacpp llama-server \
+# 方式一：容器内编译安装（用仓库自带的安装脚本，自动装 CUDA toolkit 并编译）
+docker cp docker_installer/installer/software/backend/install_llamacpp.sh llamacpp:/tmp/
+docker exec llamacpp bash /tmp/install_llamacpp.sh
+
+# 方式二：挂载/拷贝预编译产物到容器
+docker cp ./llama.cpp-build llamacpp:/deployment/software/llamacpp
+
+# 安装完成后手动启动：
+docker exec -d llamacpp /deployment/software/llamacpp/bin/llama-server \
   --model /deployment/workspace/apps/models/qwen3-8b-q4_k_m.gguf --host 0.0.0.0 --port 8000 --n-gpu-layers 999
 # → http://localhost:8000 llama-server（OpenAI 兼容 API: /v1/chat/completions）
 ```
 
-模型不烤进镜像，挂载到 `/deployment/workspace/apps/models` 或用 `LLAMA_MODEL` 指定路径。`start.sh` 支持的环境变量：`LLAMA_MODEL` / `LLAMA_HOST` / `LLAMA_PORT` / `N_GPU_LAYERS` / `LLAMA_EXTRA_ARGS`。
+模型不烤进镜像，挂载到 `/deployment/workspace/apps/models`。
 
 ### llama.cpp 开发镜像（+ Python 3.12 + code-server + SSH）
 
-在 `llamacpp-cuda` 基础上叠加 Python 3.12、code-server（s6 自启动）和 sshd，用于 GPU 推理服务开发：
+在 `llamacpp-cuda` 基础上叠加 Python 3.12、code-server（s6 自启动）和 sshd，用于 GPU 推理服务开发（llama.cpp 同样需自行安装）：
 
 ```bash
 docker run -d --name llamacpp-dev --gpus all \
@@ -124,8 +129,9 @@ docker run -d --name llamacpp-dev --gpus all \
   $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-cuda-py3.12-codeserver
 # → http://localhost:8080 code-server
 # → ssh sarmn@localhost -p 2222
-# 手动启动推理服务：
-docker exec -d llamacpp-dev /deployment/software/llamacpp/start.sh
+# llama.cpp 自行安装后启动（见上一节）：
+docker exec -d llamacpp-dev /deployment/software/llamacpp/bin/llama-server \
+  --model /deployment/workspace/apps/models/model.gguf --host 0.0.0.0 --port 8000
 # → http://localhost:8000 llama-server
 ```
 
