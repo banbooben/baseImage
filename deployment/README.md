@@ -103,15 +103,17 @@ docker run -d --name llamacpp --gpus all \
   -v $(pwd)/models:/deployment/workspace/apps/models \
   $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-cuda
 
-# 方式一：容器内编译安装（用仓库自带的安装脚本，自动装 CUDA toolkit 并编译）
-docker cp docker_installer/installer/software/backend/install_llamacpp.sh llamacpp:/tmp/
-docker exec llamacpp bash /tmp/install_llamacpp.sh
+# 方式一：下载官方预编译版本（推荐；按 GPU 选 CUDA 变体，版本号自行替换）
+docker exec llamacpp bash -c '
+  mkdir -p /deployment/software/llamacpp && cd /deployment/software/llamacpp &&
+  curl -fsSL -o llama.zip https://github.com/ggml-org/llama.cpp/releases/download/<TAG>/llama-<TAG>-bin-ubuntu-x64.zip &&
+  unzip llama.zip && rm llama.zip'
 
-# 方式二：挂载/拷贝预编译产物到容器
-docker cp ./llama.cpp-build llamacpp:/deployment/software/llamacpp
+# 方式二：拷入/挂载自行编译或已下载的产物
+docker cp ./llama.cpp-bin llamacpp:/deployment/software/llamacpp
 
 # 安装完成后手动启动：
-docker exec -d llamacpp /deployment/software/llamacpp/bin/llama-server \
+docker exec -d llamacpp /deployment/software/llamacpp/build/bin/llama-server \
   --model /deployment/workspace/apps/models/qwen3-8b-q4_k_m.gguf --host 0.0.0.0 --port 8000 --n-gpu-layers 999
 # → http://localhost:8000 llama-server（OpenAI 兼容 API: /v1/chat/completions）
 ```

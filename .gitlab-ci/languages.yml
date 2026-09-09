@@ -2,6 +2,56 @@
 # Schedule（BUILD_GROUP=languages）：rules 非空 needs → 等 base 链
 # 手动：继承 job 级 needs: []，base 未跑也能直接点
 
+python3.15:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建python3.15镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.15.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="3.15.0"
+      fi
+      echo "Resolved Python version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.15
+      -f ./docker_installer/dockerfiles/languages/python/python3.15
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg PYTHON_PIN_VERSION=$VERSION
+      --push
+      .
+
+python3.15-ft:
+  stage: languages-python
+  extends: .schedule_languages
+  script:
+    - echo "开始构建python3.15-ft镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - |
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.15.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      if [ -z "$VERSION" ]; then
+        echo "Failed to resolve version, using fallback" >&2
+        VERSION="3.15.0"
+      fi
+      echo "Resolved Python version: $VERSION"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.15-ft
+      -f ./docker_installer/dockerfiles/languages/python/python3.15-ft
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg PYTHON_PIN_VERSION=$VERSION
+      --push
+      .
+
 python3.14:
   stage: languages-python
   extends: .schedule_languages

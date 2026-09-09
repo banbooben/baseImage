@@ -84,6 +84,8 @@
 | `${REGISTRY}/${NAMESPACE}/language:noble-python-3.13-ft` | Python 3.13 free-threaded |
 | `${REGISTRY}/${NAMESPACE}/language:noble-python-3.14` | Python 3.14 |
 | `${REGISTRY}/${NAMESPACE}/language:noble-python-3.14-ft` | Python 3.14 free-threaded |
+| `${REGISTRY}/${NAMESPACE}/language:noble-python-3.15` | Python 3.15 |
+| `${REGISTRY}/${NAMESPACE}/language:noble-python-3.15-ft` | Python 3.15 free-threaded |
 | `${REGISTRY}/${NAMESPACE}/language:noble-miniconda-3` | Miniconda 3 |
 
 **Java / OpenJDK**（基于 `base:noble`，多阶段构建）

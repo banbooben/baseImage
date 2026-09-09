@@ -3,7 +3,7 @@ ARG NAMESPACE=sarmn
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble
 
 # CUDA 运行时基础镜像：只提供 GPU 驱动映射所需的运行时库，
-# 不含 llama.cpp（由用户自行编译安装，或挂载/拷贝预编译产物）
+# 不含 llama.cpp（由用户下载官方预编译版本，或拷入/挂载自行编译的产物）
 FROM ${BASE_IMAGE}
 
 LABEL authors="sarmn"
@@ -11,8 +11,8 @@ LABEL authors="sarmn"
 # CUDA_SERIES  CUDA 版本系列，默认 12-8（需宿主机驱动 >= 525）
 ARG CUDA_SERIES=12-8
 
-# NVIDIA 驱动说明：内核驱动在宿主机（nvidia-driver + nvidia-container-toolkit），
-# 容器经 --gpus all 映射使用 GPU；镜像内只装 CUDA 运行时库，不应安装驱动。
+# NVIDIA 驱动说明：内核驱动在宿主机，容器经 --gpus all 映射使用 GPU；
+# 镜像内只装运行预编译 llama.cpp 所需的 CUDA 运行时库，不应安装驱动。
 # libgomp1：llama.cpp 等 OpenMP 程序的运行时依赖
 RUN set -eux; \
     install -m 0755 -d /etc/apt/keyrings; \
