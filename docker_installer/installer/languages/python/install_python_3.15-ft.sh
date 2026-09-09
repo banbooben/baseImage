@@ -16,11 +16,14 @@ setEnv(){
 download_python_package(){
 
   mkdir -p ${INSTALL_PATH}/install
-  cd ${INSTALL_PATH}/install
+  cd ${INSTALL_PATH}/install || return 1
 
-  wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" --no-check-certificate
+  # 预发布 tar 包也放在基础版本目录里（3.15.0/Python-3.15.0rc2.tar.xz），
+  # 故目录名剥离 a/b/rc 后缀；wget/tar 失败必须返回非 0，
+  # 否则 404 页面流入后续 ./configure 产生无效重试
+  wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" --no-check-certificate || return 1
   GNUPGHOME="$(mktemp -d)"; export GNUPGHOME
-  tar --extract --directory ${INSTALL_PATH}/install --strip-components=1 --file python.tar.xz
+  tar --extract --directory ${INSTALL_PATH}/install --strip-components=1 --file python.tar.xz || return 1
   rm python.tar.xz
   gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
 }

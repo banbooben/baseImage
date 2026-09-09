@@ -60,12 +60,23 @@ resolve_python_latest_version() {
     | head -n 1)"
 
   if [ -z "$latest" ]; then
-    local listing
+    local listing base_dir
     listing="$(_installer_http_get "https://www.python.org/ftp/python/" 2>/dev/null || true)"
-    latest="$(printf '%s\n' "$listing" \
-      | grep -oE "${series}\.[0-9]+" \
-      | sort -t. -k3 -n \
+    # 取该系列最新的基础版本目录（3.14.x 补丁各自成目录；预发布 tar 包也放在 X.Y.0/ 目录里）
+    base_dir="$(printf '%s\n' "$listing" \
+      | grep -oE "${series}\.[0-9]+/" \
+      | sort -Vu \
       | tail -n 1)"
+    if [ -n "$base_dir" ]; then
+      # 以目录内真实存在的 Python-*.tar.xz 文件名为准解析：
+      # 预发布期目录已建但正式 tar 包未上传（如 3.15.0/ 里只有 3.15.0rc2），
+      # 按目录名解析会得到不存在的版本导致 404
+      latest="$(_installer_http_get "https://www.python.org/ftp/python/${base_dir}" 2>/dev/null \
+        | grep -oE "Python-${series}\.[0-9]+((a|b|rc)[0-9]+)?\.tar\.xz" \
+        | sed 's/^Python-//; s/\.tar\.xz$//' \
+        | sort -Vu \
+        | tail -n 1)"
+    fi
   fi
 
   if [ -z "$latest" ]; then

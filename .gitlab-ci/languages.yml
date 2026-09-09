@@ -10,9 +10,13 @@ python3.15:
     - cd $ROOT_PATH/${project_repo_name}
     - |
       export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.15.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      # 3.15 正式版发布前 endoflife 无数据：以 ftp 目录内真实存在的 tar 包名为准解析（预发布包放在 3.15.0/ 目录里）
+      if [ -z "$VERSION" ]; then
+        VERSION=$(curl -fsSL "https://www.python.org/ftp/python/3.15.0/" 2>/dev/null | grep -oE "Python-3\.15\.[0-9]+((a|b|rc)[0-9]+)?\.tar\.xz" | sed 's/^Python-//; s/\.tar\.xz$//' | sort -Vu | tail -n 1)
+      fi
       if [ -z "$VERSION" ]; then
         echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.15.0"
+        VERSION="3.15.0rc2"
       fi
       echo "Resolved Python version: $VERSION"
     - >
@@ -35,9 +39,13 @@ python3.15-ft:
     - cd $ROOT_PATH/${project_repo_name}
     - |
       export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.15.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      # 3.15 正式版发布前 endoflife 无数据：以 ftp 目录内真实存在的 tar 包名为准解析（预发布包放在 3.15.0/ 目录里）
+      if [ -z "$VERSION" ]; then
+        VERSION=$(curl -fsSL "https://www.python.org/ftp/python/3.15.0/" 2>/dev/null | grep -oE "Python-3\.15\.[0-9]+((a|b|rc)[0-9]+)?\.tar\.xz" | sed 's/^Python-//; s/\.tar\.xz$//' | sort -Vu | tail -n 1)
+      fi
       if [ -z "$VERSION" ]; then
         echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.15.0"
+        VERSION="3.15.0rc2"
       fi
       echo "Resolved Python version: $VERSION"
     - >
