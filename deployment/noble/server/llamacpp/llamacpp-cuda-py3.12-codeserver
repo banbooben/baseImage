@@ -4,7 +4,7 @@ ARG NAMESPACE=sarmn
 FROM ${REGISTRY}/${NAMESPACE}/software:noble-code-server AS codeserver
 FROM ${REGISTRY}/${NAMESPACE}/language:noble-python-3.12 AS py312
 
-# 以 CUDA 运行时镜像为基础（不含 llama.cpp，由用户自行安装）
+# 以 llamacpp-cuda 为基础（含 CUDA 12.8 工具链与预编译 llama.cpp /deployment/software/llama.cpp）
 FROM ${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda
 
 LABEL authors="sarmn"

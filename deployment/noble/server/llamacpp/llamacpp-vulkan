@@ -1,0 +1,61 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble
+
+# llamacpp-vulkan：Vulkan 后端 llama.cpp（AMD RDNA2 如 6900XT、核显均可用）
+# - 运行依赖宿主内核驱动 + 容器映射 --device=/dev/dri；
+#   AMD 用 Mesa RADV（mesa-vulkan-drivers，镜像内已装），无需 ROCm
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+# LLAMACPP_VERSION  llama.cpp 版本（GitHub tag，如 v0.4.0）；留空自动解析最新 release
+ARG LLAMACPP_VERSION=
+
+# 构建依赖：libvulkan-dev + glslc（ggml-vulkan 编译期编译 shader）；
+# 运行依赖：mesa-vulkan-drivers（RADV ICD）+ libvulkan1 + libgomp1
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+      cmake \
+      libvulkan-dev \
+      glslc \
+      libvulkan1 \
+      mesa-vulkan-drivers \
+      libcurl4-openssl-dev \
+      libgomp1; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+
+# 编译并安装 llama.cpp 到 /deployment/software/llama.cpp（bin/lib/include）
+RUN set -eux; \
+    version="${LLAMACPP_VERSION}"; \
+    if [ -z "$version" ]; then \
+      version="$(curl -fsSL https://api.github.com/repos/ggml-org/llama.cpp/releases/latest \
+        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"; \
+    fi; \
+    [ -n "$version" ] || { echo "无法解析 llama.cpp 版本，请用 --build-arg LLAMACPP_VERSION= 指定"; exit 1; }; \
+    echo "Building llama.cpp ${version} (Vulkan)"; \
+    cd /tmp; \
+    curl -fsSL -o llama.cpp.tar.gz "https://github.com/ggml-org/llama.cpp/archive/refs/tags/${version}.tar.gz"; \
+    tar -xzf llama.cpp.tar.gz; \
+    srcdir="/tmp/llama.cpp-${version#v}"; \
+    # GGML_NATIVE=OFF：避免按构建机 CPU 指令集编译导致部署机非法指令 \
+    cmake -S "$srcdir" -B "$srcdir/build" \
+      -DGGML_VULKAN=ON \
+      -DGGML_NATIVE=OFF \
+      -DLLAMA_BUILD_TESTS=OFF \
+      -DLLAMA_BUILD_EXAMPLES=OFF \
+      -DCMAKE_BUILD_TYPE=Release; \
+    cmake --build "$srcdir/build" -j"$(nproc)"; \
+    cmake --install "$srcdir/build" --prefix /deployment/software/llama.cpp; \
+    echo /deployment/software/llama.cpp/lib > /etc/ld.so.conf.d/llamacpp.conf; \
+    ldconfig; \
+    /deployment/software/llama.cpp/bin/llama-server --version; \
+    rm -rf "$srcdir" llama.cpp.tar.gz
+
+ENV PATH=/deployment/software/llama.cpp/bin:$PATH
+
+RUN mkdir -p /deployment/workspace/apps/models
+
+ENTRYPOINT ["/init"]

@@ -142,12 +142,14 @@ deployment 镜像在 software/language 分层基础上组合为**开箱即用**�
 | `${REGISTRY}/${NAMESPACE}/deployment:noble-server-python3.12-extension-pack` | 3.12 | `noble-server-python3.12-extension-pack` |
 | `${REGISTRY}/${NAMESPACE}/deployment:noble-server-python3.14-extension-pack` | 3.14 | `noble-server-python3.14-extension-pack` |
 
-**GPU 推理环境**（基于 `base:noble`，仅 CUDA 运行时，llama.cpp 自行安装，仅 amd64；宿主机需 NVIDIA 驱动 + nvidia-container-toolkit）
+**GPU 推理环境**（基于 `base:noble`,CUDA 12.8 工具链 + 预编译 llama.cpp，仅 amd64；宿主机需 NVIDIA 驱动 + nvidia-container-toolkit)
 
 | 镜像 | 说明 | tag |
 |---|---|---|
-| `${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda` | CUDA 12.8 运行时（cudart/nvrtc/cublas）+ libgomp | `noble-server-llamacpp-cuda` |
-| `${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda-py3.12-codeserver` | CUDA 运行时 + Python 3.12 + code-server + SSH（开发镜像） | `noble-server-llamacpp-cuda-py3.12-codeserver` |
+| `${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda` | CUDA 12.8 工具链（官方源）+ llama.cpp(`/deployment/software/llama.cpp`,sm_61;75;86;89) | `noble-server-llamacpp-cuda` |
+| `${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-cuda-py3.12-codeserver` | llamacpp-cuda + Python 3.12 + code-server + SSH（开发镜像） | `noble-server-llamacpp-cuda-py3.12-codeserver` |
+| `${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-vulkan` | Vulkan 后端 llama.cpp(AMD 6900XT/核显，Mesa RADV) | `noble-server-llamacpp-vulkan` |
+| `${REGISTRY}/${NAMESPACE}/deployment:noble-server-llamacpp-rocm` | ROCm 6.3/HIP 后端 llama.cpp(AMD 6900XT/gfx1030) | `noble-server-llamacpp-rocm` |
 
 > Dockerfile 位于 `deployment/noble/<desktop|server>/python-extension-pack/`，构建上下文为仓库根目录。
 

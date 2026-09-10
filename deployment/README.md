@@ -25,12 +25,14 @@
 
 ### GPU 推理环境
 
-基于 `base:noble`，仅含 CUDA 运行时（GPU 驱动映射所需的运行时库），**不含 llama.cpp**——由用户自行编译安装或挂载预编译产物。仅支持 amd64；宿主机需安装 NVIDIA 驱动 + nvidia-container-toolkit，容器经 `--gpus all` 使用 GPU（镜像内只带 CUDA 运行时，不含驱动）。
+基于 `base:noble`，含 NVIDIA 官方源 CUDA 12.8 开发工具链（nvcc + cudart/nvrtc/cublas 开发库，**不用** Ubuntu 源 `nvidia-cuda-toolkit`）和构建期编译好的 **llama.cpp**（`/deployment/software/llama.cpp`，CUDA 架构 61;75;86;89，含 P4 的 Pascal/sm_61）。仅支持 amd64；宿主机需安装 NVIDIA 驱动 + nvidia-container-toolkit，容器经 `--gpus all` 使用 GPU（镜像内不含驱动）。CUDA 必须 ≤ 12.x——CUDA 13 已移除 Pascal 支持。
 
 | 镜像 | 包含组件 |
 | --- | --- |
-| [server/llamacpp/llamacpp-cuda](noble/server/llamacpp/llamacpp-cuda) | CUDA 12.8 运行时（cudart/nvrtc/cublas）+ libgomp |
-| [server/llamacpp/llamacpp-cuda-py3.12-codeserver](noble/server/llamacpp/llamacpp-cuda-py3.12-codeserver) | CUDA 运行时 + Python 3.12 + code-server + SSH（开发镜像） |
+| [server/llamacpp/llamacpp-cuda](noble/server/llamacpp/llamacpp-cuda) | CUDA 12.8 工具链 + llama.cpp（/deployment/software/llama.cpp） |
+| [server/llamacpp/llamacpp-cuda-py3.12-codeserver](noble/server/llamacpp/llamacpp-cuda-py3.12-codeserver) | llamacpp-cuda + Python 3.12 + code-server + SSH（开发镜像） |
+| [server/llamacpp/llamacpp-vulkan](noble/server/llamacpp/llamacpp-vulkan) | Vulkan 后端 llama.cpp（AMD/核显，Mesa RADV，运行时映射 `/dev/dri`） |
+| [server/llamacpp/llamacpp-rocm](noble/server/llamacpp/llamacpp-rocm) | ROCm 6.3/HIP 后端 llama.cpp（AMD 6900XT/gfx1030，运行时映射 `/dev/kfd`+`/dev/dri`） |
 
 ## 构建
 
@@ -54,7 +56,7 @@ docker build \
   -f deployment/noble/server/llamacpp/llamacpp-cuda \
   -t $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-cuda \
   --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE .
-# 可选 build-arg：LLAMACPP_PIN_VERSION=b10690 / CUDA_SERIES=12-8 / CUDA_ARCHITECTURES="89;90"
+# 可选 build-arg：LLAMACPP_VERSION=v0.4.0 / CUDA_SERIES=12-8 / CUDA_ARCHS="61;75;86;89"
 ```
 
 ## 使用
@@ -95,7 +97,7 @@ docker run -d --name nginx-code \
 
 ### llama.cpp CUDA（GPU 推理）
 
-`llamacpp-cuda` 只提供 CUDA 运行时，llama.cpp 需自行安装。两种方式：
+`llama.cpp` 已在镜像内预编译（`/deployment/software/llama.cpp`，bin 已在 PATH），启动容器后手动拉起服务即可：
 
 ```bash
 docker run -d --name llamacpp --gpus all \
@@ -103,26 +105,39 @@ docker run -d --name llamacpp --gpus all \
   -v $(pwd)/models:/deployment/workspace/apps/models \
   $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-cuda
 
-# 方式一：下载官方预编译版本（推荐；按 GPU 选 CUDA 变体，版本号自行替换）
-docker exec llamacpp bash -c '
-  mkdir -p /deployment/software/llamacpp && cd /deployment/software/llamacpp &&
-  curl -fsSL -o llama.zip https://github.com/ggml-org/llama.cpp/releases/download/<TAG>/llama-<TAG>-bin-ubuntu-x64.zip &&
-  unzip llama.zip && rm llama.zip'
-
-# 方式二：拷入/挂载自行编译或已下载的产物
-docker cp ./llama.cpp-bin llamacpp:/deployment/software/llamacpp
-
-# 安装完成后手动启动：
-docker exec -d llamacpp /deployment/software/llamacpp/build/bin/llama-server \
+docker exec -d llamacpp llama-server \
   --model /deployment/workspace/apps/models/qwen3-8b-q4_k_m.gguf --host 0.0.0.0 --port 8000 --n-gpu-layers 999
 # → http://localhost:8000 llama-server（OpenAI 兼容 API: /v1/chat/completions）
 ```
 
 模型不烤进镜像，挂载到 `/deployment/workspace/apps/models`。
+镜像自带 CUDA 工具链，需要更新版本时也可在容器内重新编译（`git clone` 后按 Dockerfile 中的 cmake 参数构建，`GGML_CUDA=ON`、`-DCMAKE_CUDA_ARCHITECTURES="61;75;86;89"`）。
+
+### llama.cpp AMD GPU（Vulkan / ROCm）
+
+6900XT（RDNA2/gfx1030）等 AMD 卡用 `llamacpp-vulkan`（轻量稳定，推荐先试）或 `llamacpp-rocm`（性能更好）。llama.cpp 同样已预编译到 `/deployment/software/llama.cpp`：
+
+```bash
+# Vulkan：宿主机 Mesa RADV 驱动，映射 /dev/dri
+docker run -d --name llamacpp-vk --device=/dev/dri \
+  -p 8000:8000 \
+  -v $(pwd)/models:/deployment/workspace/apps/models \
+  $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-vulkan
+
+# ROCm：宿主机 amdgpu 内核驱动，映射 /dev/kfd + /dev/dri
+docker run -d --name llamacpp-rocm --device=/dev/kfd --device=/dev/dri \
+  -p 8000:8000 \
+  -v $(pwd)/models:/deployment/workspace/apps/models \
+  $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-rocm
+
+# 启动（两镜像相同）：
+docker exec -d llamacpp-vk llama-server \
+  --model /deployment/workspace/apps/models/model.gguf --host 0.0.0.0 --port 8000 --n-gpu-layers 999
+```
 
 ### llama.cpp 开发镜像（+ Python 3.12 + code-server + SSH）
 
-在 `llamacpp-cuda` 基础上叠加 Python 3.12、code-server（s6 自启动）和 sshd，用于 GPU 推理服务开发（llama.cpp 同样需自行安装）：
+在 `llamacpp-cuda` 基础上叠加 Python 3.12、code-server（s6 自启动）和 sshd，用于 GPU 推理服务开发：
 
 ```bash
 docker run -d --name llamacpp-dev --gpus all \
@@ -131,8 +146,8 @@ docker run -d --name llamacpp-dev --gpus all \
   $REGISTRY/$NAMESPACE/deployment:noble-server-llamacpp-cuda-py3.12-codeserver
 # → http://localhost:8080 code-server
 # → ssh sarmn@localhost -p 2222
-# llama.cpp 自行安装后启动（见上一节）：
-docker exec -d llamacpp-dev /deployment/software/llamacpp/bin/llama-server \
+# 启动预装的 llama-server：
+docker exec -d llamacpp-dev llama-server \
   --model /deployment/workspace/apps/models/model.gguf --host 0.0.0.0 --port 8000
 # → http://localhost:8000 llama-server
 ```
@@ -150,7 +165,9 @@ deployment/noble/
 └── server/
     ├── llamacpp/
     │   ├── llamacpp-cuda
-    │   └── llamacpp-cuda-py3.12-codeserver
+    │   ├── llamacpp-cuda-py3.12-codeserver
+    │   ├── llamacpp-vulkan
+    │   └── llamacpp-rocm
     ├── nginx-code/
     │   └── openresty-nginx
     └── python-extension-pack/
