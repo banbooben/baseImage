@@ -388,6 +388,41 @@ sudo_group() {
   esac
 }
 
+# 这些 installer 一律以 root 运行在容器里，此时再套一层 sudo 不只是多余：
+# 它把构建绑死在 sudo 的 PAM 配置上。openEuler 基础镜像上 sudo 的 account 阶段
+# 会报 "Authentication service cannot retrieve authentication info"，于是
+# useradd、写 /etc/environment 这些全部失败。已经是 root 就直接执行。
+as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
+# 以指定用户身份执行。root 下同样不再套 sudo。
+# setpriv 完全不经过 PAM，优先；但 --reuid 在 util-linux < 2.40 上只认数字，
+# 所以先用 id 解析出 uid/gid（openEuler 24.03 是 2.39，不能直接传用户名）。
+# runuser 次选：它作为 root 调用时 account 段被 pam_rootok 短路，通常也安全。
+as_user() {
+  local u="$1"; shift
+  if [ "$(id -u)" -ne 0 ]; then
+    sudo -u "$u" "$@"
+    return
+  fi
+
+  local uid gid
+  if command -v setpriv >/dev/null 2>&1 &&
+     uid="$(id -u "$u" 2>/dev/null)" &&
+     gid="$(id -g "$u" 2>/dev/null)"; then
+    setpriv --reuid "$uid" --regid "$gid" --init-groups "$@"
+  elif command -v runuser >/dev/null 2>&1; then
+    runuser -u "$u" -- "$@"
+  else
+    sudo -u "$u" "$@"
+  fi
+}
+
 # 启用 openEuler 的 EPOL 仓库。
 # Xfce4 / fcitx 等桌面组件全部只在 EPOL 里，基础镜像默认 enabled=0，
 # 不打开的话装桌面会直接找不到包。
@@ -854,27 +889,27 @@ create_user() {
     echo -e "家目录位置: ${BOLD}$home_dir${RESET}"
 
     # 确保父目录存在
-    sudo mkdir -p "$(dirname "$home_dir")" || {
+    as_root mkdir -p "$(dirname "$home_dir")" || {
         echo -e "${RED}父目录创建失败: $(dirname "$home_dir")${RESET}"
         return 1
     }
 
     # 创建用户并设置家目录
-    if ! sudo useradd -m -d "$home_dir" -s /bin/bash "$username"; then
+    if ! as_root useradd -m -d "$home_dir" -s /bin/bash "$username"; then
         echo -e "${RED}User creation failed${RESET}"
         return 1
     fi
 
     # 设置密码
-    echo "$username:$password" | sudo chpasswd || {
+    echo "$username:$password" | as_root chpasswd || {
         echo -e "${RED}Password setup failed${RESET}"
-        sudo userdel -r "$username" 2>/dev/null
+        as_root userdel -r "$username" 2>/dev/null
         return 1
     }
 
     # 修复目录权限（useradd -m 可能未设置到预期权限）
-    sudo chown -R "$username:$username" "$home_dir"
-    sudo chmod 700 "$home_dir"
+    as_root chown -R "$username:$username" "$home_dir"
+    as_root chmod 700 "$home_dir"
 
     # 配置 sudo 权限：仅加组不够——若 /etc/sudoers 缺 %sudo 规则会报「不在 sudoers 中」
     # 因此同时写入 /deployment/accounts/sudoers.d（由 initSudoers 引入）
@@ -883,27 +918,27 @@ create_user() {
         local sgrp
         sgrp="$(sudo_group)" || return 1
         echo -e "${BLUE}将用户 '$username' 加入 ${sgrp} 组...${RESET}"
-        sudo usermod -aG "$sgrp" "$username" || {
+        as_root usermod -aG "$sgrp" "$username" || {
             echo -e "${RED}加入 ${sgrp} 组失败${RESET}"
             return 1
         }
 
-        sudo mkdir -p /deployment/accounts/sudoers.d
+        as_root mkdir -p /deployment/accounts/sudoers.d
         local sudoers_file="/deployment/accounts/sudoers.d/${username}"
         if [[ "$no_passwd_sudo" == true ]]; then
             echo -e "${BLUE}配置免密 sudo...${RESET}"
-            echo "${username} ALL=(ALL) NOPASSWD:ALL" | sudo tee "$sudoers_file" >/dev/null || {
+            echo "${username} ALL=(ALL) NOPASSWD:ALL" | as_root tee "$sudoers_file" >/dev/null || {
                 echo -e "${RED}Configure passwordless sudo failed${RESET}"
                 return 1
             }
         else
-            echo "${username} ALL=(ALL:ALL) ALL" | sudo tee "$sudoers_file" >/dev/null || {
+            echo "${username} ALL=(ALL:ALL) ALL" | as_root tee "$sudoers_file" >/dev/null || {
                 echo -e "${RED}Configure sudoers entry failed${RESET}"
                 return 1
             }
         fi
-        sudo chmod 440 "$sudoers_file"
-        sudo visudo -cf "$sudoers_file" >/dev/null || {
+        as_root chmod 440 "$sudoers_file"
+        as_root visudo -cf "$sudoers_file" >/dev/null || {
             echo -e "${RED}sudoers 语法校验失败: $sudoers_file${RESET}"
             return 1
         }
@@ -912,14 +947,14 @@ create_user() {
     # 生成 SSH 密钥
     if [[ "$generate_sshkey" == true ]]; then
         echo -e "${BLUE}生成 SSH 密钥对...${RESET}"
-        sudo -u "$username" mkdir -p "$home_dir/.ssh"
-        sudo -u "$username" chmod 700 "$home_dir/.ssh"
-        if ! sudo -u "$username" ssh-keygen -t rsa -b 4096 -f "$home_dir/.ssh/id_rsa" -N "" -q; then
+        as_user "$username" mkdir -p "$home_dir/.ssh"
+        as_user "$username" chmod 700 "$home_dir/.ssh"
+        if ! as_user "$username" ssh-keygen -t rsa -b 4096 -f "$home_dir/.ssh/id_rsa" -N "" -q; then
             echo -e "${RED}SSH key generation failed${RESET}"
             return 1
         fi
-        sudo -u "$username" cp "$home_dir/.ssh/id_rsa.pub" "$home_dir/.ssh/authorized_keys"
-        sudo -u "$username" chmod 600 "$home_dir/.ssh/authorized_keys"
+        as_user "$username" cp "$home_dir/.ssh/id_rsa.pub" "$home_dir/.ssh/authorized_keys"
+        as_user "$username" chmod 600 "$home_dir/.ssh/authorized_keys"
         echo -e "${GREEN}SSH 私钥路径: $home_dir/.ssh/id_rsa${RESET}"
     fi
 
@@ -992,18 +1027,18 @@ merge_and_save_env() {
 
     # 5. 更新 /etc/environment
     echo "更新 $target_file 文件..."
-    sudo cp "$temp_file" "$target_file"
-    sudo chmod 644 "$target_file"
+    as_root cp "$temp_file" "$target_file"
+    as_root chmod 644 "$target_file"
     rm -f "$temp_file"
 
     # 6. 删除 /etc/environments 目录
     if [[ -d "$env_dir" ]]; then
         echo "删除目录 $env_dir..."
-        sudo rm -rf "$env_dir"
+        as_root rm -rf "$env_dir"
     fi
 
     echo "=== 环境变量合并和保存完成 ==="
     echo "文件路径: $target_file"
     echo "当前内容摘要:"
-    sudo cat "$target_file"
+    as_root cat "$target_file"
 }

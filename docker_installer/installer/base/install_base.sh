@@ -134,7 +134,17 @@ initFolder(){
 }
 
 initSudoers(){
-  # 保留 apt 安装的默认 /etc/sudoers（含 %sudo），再用 drop-in 引入自定义目录
+  # 保留发行版自带的默认 /etc/sudoers（含 %sudo / %wheel），再用 drop-in 引入自定义目录
+  #
+  # 下面这层 drop-in 只有在 /etc/sudoers 引了 /etc/sudoers.d 时才生效。
+  # Debian 与 RHEL 默认都有 #includedir，但不能假设——缺失时整份 drop-in 会被
+  # 静默忽略，root 的 NOPASSWD 规则随之失效（表现为 sudo 索要密码）。
+  if [ -f /etc/sudoers ] && \
+     ! grep -qE '^[#@]includedir[[:space:]]+/etc/sudoers\.d' /etc/sudoers; then
+    printf '\n#includedir /etc/sudoers.d\n' >> /etc/sudoers
+    echo "已为 /etc/sudoers 补上 #includedir /etc/sudoers.d"
+  fi
+
   mkdir -p /deployment/accounts/sudoers.d
   chmod 750 /deployment/accounts/sudoers.d
   echo '@includedir /deployment/accounts/sudoers.d' > /etc/sudoers.d/00-deployment-accounts
@@ -218,12 +228,14 @@ initChineseEnv(){
 
 addUser(){
 
-  cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
+  cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys || return 1
   chmod 600 /root/.ssh/authorized_keys
 
   # 默认业务用户；密码通过 SARMN_PASSWORD（--build-arg / CI 变量）指定，未设则随机生成
   ensure_password SARMN_PASSWORD
-  create_user sarmn "${SARMN_PASSWORD}" --sudo --sshkey
+  # 必须把失败抛出去：否则用户没建成也照样往下走，
+  # 最后打出一个没有 sarmn 的镜像，问题要等到运行时才暴露
+  create_user sarmn "${SARMN_PASSWORD}" --sudo --sshkey || return 1
   unset SARMN_PASSWORD
 
 }
