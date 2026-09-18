@@ -304,8 +304,8 @@ build_triplet() {
 # 两个坑：
 #   1. 必须用可选形式 %{?name}——%{name} 在宏未定义时，rpm 会把 "%{name}" 这个
 #      字面量原样回显且退出码为 0，`|| echo ""` 兜不住，字面量会一路传进 make。
-#   2. %build_ldflags 由 openEuler-rpm-config 提供，base 层不装它，未定义是常态；
-#      %optflags 则由 rpm 包自身定义。用 %{?} 两种情形都安全。
+#   2. %build_ldflags 由 openEuler-rpm-config 提供（装了它才有，gcc 等包的依赖链
+#      里常会带上），%optflags 则由 rpm 包自身定义。用 %{?} 两种情形都安全。
 _rpm_eval_macro() {
   local v
   v="$(rpm --eval "%{?$1}" 2>/dev/null || true)"
@@ -326,8 +326,13 @@ build_ldflags() {
   detect_distro || return 1
   case "$DISTRO_FAMILY" in
     debian) dpkg-buildflags --get LDFLAGS ;;
-    # 返回空串是正确结果：Python 的构建脚本用 ${LDFLAGS:-...} 提供
-    # rpath 默认值，空串才会走到那个默认值
+    # openEuler 上 %build_ldflags 展开成
+    #   -Wl,-z,relro -Wl,-z,now -specs=/usr/lib/rpm/generic-hardened-ld
+    # 末位是 -specs=<文件>，不是 -Wl,... 组。调用方若要往末尾追加参数，
+    # 必须空格分隔——写成 "-Wl,-z,now,-rpath=..." 那种逗号粘接（跟在
+    # -Wl 组后面是对的）在这里会粘成 "-specs=...,-rpath=..."，
+    # gcc 把整串当 spec 文件路径去读，直接 fatal error。
+    # 空串也是合法结果，调用方用 ${LDFLAGS:+...} 判断是否需要补默认 rpath。
     rpm)    _rpm_eval_macro build_ldflags ;;
   esac
 }

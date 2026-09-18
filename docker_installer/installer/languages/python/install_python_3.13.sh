@@ -60,14 +60,14 @@ make_install(){
   LDFLAGS="$(build_ldflags)"
   if ! make -j "$makeJobs" \
     "EXTRA_CFLAGS=${EXTRA_CFLAGS:-} ${armExtraCflags}" \
-    "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
+    "LDFLAGS=${LDFLAGS:+$LDFLAGS }-Wl,-rpath='\$\$ORIGIN/../lib'" \
     "PROFILE_TASK=${PROFILE_TASK:-}" python; then
     if [ "$buildArch" = "arm64" ]; then
       echo "arm64 build failed, retrying with single job and safer flags"
       make clean || true
       make -j 1 \
         "EXTRA_CFLAGS=${EXTRA_CFLAGS:-} -O1 -fno-strict-aliasing -fno-tree-vectorize" \
-        "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
+        "LDFLAGS=${LDFLAGS:+$LDFLAGS }-Wl,-rpath='\$\$ORIGIN/../lib'" \
         "PROFILE_TASK=${PROFILE_TASK:-}" python
     else
       return 1

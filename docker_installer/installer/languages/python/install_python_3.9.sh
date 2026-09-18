@@ -53,7 +53,7 @@ make_install(){
   LDFLAGS="$(build_ldflags)"
 	make -j "$nproc" \
 		"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
-		"LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
+		"LDFLAGS=${LDFLAGS:+$LDFLAGS }-Wl,-rpath='\$\$ORIGIN/../lib'" \
 		"PROFILE_TASK=${PROFILE_TASK:-}" python
 	make install
 
