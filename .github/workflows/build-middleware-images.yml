@@ -16,6 +16,14 @@ env:
 jobs:
   build-redis-7-4:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Redis version
@@ -44,16 +52,25 @@ jobs:
           file: ./docker_installer/dockerfiles/middleware/redis/Dockerfile.7.4
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:noble-redis-7.4
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:${{ matrix.os_tag }}-redis-7.4
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             REDIS_PIN_VERSION=${{ steps.version.outputs.version }}
           secrets: |
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
 
   build-redis-8-2:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Redis version
@@ -82,10 +99,11 @@ jobs:
           file: ./docker_installer/dockerfiles/middleware/redis/Dockerfile.8.2
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:noble-redis-8.2
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:${{ matrix.os_tag }}-redis-8.2
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             REDIS_PIN_VERSION=${{ steps.version.outputs.version }}
           secrets: |
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}

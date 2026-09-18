@@ -43,10 +43,9 @@ setEnv(){
 
 installDeps(){
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update
-  apt-get install -y --no-install-recommends ca-certificates curl xz-utils
-  apt-get clean -y
-  rm -rf /var/lib/apt/lists/*
+  pkg_update
+  pkg_install ca-certificates curl xz-utils
+  pkg_clean
 
   # 安装 Node.js（官方二进制，统一 amd64/arm64）
   # 动态获取最新 v${NODE_VERSION}.x 精确版本号

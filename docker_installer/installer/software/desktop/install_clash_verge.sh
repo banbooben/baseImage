@@ -2,7 +2,7 @@
 ###
  # Install Clash Verge Rev under /deployment/software/clash-verge.
  # Layer layout (COPY-friendly):
- #   /deployment/software/clash-verge/          # extracted .deb (usr/bin, usr/lib, ...)
+ #   /deployment/software/clash-verge/          # 解包后的包内容 (usr/bin, usr/lib, ...)
  #   /deployment/software/clash-verge/data/     # XDG config/cache/state (runtime)
  #   /deployment/bin/clash-verge               # launcher
  #
@@ -49,8 +49,8 @@ setEnv(){
 installDeps(){
   # Tauri / WebKit GTK 运行时；noble-desktop 已有部分 gtk/X，缺啥补啥
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update
-  apt-get install -y --no-install-recommends \
+  pkg_update
+  pkg_install \
     ca-certificates wget \
     libwebkit2gtk-4.1-0 \
     libgtk-3-0 \
@@ -59,7 +59,7 @@ installDeps(){
     libssl3t64 \
     openssl \
     xdg-utils \
-    || apt-get install -y --no-install-recommends \
+    || pkg_install \
       ca-certificates wget \
       libwebkit2gtk-4.1-0 \
       libgtk-3-0 \
@@ -68,8 +68,7 @@ installDeps(){
       libssl3 \
       openssl \
       xdg-utils
-  apt-get clean -y
-  rm -rf /var/lib/apt/lists/*
+  pkg_clean
 }
 
 github_release_url(){
@@ -82,10 +81,30 @@ github_release_url(){
   fi
 }
 
+# 从 release 资产列表里挑出本发行版要用的包名。
+# RPM 资产名形如 Clash.Verge-2.5.2-1.x86_64.rpm——release 号（-1）随打包变化，
+# 硬编码会随版本失效，所以不拼名字而是匹配资产列表。
+resolve_asset_name(){
+  local ver="$1" ext="$2" arch="$3"
+  _installer_http_get "https://api.github.com/repos/clash-verge-rev/clash-verge-rev/releases/tags/v${ver}" 2>/dev/null \
+    | grep -oE '"name"[[:space:]]*:[[:space:]]*"Clash\.Verge[^"]*[._-]'"${arch}"'\.'"${ext}"'"' \
+    | head -n 1 \
+    | sed -E 's/.*"([^"]+)"$/\1/'
+}
+
 installClashVerge(){
+  detect_distro || return 1
   local ver="${CLASH_VERGE_VERSION}"
-  local archive="Clash.Verge_${ver}_${DEB_ARCH}.deb"
-  local url
+  local archive url
+  if [ "$DISTRO_FAMILY" = "debian" ]; then
+    archive="Clash.Verge_${ver}_${DEB_ARCH}.deb"
+  else
+    archive="$(resolve_asset_name "$ver" rpm "$TARGET_ARCH")"
+    [ -n "$archive" ] || {
+      echo "无法从 release 资产列表解析 Clash Verge rpm 包名 (v${ver}, ${TARGET_ARCH})" >&2
+      return 1
+    }
+  fi
   url="$(github_release_url "clash-verge-rev/clash-verge-rev/releases/download/v${ver}/${archive}")"
   local tmp="/tmp/${archive}"
   local extract_tmp="/tmp/clash-verge-extract"
@@ -100,16 +119,16 @@ installClashVerge(){
     return 1
   }
 
-  # 解压 deb 到软件树，便于整层 COPY（不用 dpkg 污染系统路径）
-  dpkg-deb -x "${tmp}" "${extract_tmp}"
+  # 解包到软件树，便于整层 COPY（不装进系统路径）
+  pkg_extract "${tmp}" "${extract_tmp}" || return 1
   rm -f "${tmp}"
 
   mkdir -p "${INSTALL_PATH}"
-  # deb 内容通常为 usr/bin、usr/lib、usr/share
+  # 包内容通常为 usr/bin、usr/lib、usr/share（deb 与 rpm 一致）
   if [ -d "${extract_tmp}/usr" ]; then
     mv "${extract_tmp}/usr" "${INSTALL_PATH}/usr"
   else
-    echo "Unexpected deb layout:" >&2
+    echo "Unexpected package layout:" >&2
     find "${extract_tmp}" -maxdepth 3 -print >&2
     return 1
   fi

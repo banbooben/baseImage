@@ -15,8 +15,8 @@ setEnv(){
 
 install_openresty(){
   # base 镜像已含 build-essential/libssl-dev/zlib1g-dev，仅补 PCRE2 与 perl
-  apt-get update
-  apt-get install -y --no-install-recommends libpcre2-dev perl
+  pkg_update
+  pkg_install libpcre2-dev perl
 
   mkdir -p ${BASE_PATH}/bin ${INSTALL_PATH}/install
   cd ${INSTALL_PATH}/install

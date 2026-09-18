@@ -5,6 +5,13 @@
 redis-7.4:
   stage: middleware-redis
   extends: .schedule_middleware
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建redis 7.4镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -19,10 +26,11 @@ redis-7.4:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/middleware:noble-redis-7.4
+      -t ${REGISTRY}/${NAMESPACE}/middleware:${OS_TAG}-redis-7.4
       -f ./docker_installer/dockerfiles/middleware/redis/Dockerfile.7.4
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg REDIS_PIN_VERSION=$VERSION
       --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
       --push
@@ -32,6 +40,13 @@ redis-7.4:
 redis-8.2:
   stage: middleware-redis
   extends: .schedule_middleware
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建redis 8.2镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -46,10 +61,11 @@ redis-8.2:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/middleware:noble-redis-8.2
+      -t ${REGISTRY}/${NAMESPACE}/middleware:${OS_TAG}-redis-8.2
       -f ./docker_installer/dockerfiles/middleware/redis/Dockerfile.8.2
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg REDIS_PIN_VERSION=$VERSION
       --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
       --push

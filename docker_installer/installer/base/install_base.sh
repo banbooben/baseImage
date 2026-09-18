@@ -146,19 +146,41 @@ initSudoers(){
 }
 
 initSshd(){
+  # ssh-keygen 不会自建父目录，缺失时直接报错退出
+  mkdir -p /root/.ssh
+  chmod 700 /root/.ssh
   ssh-keygen -q -t rsa -b 4096 -N '' -f /root/.ssh/id_rsa
   ensure_password ROOT_PASSWORD
   echo "root:${ROOT_PASSWORD}" | chpasswd
   unset ROOT_PASSWORD
-  sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin yes/' /etc/ssh/sshd_config
+
+  # 部分发行版（如 openEuler）的 sshd_config 里没有 PermitRootLogin 行，
+  # 此时 sed 静默无效果，需显式追加
+  if grep -qE '^#?PermitRootLogin' /etc/ssh/sshd_config; then
+    sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin yes/' /etc/ssh/sshd_config
+  else
+    echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
+  fi
 }
 
 installBase(){
+  detect_distro || return 1
   echo "install base"
   # 不要 force-confold：避免保留安装前误写的残缺 /etc/sudoers（会丢掉 %sudo）
-  apt install -y --no-install-recommends sudo
-  apt install -y --no-install-recommends ca-certificates lsb-release software-properties-common gnupg dirmngr
-  apt install -y --no-install-recommends \
+  pkg_install sudo
+
+  # 源管理工具按发行版区分：
+  # - Debian 系用 lsb-release / software-properties-common 加第三方源
+  # - openEuler 系用 dnf-plugins-core（提供 dnf config-manager）；
+  #   cpio 是 pkg_extract 解 .rpm 的依赖（rpm2cpio | cpio -idm）；
+  #   p11-kit-trust 才提供 trust 命令（Debian 的 p11-kit 自带）
+  if [ "$DISTRO_FAMILY" = "debian" ]; then
+    pkg_install ca-certificates lsb-release software-properties-common gnupg dirmngr
+  else
+    pkg_install ca-certificates gnupg2 dnf-plugins-core cpio p11-kit-trust
+  fi
+
+  pkg_install \
           wget curl git unzip passwd vim \
           openssh-client openssh-server p11-kit openssl \
           build-essential pkg-config llvm \
@@ -171,16 +193,27 @@ installBase(){
 }
 
 initChineseEnv(){
+  detect_distro || return 1
   echo "init chinese env"
-  apt-get install -y --no-install-recommends \
+  # openEuler 侧由映射表译为 wqy-zenhei-fonts / wqy-microhei-fonts
+  # （这两个包在 openEuler 的 OS 源内，无需 EPOL）
+  pkg_install \
       fonts-wqy-zenhei \
       fonts-wqy-microhei \
       ttf-wqy-zenhei \
       ttf-wqy-microhei \
       locales
-  sed -i 's/^# *\(zh_CN.UTF-8\)/\1/' /etc/locale.gen
-  locale-gen
 
+  case "$DISTRO_FAMILY" in
+    debian)
+      sed -i 's/^# *\(zh_CN.UTF-8\)/\1/' /etc/locale.gen
+      locale-gen
+      ;;
+    rpm)
+      # openEuler 通过 glibc-all-langpacks 提供语言数据（见包名映射），
+      # 没有 locale.gen / locale-gen 这套两步机制，装完即可用
+      ;;
+  esac
 }
 
 addUser(){
@@ -192,10 +225,6 @@ addUser(){
   ensure_password SARMN_PASSWORD
   create_user sarmn "${SARMN_PASSWORD}" --sudo --sshkey
   unset SARMN_PASSWORD
-
-  create_user share               --sudo --sshkey
-  create_user hadoop              --sudo --sshkey
-  create_user mysql               --sudo --sshkey
 
 }
 

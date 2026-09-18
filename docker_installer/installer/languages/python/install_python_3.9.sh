@@ -27,11 +27,11 @@ download_python_package(){
   GNUPGHOME="$(mktemp -d)"; export GNUPGHOME
   tar --extract --directory ${INSTALL_PATH}/install --strip-components=1 --file python.tar.xz
   rm python.tar.xz
-  gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
+  gnuArch="$(build_triplet)"
 }
 
 make_install(){
-  buildArch="$(dpkg --print-architecture)"
+  buildArch="$(deb_arch)"
   PYTHON_PERF_FLAGS="--enable-optimizations --with-lto"
   if [ "$buildArch" = "arm64" ]; then
     echo "arm64 build detected, disabling PGO/LTO for better build stability"
@@ -49,8 +49,8 @@ make_install(){
     --without-ensurepip
 
   nproc="$(nproc)"
-  EXTRA_CFLAGS="$(dpkg-buildflags --get CFLAGS)"
-  LDFLAGS="$(dpkg-buildflags --get LDFLAGS)"
+  EXTRA_CFLAGS="$(build_cflags)"
+  LDFLAGS="$(build_ldflags)"
 	make -j "$nproc" \
 		"EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
 		"LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \

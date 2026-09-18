@@ -16,6 +16,14 @@ env:
 jobs:
   build-python3-15:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
@@ -50,14 +58,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.15
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.15
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.15
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-python3-15-ft:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
@@ -92,14 +109,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.15-ft
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.15-ft
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.15-ft
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-python3-14:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
@@ -128,14 +154,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.14
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.14
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.14
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-python3-14-ft:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
@@ -164,14 +199,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.14-ft
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.14-ft
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.14-ft
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-python3-13:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
@@ -200,14 +244,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.13
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.13
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.13
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-python3-13-ft:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
@@ -236,14 +289,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.13-ft
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.13-ft
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.13-ft
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-python3-12:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
@@ -272,14 +334,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.12
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.12
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.12
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-python3-11:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
@@ -308,14 +379,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.11
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.11
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.11
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-python3-10:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
@@ -344,14 +424,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/python3.10
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-python-3.10
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.10
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-miniconda3:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -369,7 +458,8 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/python/miniconda3
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-miniconda-3
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-miniconda-3
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}

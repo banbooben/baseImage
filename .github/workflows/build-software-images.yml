@@ -16,6 +16,14 @@ env:
 jobs:
   build-code-server:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -33,15 +41,24 @@ jobs:
           file: ./docker_installer/dockerfiles/software/backend/code-server
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:noble-code-server
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-code-server
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
           secrets: |
             CODE_SERVER_PASSWORD=${{ secrets.CODE_SERVER_PASSWORD }}
 
   build-docker:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -59,13 +76,22 @@ jobs:
           file: ./docker_installer/dockerfiles/software/backend/docker
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:noble-docker
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-docker
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   build-claude:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -83,13 +109,22 @@ jobs:
           file: ./docker_installer/dockerfiles/software/backend/claude
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:noble-claude
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-claude
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   build-openresty:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -107,13 +142,22 @@ jobs:
           file: ./docker_installer/dockerfiles/software/backend/openresty
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:noble-openresty
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-openresty
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   build-dbeaver:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -131,13 +175,22 @@ jobs:
           file: ./docker_installer/dockerfiles/software/desktop/dbeaver
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:noble-dbeaver
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-dbeaver
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   build-clash-verge:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -155,13 +208,22 @@ jobs:
           file: ./docker_installer/dockerfiles/software/desktop/clash-verge
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:noble-clash-verge
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-clash-verge
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   build-chrome:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -179,13 +241,22 @@ jobs:
           file: ./docker_installer/dockerfiles/software/desktop/chrome
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:noble-chrome
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-chrome
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   build-wps:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -203,13 +274,22 @@ jobs:
           file: ./docker_installer/dockerfiles/software/desktop/wps
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:noble-wps
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-wps
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   build-vscode:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -227,7 +307,8 @@ jobs:
           file: ./docker_installer/dockerfiles/software/desktop/vscode
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:noble-vscode
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-vscode
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}

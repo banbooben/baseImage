@@ -1,11 +1,14 @@
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
+# OS_TAG 产物标签后缀：本层与上游各层（base / language / software / middleware）
+#        的标签统一由它派生，例如 base:<OS_TAG>-desktop、language:<OS_TAG>-python-3.12
+ARG OS_TAG=noble
 
-FROM ${REGISTRY}/${NAMESPACE}/software:noble-code-server AS codeserver
-FROM ${REGISTRY}/${NAMESPACE}/language:noble-python-3.12 AS py312
+FROM ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-code-server AS codeserver
+FROM ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.14 AS py314
 
 
-FROM ${REGISTRY}/${NAMESPACE}/base:noble
+FROM ${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
 
 LABEL authors="sarmn"
 
@@ -18,7 +21,7 @@ ENV UV_LINK_MODE=copy
 ENV PATH=/deployment/software/code-server/bin:/deployment/bin:$PATH
 
 
-COPY --from=py312 /deployment/software/python /deployment/software/python
+COPY --from=py314 /deployment/software/python /deployment/software/python
 
 COPY --from=codeserver /deployment/software/code-server /deployment/software/code-server
 COPY --from=codeserver /etc/s6-overlay/s6-rc.d/code-server /etc/s6-overlay/s6-rc.d/code-server
@@ -28,7 +31,7 @@ COPY --from=codeserver /etc/s6-overlay/s6-rc.d/user/contents.d/code-server /etc/
 RUN mkdir -p /deployment/bin; \
     : > /etc/s6-overlay/s6-rc.d/user/contents.d/sshd; \
     ln -s /deployment/software/code-server/bin/code-server /deployment/bin/code-server; \
-    ln -s /deployment/software/python/bin/python3.12 /deployment/bin/python3; \
-    ln -s /deployment/software/python/bin/pip3.12 /deployment/bin/pip3
+    ln -s /deployment/software/python/bin/python3.14 /deployment/bin/python3; \
+    ln -s /deployment/software/python/bin/pip3.14 /deployment/bin/pip3
 
 ENTRYPOINT ["/init"]

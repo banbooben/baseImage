@@ -16,6 +16,14 @@ env:
 jobs:
   build-openjdk21:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest OpenJDK version
@@ -45,14 +53,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/java/openjdk-21
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-openjdk-21
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-openjdk-21
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             JAVA_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-openjdk24:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest OpenJDK version
@@ -82,14 +99,23 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/java/openjdk-24
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-openjdk-24
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-openjdk-24
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             JAVA_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-openjdk25:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest OpenJDK version
@@ -119,8 +145,9 @@ jobs:
           file: ./docker_installer/dockerfiles/languages/java/openjdk-25
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:noble-openjdk-25
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-openjdk-25
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
             JAVA_PIN_VERSION=${{ steps.version.outputs.version }}

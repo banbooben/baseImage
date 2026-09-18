@@ -1,12 +1,19 @@
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
-ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:noble-desktop
+# OS_TAG     产物标签后缀：base:<OS_TAG> / language:<OS_TAG>-python-3.12 …
+# BASE_IMAGE 上游 base 镜像（桌面链为 base:<OS_TAG>-desktop）。Ubuntu 与 openEuler
+#            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 installer/common.sh）
+ARG OS_TAG=noble
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}-desktop
 FROM ${BASE_IMAGE}
 
 LABEL authors="sarmn"
 
 ARG WPS_PIN_VERSION
 ARG WPS_DEB_URL
+# openEuler 侧用 rpm；WPS_PKG_URL 是两者通用的覆盖项，优先级最高
+ARG WPS_RPM_URL
+ARG WPS_PKG_URL
 
 COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
 COPY ./docker_installer/installer/software/desktop/install_wps.sh /tmp/install_wps.sh

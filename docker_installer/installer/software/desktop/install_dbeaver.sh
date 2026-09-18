@@ -104,16 +104,17 @@ link_into_dbeaver_maven_cache(){
 }
 
 installDeps(){
-  # noble-desktop 已有 gtk/X/gl/wqy 字体；仅补实测缺失项
+  # base-desktop 已有 gtk/X/gl/中文字体；仅补实测缺失项
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update
-  apt-get install -y --no-install-recommends libwebkit2gtk-4.1-0 at-spi2-core \
-    || apt-get install -y --no-install-recommends at-spi2-core || true
-  apt-get clean -y
-  rm -rf /var/lib/apt/lists/*
+  pkg_update
+  pkg_install libwebkit2gtk-4.1-0 at-spi2-core \
+    || pkg_install at-spi2-core || true
+  pkg_clean
 }
 
 installDBeaver(){
+  # DBeaver 官方 tar.gz 自带 JRE，deb/rpm 之外还有这个发行版中立的包，
+  # 两个发行版共用，无需按 DISTRO_FAMILY 分叉
   local archive="dbeaver-ce-${DBEAVER_VERSION}-linux-${TARGET_ARCH}.tar.gz"
   local url_gh="https://github.com/dbeaver/dbeaver/releases/download/${DBEAVER_VERSION}/${archive}"
   local url_io="https://dbeaver.io/files/${DBEAVER_VERSION}/${archive}"
@@ -263,7 +264,7 @@ EOF
   cat > "${INSTALL_PATH}/README.drivers.md" <<EOF
 # DBeaver layer (COPY-friendly)
 
-This image installs apt gaps (libwebkit2gtk-4.1-0, at-spi2-core) in-place.
+This image installs the missing runtime packages (libwebkit2gtk-4.1-0, at-spi2-core) in-place.
 If you only COPY the software tree into another image, install those packages there too.
 
 \`\`\`dockerfile

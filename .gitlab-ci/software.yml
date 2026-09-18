@@ -2,6 +2,13 @@
 
 code-server:
   extends: .manual_only
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   stage: software
   script:
     - echo "开始构建code-server镜像"
@@ -10,16 +17,24 @@ code-server:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/software:noble-code-server
+      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-code-server
       -f ./docker_installer/dockerfiles/software/backend/code-server
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --secret id=CODE_SERVER_PASSWORD,env=CODE_SERVER_PASSWORD
       --push
       .
 
 docker:
   extends: .manual_only
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   stage: software
   script:
     - echo "开始构建docker镜像"
@@ -28,15 +43,23 @@ docker:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/software:noble-docker
+      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-docker
       -f ./docker_installer/dockerfiles/software/backend/docker
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --push
       .
 
 openresty:
   extends: .manual_only
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   stage: software
   script:
     - echo "开始构建 OpenResty 镜像"
@@ -45,15 +68,23 @@ openresty:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/software:noble-openresty
+      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-openresty
       -f ./docker_installer/dockerfiles/software/backend/openresty
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --push
       .
 
 dbeaver:
   extends: .manual_only
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   stage: software
   script:
     - echo "开始构建 DBeaver 桌面镜像"
@@ -62,15 +93,23 @@ dbeaver:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/software:noble-dbeaver
+      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-dbeaver
       -f ./docker_installer/dockerfiles/software/desktop/dbeaver
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --push
       .
 
 clash-verge:
   extends: .manual_only
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   stage: software
   script:
     - echo "开始构建 Clash Verge 桌面镜像"
@@ -79,15 +118,24 @@ clash-verge:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/software:noble-clash-verge
+      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-clash-verge
       -f ./docker_installer/dockerfiles/software/desktop/clash-verge
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --push
       .
 
 chrome:
   extends: .manual_only
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # Ubuntu 侧是 PPA 的 chromium，openEuler 侧是 Google Chrome 官方 .rpm，
+  # 两边都发布 amd64 + arm64，故两个变体都是双架构。
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   stage: software
   script:
     - echo "开始构建 Chromium 镜像"
@@ -96,15 +144,23 @@ chrome:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/software:noble-chrome
+      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-chrome
       -f ./docker_installer/dockerfiles/software/desktop/chrome
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --push
       .
 
 wps:
   extends: .manual_only
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   stage: software
   script:
     - echo "开始构建 WPS 桌面镜像"
@@ -113,9 +169,10 @@ wps:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/software:noble-wps
+      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-wps
       -f ./docker_installer/dockerfiles/software/desktop/wps
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --push
       .

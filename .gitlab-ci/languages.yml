@@ -5,6 +5,13 @@
 python3.15:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建python3.15镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -23,10 +30,11 @@ python3.15:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.15
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.15
       -f ./docker_installer/dockerfiles/languages/python/python3.15
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -34,6 +42,13 @@ python3.15:
 python3.15-ft:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建python3.15-ft镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -52,10 +67,11 @@ python3.15-ft:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.15-ft
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.15-ft
       -f ./docker_installer/dockerfiles/languages/python/python3.15-ft
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -63,6 +79,13 @@ python3.15-ft:
 python3.14:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建python3.14镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -77,10 +100,11 @@ python3.14:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.14
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.14
       -f ./docker_installer/dockerfiles/languages/python/python3.14
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -89,6 +113,13 @@ python3.14:
 python3.14-ft:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建python3.14-ft镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -103,10 +134,11 @@ python3.14-ft:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.14-ft
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.14-ft
       -f ./docker_installer/dockerfiles/languages/python/python3.14-ft
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -115,6 +147,13 @@ python3.14-ft:
 python3.13-ft:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建python3.13-ft镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -129,10 +168,11 @@ python3.13-ft:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.13-ft
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.13-ft
       -f ./docker_installer/dockerfiles/languages/python/python3.13-ft
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -141,6 +181,13 @@ python3.13-ft:
 python3.13:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建python3.13镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -155,10 +202,11 @@ python3.13:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.13
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.13
       -f ./docker_installer/dockerfiles/languages/python/python3.13
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -167,6 +215,13 @@ python3.13:
 python3.12:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建python3.12镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -181,10 +236,11 @@ python3.12:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.12
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.12
       -f ./docker_installer/dockerfiles/languages/python/python3.12
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -193,6 +249,13 @@ python3.12:
 python3.11:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建python3.11镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -207,10 +270,11 @@ python3.11:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.11
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.11
       -f ./docker_installer/dockerfiles/languages/python/python3.11
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -219,6 +283,13 @@ python3.11:
 python3.10:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建python3.10镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -233,10 +304,11 @@ python3.10:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-python-3.10
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.10
       -f ./docker_installer/dockerfiles/languages/python/python3.10
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -245,6 +317,13 @@ python3.10:
 miniconda3:
   stage: languages-python
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建miniconda3镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -252,10 +331,11 @@ miniconda3:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-miniconda-3
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-miniconda-3
       -f ./docker_installer/dockerfiles/languages/python/miniconda3
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --push
       .
 
@@ -263,6 +343,13 @@ miniconda3:
 openjdk21:
   stage: languages-java
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建openjdk21镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -279,10 +366,11 @@ openjdk21:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk-21
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-21
       -f ./docker_installer/dockerfiles/languages/java/openjdk-21
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg JAVA_PIN_VERSION=$VERSION
       --push
       .
@@ -291,6 +379,13 @@ openjdk21:
 openjdk24:
   stage: languages-java
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建openjdk24镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -307,10 +402,11 @@ openjdk24:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk-24
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-24
       -f ./docker_installer/dockerfiles/languages/java/openjdk-24
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg JAVA_PIN_VERSION=$VERSION
       --push
       .
@@ -319,6 +415,13 @@ openjdk24:
 openjdk25:
   stage: languages-java
   extends: .schedule_languages
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
   script:
     - echo "开始构建openjdk25镜像"
     - cd $ROOT_PATH/${project_repo_name}
@@ -335,10 +438,11 @@ openjdk25:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:noble-openjdk-25
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-25
       -f ./docker_installer/dockerfiles/languages/java/openjdk-25
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
       --build-arg JAVA_PIN_VERSION=$VERSION
       --push
       .

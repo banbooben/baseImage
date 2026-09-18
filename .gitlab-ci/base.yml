@@ -1,17 +1,34 @@
 # 对应 .github/workflows/build-base-images.yml
-# Schedule：ubuntu → noble → noble-desktop（rules 非空 needs 覆盖）
+# Schedule：镜像同步 → base → base-desktop（rules 非空 needs 覆盖）
 # 手动：job 级 needs: []，不依赖其它作业/stage
+#
+# 两套发行版各两个 job（base / base-desktop）。这里不用 parallel:matrix：
+# desktop 变体的 needs 要指向同发行版的 base，矩阵展开后 job 名带 [xxx] 后缀，
+# needs 引用会很脆；四个 job 显式写出更清楚。
 
-# ubuntu-noble:
-#   extends: .schedule_base
-#   stage: base
-#   script:
-#     - echo "同步 docker.io/library/ubuntu:noble → ${REGISTRY}/${NAMESPACE}/ubuntu:noble"
-#     - >
-#       docker buildx imagetools create
-#       --tag ${REGISTRY}/${NAMESPACE}/ubuntu:noble
-#       docker.io/library/ubuntu:noble
-#     - docker buildx imagetools inspect ${REGISTRY}/${NAMESPACE}/ubuntu:noble
+ubuntu-noble:
+  extends: .schedule_base
+  stage: base
+  script:
+    - echo "同步 docker.io/library/ubuntu:noble → ${REGISTRY}/${NAMESPACE}/ubuntu:noble"
+    - >
+      docker buildx imagetools create
+      --tag ${REGISTRY}/${NAMESPACE}/ubuntu:noble
+      docker.io/library/ubuntu:noble
+    - docker buildx imagetools inspect ${REGISTRY}/${NAMESPACE}/ubuntu:noble
+
+# openEuler 官方镜像在 Docker Hub 与 quay.io 都有；Docker Hub 在部分网络下不可达，
+# 这里用 quay.io。24.03-lts 是原地更新的滚动 tag（amd64 + arm64 多架构 manifest）。
+openeuler-2403:
+  extends: .schedule_base
+  stage: base
+  script:
+    - echo "同步 quay.io/openeuler/openeuler:24.03-lts → ${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts"
+    - >
+      docker buildx imagetools create
+      --tag ${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts
+      quay.io/openeuler/openeuler:24.03-lts
+    - docker buildx imagetools inspect ${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts
 
 noble:
   stage: base
@@ -20,11 +37,9 @@ noble:
   needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "base"
-      # needs:
-      #   - ubuntu-noble
+      needs:
+        - ubuntu-noble
     - if: $CI_PIPELINE_SOURCE != "schedule"
-      # needs:
-      #   - ubuntu-noble
       when: manual
   script:
     - echo "开始构建基础镜像 ubuntu 24.04"
@@ -37,6 +52,7 @@ noble:
       -f ./docker_installer/dockerfiles/base/Dockerfile
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=noble
       --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD
       --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD
       --push
@@ -66,6 +82,65 @@ noble-desktop:
       -f ./docker_installer/dockerfiles/base/Dockerfile-desktop
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=noble
+      --secret id=VNC_PASSWORD,env=VNC_PASSWORD
+      --push
+      .
+
+openeuler:
+  stage: base
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "base"
+      needs:
+        - openeuler-2403
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      when: manual
+  script:
+    - echo "开始构建基础镜像 openEuler 24.03 LTS"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:openeuler-24.03
+      -f ./docker_installer/dockerfiles/base/Dockerfile
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=openeuler-24.03
+      --build-arg BASE_OS_IMAGE=${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts
+      --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD
+      --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD
+      --push
+      .
+
+openeuler-desktop:
+  stage: base
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "base"
+      needs:
+        - openeuler
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      needs:
+        - openeuler
+      when: manual
+  script:
+    - echo "开始构建基础镜像 openEuler 24.03 LTS desktop"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:openeuler-24.03-desktop
+      -f ./docker_installer/dockerfiles/base/Dockerfile-desktop
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=openeuler-24.03
       --secret id=VNC_PASSWORD,env=VNC_PASSWORD
       --push
       .

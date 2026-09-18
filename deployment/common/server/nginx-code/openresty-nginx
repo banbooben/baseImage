@@ -1,10 +1,13 @@
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
+# OS_TAG 产物标签后缀：本层与上游各层（base / language / software / middleware）
+#        的标签统一由它派生，例如 base:<OS_TAG>-desktop、language:<OS_TAG>-python-3.12
+ARG OS_TAG=noble
 
-FROM ${REGISTRY}/${NAMESPACE}/software:noble-code-server AS codeserver
+FROM ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-code-server AS codeserver
 
 # 以 OpenResty 镜像为基础（s6 自启动 openresty 已在该镜像内启用）
-FROM ${REGISTRY}/${NAMESPACE}/software:noble-openresty
+FROM ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-openresty
 
 LABEL authors="sarmn"
 

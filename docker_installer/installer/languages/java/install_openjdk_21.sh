@@ -1,7 +1,7 @@
 source /deployment/scripts/common.sh
 
 setEnv(){
-  export JAVA_HOME=/deployment/openjdk
+  export JAVA_HOME=/deployment/software/openjdk
   export PATH=${JAVA_HOME}/bin:$PATH
   export LANG=C.UTF-8
   export GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305
@@ -13,9 +13,9 @@ setEnv(){
 }
 
 download_and_install(){
-  apt-get update; \
-  apt-get install -y --no-install-recommends ca-certificates p11-kit
-	arch="$(dpkg --print-architecture)"; \
+  pkg_update; \
+  pkg_install ca-certificates p11-kit
+	arch="$(deb_arch)"; \
 	case "$arch" in \
 		'amd64') \
 			downloadUrl="https://download.oracle.com/java/${JDK_VERSION}/archive/jdk-${JDK_VERSION}_linux-x64_bin.tar.gz"; \
@@ -26,10 +26,8 @@ download_and_install(){
 		*) echo >&2 "error: unsupported architecture: '$arch'"; exit 1 ;; \
 	esac; \
 	\
-	savedAptMark="$(apt-mark showmanual)"; \
-	apt-get update; \
-	apt-get install -y --no-install-recommends wget; \
-	rm -rf /var/lib/apt/lists/*; \
+	# base 镜像已装 wget，且 endInstall 的 pkg_clean 统一收尾，
+	# 无需上游那套 apt-mark 记账 / purge（RHEL 系也没有这些命令）
 	wget --progress=dot:giga -O openjdk.tgz "$downloadUrl"; \
 	mkdir -p "$JAVA_HOME"; \
 	tar --extract \
@@ -40,17 +38,7 @@ download_and_install(){
 	; \
 	rm openjdk.tgz*; \
 	\
-	apt-mark auto '.*' > /dev/null; \
-	[ -z "$savedAptMark" ] || apt-mark manual $savedAptMark > /dev/null; \
-	apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
-	\
-	{ \
-		echo '#!/usr/bin/env bash'; \
-		echo 'set -Eeuo pipefail'; \
-		echo 'trust extract --overwrite --format=java-cacerts --filter=ca-anchors --purpose=server-auth "$JAVA_HOME/lib/security/cacerts"'; \
-	} > /etc/ca-certificates/update.d/docker-openjdk; \
-	chmod +x /etc/ca-certificates/update.d/docker-openjdk; \
-	/etc/ca-certificates/update.d/docker-openjdk; \
+	sync_java_cacerts '$JAVA_HOME/lib/security/cacerts'; \
 	find "$JAVA_HOME/lib" -name '*.so' -exec dirname '{}' ';' | sort -u > /etc/ld.so.conf.d/docker-openjdk.conf; \
 	ldconfig; \
 	java -Xshare:dump; \

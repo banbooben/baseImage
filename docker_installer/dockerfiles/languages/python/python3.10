@@ -1,6 +1,11 @@
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
-FROM ${REGISTRY}/${NAMESPACE}/base:noble as builder
+# OS_TAG     产物标签后缀：base:<OS_TAG> / language:<OS_TAG>-python-3.12 …
+# BASE_IMAGE 上游 base 镜像（桌面链为 base:<OS_TAG>-desktop）。Ubuntu 与 openEuler
+#            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 installer/common.sh）
+ARG OS_TAG=noble
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
+FROM ${BASE_IMAGE} as builder
 
 ARG PYTHON_PERF_FLAGS
 ARG PYTHON_PIN_VERSION
@@ -12,7 +17,7 @@ RUN set -eux ;\
     /bin/bash /tmp/install_python.sh ;\
     echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
 
-FROM ${REGISTRY}/${NAMESPACE}/base:noble
+FROM ${BASE_IMAGE}
 LABEL authors="sarmn"
 
 COPY --from=builder /deployment/software/python /deployment/software/python

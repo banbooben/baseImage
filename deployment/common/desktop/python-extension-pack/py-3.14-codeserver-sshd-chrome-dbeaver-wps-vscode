@@ -1,11 +1,14 @@
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
+# OS_TAG 产物标签后缀：本层与上游各层（base / language / software / middleware）
+#        的标签统一由它派生，例如 base:<OS_TAG>-desktop、language:<OS_TAG>-python-3.12
+ARG OS_TAG=noble
 
-FROM ${REGISTRY}/${NAMESPACE}/software:noble-code-server AS codeserver
-FROM ${REGISTRY}/${NAMESPACE}/language:noble-python-3.14 AS py314
+FROM ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-code-server AS codeserver
+FROM ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.14 AS py314
 
 
-FROM ${REGISTRY}/${NAMESPACE}/base:noble-desktop
+FROM ${REGISTRY}/${NAMESPACE}/base:${OS_TAG}-desktop
 
 LABEL authors="sarmn"
 
@@ -26,6 +29,9 @@ ARG MAVEN_CENTRAL_PRIMARY
 ARG MAVEN_CENTRAL_FALLBACK
 ARG WPS_PIN_VERSION
 ARG WPS_DEB_URL
+# openEuler 侧用 rpm；WPS_PKG_URL 是两者通用的覆盖项，优先级最高
+ARG WPS_RPM_URL
+ARG WPS_PKG_URL
 ARG VSCODE_PIN_VERSION
 
 # install chrome、 dbeaver、wps、vscode

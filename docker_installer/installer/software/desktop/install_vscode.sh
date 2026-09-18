@@ -2,7 +2,7 @@
 ###
  # Install VS Code under /deployment/software/vscode.
  # Layer layout (COPY-friendly):
- #   /deployment/software/vscode/                # extracted .deb (usr/bin, usr/share, ...)
+ #   /deployment/software/vscode/                # 解包后的包内容 (usr/bin, usr/share, ...)
  #   /deployment/software/vscode/extensions/     # 预装插件
  #   /deployment/bin/vscode                      # launcher
  #
@@ -16,19 +16,19 @@ check_target_arch(){
   case $ARCH in
       x86_64|amd64)
           TARGET_ARCH="x64"
-          DEB_ARCH="amd64"
+          PKG_ARCH="amd64"
           ;;
       aarch64|arm64)
           TARGET_ARCH="arm64"
-          DEB_ARCH="arm64"
+          PKG_ARCH="arm64"
           ;;
       *)
           echo "未知架构: $ARCH"
           exit 1
           ;;
   esac
-  export TARGET_ARCH DEB_ARCH
-  echo "目标架构: $TARGET_ARCH (deb=${DEB_ARCH})"
+  export TARGET_ARCH PKG_ARCH
+  echo "目标架构: $TARGET_ARCH (pkg=${PKG_ARCH})"
 }
 
 setEnv(){
@@ -46,8 +46,8 @@ setEnv(){
 
 installDeps(){
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update
-  apt-get install -y --no-install-recommends \
+  pkg_update
+  pkg_install \
     ca-certificates wget \
     libgtk-3-0 libx11-6 libxcb1 libxtst6 \
     libnss3 libnspr4 libgbm1 libasound2t64 \
@@ -55,15 +55,18 @@ installDeps(){
     libcups2 libdrm2 libxcomposite1 libxdamage1 libxrandr2 \
     libxkbcommon0 libpango-1.0-0 libcairo2 \
     xdg-utils
-  apt-get clean -y
-  rm -rf /var/lib/apt/lists/*
+  pkg_clean
 }
 
 installVscode(){
-  local archive="code_${VSCODE_VERSION}-*_${DEB_ARCH}.deb"
+  detect_distro || return 1
+  # 官方同时提供 deb / rpm，两种包装的都是同一份 /usr/share/code，
+  # 解包后目录结构一致，后续定位逻辑无需分叉
+  local pkg_kind="deb"
+  [ "$DISTRO_FAMILY" = "rpm" ] && pkg_kind="rpm"
   # VS Code 官方下载 URL（Microsoft 重定向）
-  local url="https://update.code.visualstudio.com/${VSCODE_VERSION}/linux-deb-${TARGET_ARCH}/stable"
-  local tmp="/tmp/vscode-${VSCODE_VERSION}_${DEB_ARCH}.deb"
+  local url="https://update.code.visualstudio.com/${VSCODE_VERSION}/linux-${pkg_kind}-${TARGET_ARCH}/stable"
+  local tmp="/tmp/vscode-${VSCODE_VERSION}_${PKG_ARCH}.${pkg_kind}"
   local extract_tmp="/tmp/vscode-extract"
 
   mkdir -p /deployment/software /deployment/bin
@@ -76,15 +79,15 @@ installVscode(){
     return 1
   }
 
-  # 解压 deb 到软件树，保持 COPY-friendly 布局
-  dpkg-deb -x "${tmp}" "${extract_tmp}"
+  # 解包到软件树，保持 COPY-friendly 布局
+  pkg_extract "${tmp}" "${extract_tmp}" || return 1
   rm -f "${tmp}"
 
   mkdir -p "${INSTALL_PATH}"
   if [ -d "${extract_tmp}/usr" ]; then
     mv "${extract_tmp}/usr" "${INSTALL_PATH}/usr"
   else
-    echo "Unexpected deb layout:" >&2
+    echo "Unexpected package layout:" >&2
     find "${extract_tmp}" -maxdepth 3 -print >&2
     return 1
   fi

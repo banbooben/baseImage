@@ -17,6 +17,14 @@ jobs:
   # ── Desktop: single Python 3.12 ───────────────────────────────────────
   build-desktop-python-312-ext:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
 
@@ -35,17 +43,26 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./deployment/noble/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
+          file: ./deployment/common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-desktop-python3.12-extension-pack
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python3.12-extension-pack
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   # ── Desktop: single Python 3.14 ───────────────────────────────────────
   build-desktop-python-314-ext:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
 
@@ -64,17 +81,26 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./deployment/noble/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
+          file: ./deployment/common/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-desktop-python3.14-extension-pack
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python3.14-extension-pack
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   # ── Server: single Python 3.12 ────────────────────────────────────────
   build-server-python-312-ext:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
 
@@ -93,17 +119,26 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./deployment/noble/server/python-extension-pack/py-3.12-codeserver-sshd
+          file: ./deployment/common/server/python-extension-pack/py-3.12-codeserver-sshd
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-server-python3.12-extension-pack
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-server-python3.12-extension-pack
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   # ── Server: OpenResty + code-server ───────────────────────────────────
   build-server-nginx-code:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
 
@@ -122,17 +157,26 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./deployment/noble/server/nginx-code/openresty-nginx
+          file: ./deployment/common/server/nginx-code/openresty-nginx
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-server-nginx-code
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-server-nginx-code
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
 
   # ── Server: single Python 3.14 ────────────────────────────────────────
   build-server-python-314-ext:
     runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
     steps:
       - uses: actions/checkout@v4
 
@@ -151,10 +195,11 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./deployment/noble/server/python-extension-pack/py-3.14-codeserver-sshd
+          file: ./deployment/common/server/python-extension-pack/py-3.14-codeserver-sshd
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:noble-server-python3.14-extension-pack
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-server-python3.14-extension-pack
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}

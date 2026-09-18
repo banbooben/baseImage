@@ -14,9 +14,21 @@ env:
   NAMESPACE: ${{ secrets.NAMESPACE }}
 
 jobs:
-  # 1. 同步官方 ubuntu:noble
-  sync-ubuntu:
+  # 1. 同步官方基础镜像（Ubuntu / openEuler）
+  #    openEuler 官方镜像在 Docker Hub 与 quay.io 都有，用 quay.io——
+  #    Docker Hub 在部分网络（含构建机）不可达。24.03-lts 是原地更新的滚动 tag。
+  sync-base-image:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-noble
+            target: ubuntu:noble
+            source: docker.io/library/ubuntu:noble
+          - name: openeuler-2403
+            target: openeuler:24.03-lts
+            source: quay.io/openeuler/openeuler:24.03-lts
     steps:
       - name: 设置 QEMU
         uses: docker/setup-qemu-action@v3
@@ -31,20 +43,29 @@ jobs:
           username: ${{ secrets.ALY_ARC_USERNAME }}
           password: ${{ secrets.ALY_ARC_PASSWORD }}
 
-      - name: 同步 ubuntu:noble
+      - name: 同步 ${{ matrix.target }}
         run: |
           docker buildx imagetools create \
-            --tag ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ubuntu:noble \
-            docker.io/library/ubuntu:noble
+            --tag ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ matrix.target }} \
+            ${{ matrix.source }}
 
       - name: 验证同步结果
         run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/ubuntu:noble
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ matrix.target }}
 
-  # 2. 构建 base:noble
+  # 2. 构建 base:<OS_TAG>
   build-base:
-    needs: sync-ubuntu
+    needs: sync-base-image
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 只放 <repo>:<tag> 后缀——strategy.matrix 求值时 env 上下文不可用
+          - os_tag: noble
+            base_os_image: ubuntu:noble
+          - os_tag: openeuler-24.03
+            base_os_image: openeuler:24.03-lts
     env:
       ROOT_PASSWORD: ${{ secrets.ROOT_PASSWORD }}
       SARMN_PASSWORD: ${{ secrets.SARMN_PASSWORD }}
@@ -65,14 +86,16 @@ jobs:
           username: ${{ secrets.ALY_ARC_USERNAME }}
           password: ${{ secrets.ALY_ARC_PASSWORD }}
 
-      - name: 构建 base:noble
+      - name: 构建 base:${{ matrix.os_tag }}
         run: |
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
-            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:noble \
+            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }} \
             -f ./docker_installer/dockerfiles/base/Dockerfile \
             --build-arg REGISTRY=${{ env.REGISTRY }} \
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
+            --build-arg OS_TAG=${{ matrix.os_tag }} \
+            --build-arg BASE_OS_IMAGE=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ matrix.base_os_image }} \
             --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
             --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD \
             --provenance=false \
@@ -80,10 +103,14 @@ jobs:
             --push \
             .
 
-  # 3. 构建 base:noble-desktop
+  # 3. 构建 base:<OS_TAG>-desktop
   build-base-desktop:
     needs: build-base
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag: [noble, openeuler-24.03]
     env:
       VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
     steps:
@@ -103,14 +130,15 @@ jobs:
           username: ${{ secrets.ALY_ARC_USERNAME }}
           password: ${{ secrets.ALY_ARC_PASSWORD }}
 
-      - name: 构建 base:noble-desktop
+      - name: 构建 base:${{ matrix.os_tag }}-desktop
         run: |
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
-            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:noble-desktop \
+            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-desktop \
             -f ./docker_installer/dockerfiles/base/Dockerfile-desktop \
             --build-arg REGISTRY=${{ env.REGISTRY }} \
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
+            --build-arg OS_TAG=${{ matrix.os_tag }} \
             --secret id=VNC_PASSWORD,env=VNC_PASSWORD \
             --provenance=false \
             --sbom=false \

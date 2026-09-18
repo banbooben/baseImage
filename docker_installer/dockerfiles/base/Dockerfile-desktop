@@ -1,6 +1,9 @@
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
-FROM ${REGISTRY}/${NAMESPACE}/base:noble
+# 见 Dockerfile 中同名参数的说明
+ARG OS_TAG=noble
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
+FROM ${BASE_IMAGE}
 
 LABEL authors="sarmn"
 

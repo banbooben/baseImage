@@ -8,7 +8,7 @@ setEnv(){
 }
 
 download_and_install(){
-  arch="$(dpkg --print-architecture)"
+  arch="$(deb_arch)"
   case "$arch" in
     amd64)
       installer="Miniconda3-latest-Linux-x86_64.sh"

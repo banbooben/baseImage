@@ -60,11 +60,10 @@ download_python_package(){
     wget -O redis.tar.gz ${REDIS_DOWNLOAD_URL} --no-check-certificate
     tar -xvf redis.tar.gz
     cd redis-${REDIS_VERSION}
-    gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
-    dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')"
-    dpkgArch="$(dpkg --print-architecture)"
+    gnuArch="$(build_triplet)"
+    targetArch="$(deb_arch)"
     extraJemallocConfigureFlags="--build=$gnuArch"
-    case "${dpkgArch##*-}" in \
+    case "${targetArch##*-}" in \
       amd64 | i386 | x32) extraJemallocConfigureFlags="$extraJemallocConfigureFlags --with-lg-page=12" ;; \
       *) extraJemallocConfigureFlags="$extraJemallocConfigureFlags --with-lg-page=16" ;; \
     esac; \

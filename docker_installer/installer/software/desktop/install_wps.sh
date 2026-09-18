@@ -2,13 +2,19 @@
 ###
  # Install WPS Office under /deployment/software/wps.
  # Layer layout (COPY-friendly):
- #   /deployment/software/wps/               # extracted .deb (opt/kingsoft/wps-office)
+ #   /deployment/software/wps/               # 解包后的包内容 (opt/office6)
  #   /deployment/bin/wps                     # launcher (wps/wpp/et)
  #
  # Upstream: https://www.wps.com/download/
- #   amd64: 官方主 CDN，持续更新最新版
- #   arm64: wdl1.cache.wps.cn（11.1.0.9719）
- # 版本通过 WPS_PIN_VERSION 或 WPS_DEB_URL 覆盖。
+ #   amd64 / x86_64: 官方主 CDN（11.1.0.11723.XA），持续更新最新版
+ #   arm64 / aarch64: wdl1.cache.wps.cn（11.1.0.9719）
+ # 版本通过 WPS_PIN_VERSION 覆盖；下载地址通过 WPS_PKG_URL（或历史变量
+ # WPS_DEB_URL / WPS_RPM_URL）覆盖。
+ #
+ # 发行版差异：
+ #   包格式不同（deb 用 `_amd64` 后缀，rpm 用 `-1.x86_64` 后缀），由 setEnv 选；
+ #   arm64 的 deb 不含中文 MUI 与字体，需从 amd64 deb 补（见 installWpsMuiAndFonts）；
+ #   arm64 的 rpm 本身已带全 zh_CN MUI 与字体，无需补。
 ###
 source /deployment/scripts/common.sh
 
@@ -17,86 +23,105 @@ check_target_arch(){
   case $ARCH in
       x86_64|amd64)
           TARGET_ARCH="x86_64"
-          DEB_ARCH="amd64"
           ;;
       aarch64|arm64)
           TARGET_ARCH="aarch64"
-          DEB_ARCH="arm64"
           ;;
       *)
           echo "WPS Office 不支持架构: $ARCH，跳过安装" >&2
           TARGET_ARCH=""
-          DEB_ARCH=""
           ;;
   esac
-  export TARGET_ARCH DEB_ARCH
+  export TARGET_ARCH
 }
 
 setEnv(){
   check_target_arch
+  detect_distro || return 1
   export DEBIAN_FRONTEND=noninteractive
   export INSTALL_PATH=/deployment/software/wps
 
-  if [ "${DEB_ARCH}" = "arm64" ]; then
+  # 包扩展名按发行版选；下面的下载地址随扩展名走
+  local pkg_ext="deb"
+  [ "$DISTRO_FAMILY" = "rpm" ] && pkg_ext="rpm"
+  WPS_PKG_EXT="${pkg_ext}"
+
+  local default_url=""
+  if [ "${TARGET_ARCH}" = "aarch64" ]; then
     # ARM64 个人版
     WPS_VERSION="${WPS_PIN_VERSION:-11.1.0.9719}"
-    WPS_DEB_URL="${WPS_DEB_URL:-https://wdl1.cache.wps.cn/wps/download/ep/Linux2019/9719/wps-office_${WPS_VERSION}_arm64.deb}"
+    if [ "$pkg_ext" = "deb" ]; then
+      default_url="https://wdl1.cache.wps.cn/wps/download/ep/Linux2019/9719/wps-office_${WPS_VERSION}_arm64.deb"
+    else
+      default_url="https://wdl1.cache.wps.cn/wps/download/ep/Linux2019/9719/wps-office-${WPS_VERSION}-1.aarch64.rpm"
+    fi
   else
     # amd64：官方主 CDN 最新版
     WPS_VERSION="${WPS_PIN_VERSION:-11.1.0.11723.XA}"
-    WPS_DEB_URL="${WPS_DEB_URL:-https://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/11723/wps-office_${WPS_VERSION}_amd64.deb}"
+    if [ "$pkg_ext" = "deb" ]; then
+      default_url="https://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/11723/wps-office_${WPS_VERSION}_amd64.deb"
+    else
+      default_url="https://wdl1.pcfg.cache.wpscdn.com/wpsdl/wpsoffice/download/linux/11723/wps-office-${WPS_VERSION}-1.x86_64.rpm"
+    fi
   fi
 
-  export WPS_VERSION WPS_DEB_URL
-  echo "Using WPS Office ${WPS_VERSION} (${DEB_ARCH})"
+  # WPS_PKG_URL 优先；WPS_DEB_URL / WPS_RPM_URL 是历史变量，继续兼容
+  WPS_PKG_URL="${WPS_PKG_URL:-${WPS_DEB_URL:-${WPS_RPM_URL:-${default_url}}}}"
+
+  export WPS_VERSION WPS_PKG_URL WPS_PKG_EXT
+  echo "Using WPS Office ${WPS_VERSION} (${TARGET_ARCH}, ${WPS_PKG_EXT})"
 }
 
 installDeps(){
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update
-  apt-get install -y --no-install-recommends \
+  pkg_update
+  pkg_install \
     ca-certificates wget \
     libqt5gui5 libqt5core5a libqt5widgets5 libqt5dbus5 \
     libxslt1.1 libgl1 libglib2.0-0 libfreetype6 \
     xdg-utils
-  apt-get clean -y
-  rm -rf /var/lib/apt/lists/*
+  pkg_clean
 }
 
 installWps(){
-  if [ -z "${TARGET_ARCH:-}" ] || [ -z "${DEB_ARCH:-}" ]; then
+  if [ -z "${TARGET_ARCH:-}" ]; then
     echo "当前架构不支持 WPS Office，跳过安装" >&2
     mkdir -p /deployment/software /deployment/bin
     return 0
   fi
 
-  local tmp="/tmp/wps-office_${WPS_VERSION}_${DEB_ARCH}.deb"
+  local tmp="/tmp/wps-office-${WPS_VERSION}.${WPS_PKG_EXT}"
   local extract_tmp="/tmp/wps-extract"
 
   mkdir -p /deployment/software /deployment/bin
-  rm -rf "${INSTALL_PATH}" "${extract_tmp}"
+  rm -rf "${INSTALL_PATH}" "${extract_tmp}" "${tmp}"
   mkdir -p "${extract_tmp}"
 
-  echo "Downloading WPS Office from ${WPS_DEB_URL}"
-  wget -q --timeout=300 -O "${tmp}" "${WPS_DEB_URL}" || {
-    echo "Failed to download WPS Office from ${WPS_DEB_URL}" >&2
+  echo "Downloading WPS Office from ${WPS_PKG_URL}"
+  # 该 CDN 会对 curl 默认 UA 返回 403，wget 正常
+  wget -q --timeout=300 -O "${tmp}" "${WPS_PKG_URL}" || {
+    echo "Failed to download WPS Office from ${WPS_PKG_URL}" >&2
     return 1
   }
 
-  # 解压 deb 到软件树，便于整层 COPY
-  dpkg-deb -x "${tmp}" "${extract_tmp}"
+  # 解包到软件树，便于整层 COPY（不装进系统路径）
+  pkg_extract "${tmp}" "${extract_tmp}" || {
+    echo "Failed to extract WPS Office package" >&2
+    rm -f "${tmp}"
+    return 1
+  }
   rm -f "${tmp}"
 
   mkdir -p "${INSTALL_PATH}"
   if [ -d "${extract_tmp}/opt/kingsoft/wps-office" ]; then
     mv "${extract_tmp}/opt/kingsoft/wps-office" "${INSTALL_PATH}/opt"
   else
-    echo "Unexpected deb layout:" >&2
+    echo "Unexpected package layout:" >&2
     find "${extract_tmp}" -maxdepth 3 -print >&2
     return 1
   fi
 
-  # ── WPS 字体（deb 内嵌时提取） ────────────────────────────────
+  # ── WPS 字体（包内嵌时提取） ──────────────────────────────────
   if [ -d "${extract_tmp}/usr/share/fonts/wps-office" ]; then
     mkdir -p /usr/share/fonts/wps-office
     cp -a "${extract_tmp}/usr/share/fonts/wps-office/." /usr/share/fonts/wps-office/
@@ -104,8 +129,9 @@ installWps(){
 
   rm -rf "${extract_tmp}"
 
-  # ── ARM64: 从同版本 amd64 deb 提取中文 MUI 和字体 ────────────
-  if [ "${DEB_ARCH}" = "arm64" ]; then
+  # ── ARM64 deb：补中文 MUI 和字体 ─────────────────────────────
+  # （rpm 版自带 mui/zh_CN，无需补）
+  if [ "${TARGET_ARCH}" = "aarch64" ] && [ "${WPS_PKG_EXT}" = "deb" ]; then
     installWpsMuiAndFonts
   fi
 
@@ -130,7 +156,8 @@ installWps(){
   write_cont_env WPS_BIN "${WPS_BIN}"
 }
 
-# ARM64 deb 不含中文 MUI 和字体，从同版本 amd64 deb 中提取（均为架构无关数据文件）
+# ARM64 deb 不含中文 MUI 和字体，从同版本 amd64 deb 中提取（均为架构无关数据文件）。
+# 仅 Debian 系需要：openEuler 的 aarch64 rpm 自带 mui/zh_CN 与 wps 字体。
 installWpsMuiAndFonts(){
   local amd64_url="https://wdl1.cache.wps.cn/wps/download/ep/Linux2019/9719/wps-office_${WPS_VERSION}_amd64.deb"
   local amd64_tmp="/tmp/wps-office_${WPS_VERSION}_amd64.deb"
@@ -150,7 +177,7 @@ installWpsMuiAndFonts(){
 
   rm -rf "${amd64_extract}"
   mkdir -p "${amd64_extract}"
-  dpkg-deb -x "${amd64_tmp}" "${amd64_extract}" || {
+  pkg_extract "${amd64_tmp}" "${amd64_extract}" || {
     echo "WARNING: Failed to extract amd64 WPS for MUI/fonts" >&2
     rm -rf "${amd64_tmp}" "${amd64_extract}"
     return 0
@@ -236,7 +263,7 @@ EOF
   cat > "${INSTALL_PATH}/README.md" <<EOF
 # WPS Office layer (COPY-friendly)
 
-Installed from official WPS download under \`${INSTALL_PATH}\`.
+Installed from official WPS download (${WPS_PKG_EXT}) under \`${INSTALL_PATH}\`.
 
 \`\`\`dockerfile
 COPY --from=<wps-image> /deployment/software/wps /deployment/software/wps
@@ -244,8 +271,8 @@ COPY --from=<wps-image> /deployment/bin/wps /deployment/bin/wps
 \`\`\`
 
 Supports amd64 + arm64.
-  amd64: 官方主 CDN（最新版）
-  arm64: wdl1.cache.wps.cn（11.1.0.9719）
+  amd64 / x86_64: 官方主 CDN（最新版，11.1.0.11723.XA）
+  arm64 / aarch64: wdl1.cache.wps.cn（11.1.0.9719）
 EOF
 
   chown -R sarmn:sarmn "${INSTALL_PATH}"

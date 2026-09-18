@@ -1,6 +1,11 @@
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
-FROM ${REGISTRY}/${NAMESPACE}/ubuntu:noble
+# OS_TAG        产物标签后缀：base:<OS_TAG>
+# BASE_OS_IMAGE 上游发行版基础镜像。Ubuntu 与 openEuler 的区别只在这里，
+#               安装脚本靠 /etc/os-release 自行分派（见 installer/common.sh）
+ARG OS_TAG=noble
+ARG BASE_OS_IMAGE=${REGISTRY}/${NAMESPACE}/ubuntu:noble
+FROM ${BASE_OS_IMAGE}
 LABEL authors="sarmn"
 
 # ENV PATH=/deployment/bin:$PATH

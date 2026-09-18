@@ -1,7 +1,7 @@
 source /deployment/scripts/common.sh
 
 setEnv(){
-  export JAVA_HOME=/deployment/openjdk
+  export JAVA_HOME=/deployment/software/openjdk
   export PATH=${JAVA_HOME}/bin:$PATH
   export LANG=C.UTF-8
   export JDK_VERSION=24
@@ -12,9 +12,9 @@ setEnv(){
 }
 
 download_and_install(){
-  apt-get update; \
-  apt-get install -y --no-install-recommends ca-certificates p11-kit
-	arch="$(dpkg --print-architecture)"; \
+  pkg_update; \
+  pkg_install ca-certificates p11-kit
+	arch="$(deb_arch)"; \
 	case "$arch" in \
 		'amd64') \
 			downloadUrl="https://download.oracle.com/java/${JDK_VERSION}/archive/jdk-${JDK_VERSION}_linux-x64_bin.tar.gz"; \
@@ -35,13 +35,7 @@ download_and_install(){
 	; \
 	rm openjdk.tgz*; \
 	\
-	{ \
-		echo '#!/usr/bin/env bash'; \
-		echo 'set -Eeuo pipefail'; \
-		echo 'trust extract --overwrite --format=java-cacerts --filter=ca-anchors --purpose=server-auth "$JAVA_HOME/lib/security/cacerts"'; \
-	} > /etc/ca-certificates/update.d/docker-openjdk; \
-	chmod +x /etc/ca-certificates/update.d/docker-openjdk; \
-	/etc/ca-certificates/update.d/docker-openjdk; \
+	sync_java_cacerts '$JAVA_HOME/lib/security/cacerts'; \
 	\
 	find "$JAVA_HOME/lib" -name '*.so' -exec dirname '{}' ';' | sort -u > /etc/ld.so.conf.d/docker-openjdk.conf; \
 	ldconfig; \

@@ -8,11 +8,11 @@ setEnv() {
 }
 
 installDesktop() {
+  detect_distro || return 1
   echo "Installing RDP server..."
 
-  # 安装 xrdp
-  apt-get update
-  apt-get install --no-install-recommends -y \
+  pkg_update
+  pkg_install \
       tightvncserver \
       tigervnc-standalone-server \
       tigervnc-common \
@@ -27,7 +27,7 @@ installDesktop() {
       fcitx5-module-cloudpinyin \
       python3-numpy
 
-  apt-get install -y --no-install-recommends build-essential libssl-dev zlib1g-dev libbz2-dev \
+  pkg_install build-essential libssl-dev zlib1g-dev libbz2-dev \
           libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
           xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
   mkdir -p /deployment/accounts/sarmn/.vnc
@@ -35,13 +35,33 @@ installDesktop() {
   echo "${VNC_PASSWORD}" | vncpasswd -f > /deployment/accounts/sarmn/.vnc/passwd
   unset VNC_PASSWORD
   chmod 600 /deployment/accounts/sarmn/.vnc/passwd
-  # vncconfig：VNC 协议剪贴板 <-> X11；autocutsel：PRIMARY/CLIPBOARD 互通（终端选中复制）
-  cat > /deployment/accounts/sarmn/.vnc/xstartup << 'XSTARTUP'
+  # 剪贴板与输入法的守护进程按发行版区分：
+  #   Debian   autocutsel 做 PRIMARY/CLIPBOARD 互通；fcitx5 带 GTK/Qt 模块
+  #   openEuler 无 autocutsel（改用 xfce4-clipman，已在 xfce4-goodies 内）；
+  #             只有 fcitx4 且无 GTK immodule，GTK/Qt 都退回 XIM
+  local clipboard_daemons im_env fcitx_daemon
+  if [ "$DISTRO_FAMILY" = "debian" ]; then
+    clipboard_daemons='autocutsel -fork
+autocutsel -selection PRIMARY -fork'
+    im_env='export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx'
+    fcitx_daemon='fcitx5 -d --verbose 2>/dev/null || true'
+  else
+    clipboard_daemons='# 剪贴板同步由 xfce4-clipman（面板插件）负责'
+    im_env='export GTK_IM_MODULE=xim
+export QT_IM_MODULE=xim'
+    fcitx_daemon='fcitx -d 2>/dev/null || true'
+  fi
+
+  # vncconfig：VNC 协议剪贴板 <-> X11
+  {
+  cat << 'XSTARTUP_HEAD'
 #!/bin/sh
 unset SESSION_MANAGER
 vncconfig -nowin &
-autocutsel -fork
-autocutsel -selection PRIMARY -fork
+XSTARTUP_HEAD
+  printf '%s\n' "$clipboard_daemons"
+  cat << 'XSTARTUP_BODY'
 
 # ── D-Bus session bus ────────────────────────────────────────
 # 显式启动 dbus-daemon 并保存地址，供 s6 服务（如 clash-verge）读取
@@ -52,8 +72,9 @@ echo "${DBUS_SESSION_BUS_ADDRESS}" > /tmp/.dbus-session-address
 chmod 644 /tmp/.dbus-session-address
 
 # ── 输入法环境变量 ──────────────────────────────────────────
-export GTK_IM_MODULE=fcitx
-export QT_IM_MODULE=fcitx
+XSTARTUP_BODY
+  printf '%s\n' "$im_env"
+  cat << 'XSTARTUP_TAIL'
 export XMODIFIERS=@im=fcitx
 export SDL_IM_MODULE=fcitx
 
@@ -66,11 +87,11 @@ if [ -r /tmp/container-env ]; then
   done < /tmp/container-env
 fi
 
-# 启动 fcitx5 输入法守护进程
-fcitx5 -d --verbose 2>/dev/null || true
-
-exec startxfce4
-XSTARTUP
+# 启动输入法守护进程
+XSTARTUP_TAIL
+  printf '%s\n' "$fcitx_daemon"
+  printf '\nexec startxfce4\n'
+  } > /deployment/accounts/sarmn/.vnc/xstartup
 
   chmod +x /deployment/accounts/sarmn/.vnc/xstartup
 
@@ -226,12 +247,16 @@ EOF
 
 
 initInputMethodConfig(){
-  # ── fcitx5 默认配置：英文键盘 + 中文拼音，Ctrl+Space 切换 ──
-  local fcitx5_conf="/deployment/accounts/sarmn/.config/fcitx5"
-  mkdir -p "${fcitx5_conf}/conf" "${fcitx5_conf}/profile"
+  detect_distro || return 1
+  local cfg_root="/deployment/accounts/sarmn/.config"
 
-  # profile：输入法列表（keyboard-us + pinyin）
-  cat > "${fcitx5_conf}/profile" <<'FCITX5_PROFILE'
+  if [ "$DISTRO_FAMILY" = "debian" ]; then
+    # ── fcitx5 默认配置：英文键盘 + 中文拼音，Ctrl+Space 切换 ──
+    local fcitx5_conf="${cfg_root}/fcitx5"
+    mkdir -p "${fcitx5_conf}/conf" "${fcitx5_conf}/profile"
+
+    # profile：输入法列表（keyboard-us + pinyin）
+    cat > "${fcitx5_conf}/profile" <<'FCITX5_PROFILE'
 [Groups/0]
 Name=Default
 Default Layout=us
@@ -252,17 +277,45 @@ Layout=
 EnabledIMList=pinyin,keyboard-us
 FCITX5_PROFILE
 
-  # 候选项数 & 云拼音（可选，依赖 fcitx5-module-cloudpinyin）
-  cat > "${fcitx5_conf}/conf/classicui.conf" <<'FCITX5_UI'
+    # 候选项数 & 云拼音（可选，依赖 fcitx5-module-cloudpinyin）
+    cat > "${fcitx5_conf}/conf/classicui.conf" <<'FCITX5_UI'
 Vertical Candidate List=False
 PerScreenDPI=True
 Font="Sans Serif 11"
 MenuFont="Sans Serif 11"
 TrayFont="Sans Serif 11"
 FCITX5_UI
+  else
+    # ── fcitx4 默认配置 ──
+    # openEuler 只有 fcitx 4.2.9，配置文件格式与 fcitx5 完全不同：
+    #   profile  输入法列表（EnabledIMList 的每项形如 name:True）
+    #   config   全局开关，TriggerKey 默认即为 Ctrl+Space，此处显式写明
+    local fcitx4_conf="${cfg_root}/fcitx"
+    mkdir -p "${fcitx4_conf}/conf"
 
-  chown -R sarmn:sarmn "/deployment/accounts/sarmn/.config"
-  echo "fcitx5 input method configured (pinyin, Ctrl+Space toggle)"
+    cat > "${fcitx4_conf}/profile" <<'FCITX4_PROFILE'
+[Profile]
+EnabledIMList=pinyin:True,keyboard-us:True,
+DefaultIM=pinyin
+FCITX4_PROFILE
+
+    cat > "${fcitx4_conf}/config" <<'FCITX4_CONFIG'
+[Hotkey]
+TriggerKey=CTRL_SPACE
+FCITX4_CONFIG
+
+    # 经典界面：竖排候选、字号（无 fcitx5 的 PerScreenDPI，交由 Xft 默认 DPI）
+    cat > "${fcitx4_conf}/conf/fcitx-classic-ui.config" <<'FCITX4_UI'
+[ClassicUI]
+VerticalCandidateList=False
+Font="Sans Serif 11"
+MenuFont="Sans Serif 11"
+TrayFont="Sans Serif 11"
+FCITX4_UI
+  fi
+
+  chown -R sarmn:sarmn "${cfg_root}"
+  echo "input method configured (pinyin, Ctrl+Space toggle)"
 }
 
 source /deployment/scripts/common.sh
