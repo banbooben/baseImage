@@ -9,6 +9,9 @@ FROM ${BASE_IMAGE}
 
 LABEL authors="sarmn"
 
+ARG BUILDX_PIN_VERSION
+ARG COMPOSE_PIN_VERSION
+
 COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
 COPY ./docker_installer/installer/software/backend/install_docker.sh /tmp/install_docker.sh
 RUN set -eux; \

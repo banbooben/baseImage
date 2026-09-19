@@ -7,6 +7,8 @@ ARG OS_TAG=noble
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
 FROM ${BASE_IMAGE} as builder
 
+ARG CODE_SERVER_PIN_VERSION
+
 COPY ./docker_installer/installer/common.sh /deployment/scripts/common.sh
 COPY ./docker_installer/installer/software/backend/install_code_server.sh /tmp/install_code_server.sh
 

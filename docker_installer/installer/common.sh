@@ -525,6 +525,54 @@ _installer_http_get() {
   fi
 }
 
+# 排障用：版本解析失败时把真实原因打出来。
+# 原先调用方把 stderr 丢给 /dev/null，只留一句 "Failed to resolve"，于是
+# 「DNS 解析不了」「连接被重置」「403 限流」「真的 404」在日志里长得一模一样。
+# 一次 curl 同时取状态码、耗时与响应体开头，不额外增加请求。
+# http_code=000 表示请求根本没发出去（DNS/连接层就失败了）。
+_installer_http_probe() {
+  local url="$1"
+  local tmp meta rc
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "  [探测] curl 不存在，无法继续定位；wget 只承担正文抓取，请检查镜像里的 curl" >&2
+    return 0
+  fi
+
+  tmp="$(mktemp)"
+  meta="$(curl -sS --max-time 10 -o "$tmp" -w '%{http_code} %{time_total}s' "$url" 2>/dev/null)"
+  rc=$?
+  echo "  [探测] ${url}" >&2
+  echo "  [探测] curl 退出码=${rc} http_code/耗时=${meta:-?}" >&2
+  echo "  [探测] 响应体开头: $(head -c 200 "$tmp" 2>/dev/null)" >&2
+  rm -f "$tmp"
+}
+
+# 绕开 api.github.com 取最新 tag：读 /releases/latest 的 302 Location。
+# 匿名 GitHub API 限流是 60 次/小时/IP，而 CI 用的是共享出口 IP，本仓库
+# 7 个 installer × 两个架构连着构建，很容易打满，之后每个都拿到 403。
+# github.com 这个域名本来就是下载 tarball 必须用到的，能构建就一定能到达，
+# 因此这条路不受 API 限流影响。
+_github_latest_tag_via_redirect() {
+  local repo="$1"
+  local url tag
+
+  command -v curl >/dev/null 2>&1 || return 1
+
+  # --max-time 给短一点：autoExecuteFunc 会重试 5 次，这条路黑掉时
+  # 每次都要把超时耗满，20s × 5 是白等
+  url="$(curl -sS -o /dev/null --max-time 8 -w '%{redirect_url}' \
+        "https://github.com/${repo}/releases/latest" 2>/dev/null)" || return 1
+
+  case "$url" in
+    */releases/tag/*) tag="${url##*/releases/tag/}" ;;
+    *) return 1 ;;
+  esac
+
+  [ -n "$tag" ] || return 1
+  printf '%s\n' "${tag#v}"
+}
+
 # Resolve latest patch for a Python series (e.g. 3.12 -> 3.12.13).
 # Override with PYTHON_PIN_VERSION=3.12.10 to pin a specific release.
 resolve_python_latest_version() {
@@ -637,8 +685,14 @@ resolve_github_latest_tag() {
     | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\?\([^"]*\)".*/\1/p' \
     | head -n 1)"
 
+  # API 拿不到（限流 403 最常见）就换 302 Location 再试一次，两条路互不依赖
+  if [ -z "$latest" ]; then
+    latest="$(_github_latest_tag_via_redirect "$repo")" || latest=""
+  fi
+
   if [ -z "$latest" ]; then
     echo "Failed to resolve latest GitHub release for ${repo}" >&2
+    _installer_http_probe "https://api.github.com/repos/${repo}/releases/latest"
     return 1
   fi
 
