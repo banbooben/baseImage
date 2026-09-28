@@ -142,9 +142,29 @@
 
 ### deployment 镜像
 
-deployment 镜像在 software/language 分层基础上组合为**开箱即用**的场景镜像。CI 每周日构建，
-UTC 18:00 起 base，20:00 起 language / middleware / software，22:00 起 deployment
-（即北京时间周一 02:00 / 04:00 / 06:00），按层序错开。
+deployment 镜像在 software/language 分层基础上组合为**开箱即用**的场景镜像。
+
+CI 由 `.github/workflows/build-all.yml` 每周日 UTC 18:00（北京时间周一 02:00）触发**整条依赖链**。
+层序由 `needs:` 表达：上游 workflow 内**全部 job 成功**才触发下一层，任一层失败则下游不产出。
+
+```text
+base ─┬─ python ────┐
+      ├─ java       │
+      ├─ middleware │
+      └─ software ──┘
+           └─────────┴─→ deployment（needs: base, python, software）
+```
+
+deployment 的 5 个 Dockerfile 只 `FROM` base / language(python) / software 三者的产物，
+不消费 java 与 middleware，所以它不 gate 在那两者上 —— 它们照常并行构建。
+
+**不再按时间错峰。** 旧方案是 3.5 小时间隔（base 18:00 → 语言/中间件/软件 21:30 →
+deployment 次日 01:00），错峰要求"上一层整套构建+推送的耗时 < 固定间隔"，而耗时随版本、
+QEMU、网络波动：一旦某次变慢，后一层拉到的仍是上周推上去的同名 tag，会**静默**产出
+跨周混合的镜像（这周的 base + 上周的 python）且不报错。改用 `needs:` 后顺序是确定性的，
+层与层之间也没有空等。
+
+单层重建：手动触发（`workflow_dispatch`）对应的 `build-<层>-images.yml`；整链重跑：手动触发 `build-all.yml`。
 
 **桌面开发环境**（基于 `base:<os>-desktop`，含 Xfce + Chrome + DBeaver + WPS + VS Code + code-server + SSH）
 

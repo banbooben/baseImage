@@ -1,0 +1,69 @@
+name: 定时构建全部镜像
+
+# 全部镜像的唯一定时入口。层序由 needs: 表达（状态依赖），不再靠 cron 时间错峰。
+#
+# 为什么不再错峰：错峰要求"上一层整套构建+推送的耗时 < 固定间隔"，而耗时随版本、
+# QEMU、网络波动。一旦某次变慢，后一层 FROM / COPY --from 拉到的还是上周推上去的
+# 同名 tag，会**静默**产出跨周混合的镜像（这周的 base + 上周的 python）且不报错。
+# 用 needs: 后，上游全部 job 成功才触发下游，顺序是确定性的，也没有空等。
+#
+# 层次：
+#   base ─┬─ python ──┐
+#         ├─ java     │
+#         ├─ middleware
+#         └─ software ┘
+#              └────────┴─→ deployment（needs: base, python, software）
+
+on:
+  schedule:
+    # 每周日 UTC 18:00（北京时间周一 02:00）触发整条链。
+    # 这里只需一条 cron——各层之间不再靠时间错开。
+    - cron: '0 18 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 手动重跑时不与正在跑的链并发推同一批 tag。
+# cancel-in-progress: false —— 不取消进行中的构建（一条链可能已跑很久），排队等它结束。
+concurrency:
+  group: build-all
+  cancel-in-progress: false
+
+jobs:
+  # ── 第 1 层 ───────────────────────────────────────────────────────────
+  # 同步上游官方镜像 → base:<os> → base:<os>-desktop
+  base:
+    uses: ./.github/workflows/build-base-images.yml
+    secrets: inherit
+
+  # ── 第 2 层：四者并行，都只依赖 base ─────────────────────────────────
+  python:
+    needs: base
+    uses: ./.github/workflows/build-python-images.yml
+    secrets: inherit
+
+  java:
+    needs: base
+    uses: ./.github/workflows/build-java-images.yml
+    secrets: inherit
+
+  middleware:
+    needs: base
+    uses: ./.github/workflows/build-middleware-images.yml
+    secrets: inherit
+
+  software:
+    needs: base
+    uses: ./.github/workflows/build-software-images.yml
+    secrets: inherit
+
+  # ── 第 3 层 ───────────────────────────────────────────────────────────
+  # deployment 的 5 个 Dockerfile 只 FROM base / language(python) / software
+  # 三者的产物，不消费 java 与 middleware —— 所以本层不 gate 在那两者上，
+  # 它们照常并行构建，失败也不会挡住 deployment。
+  # needs 里显式列出 base 是被 python/software 传递蕴含的，写出来用于自我说明。
+  deployment:
+    needs: [base, python, software]
+    uses: ./.github/workflows/build-deployment-images.yml
+    secrets: inherit

@@ -1,9 +1,10 @@
 name: 构建软件镜像
 
 on:
-  schedule:
-    # 每周日 UTC 20:00（周一凌晨 04:00 北京时间），在 base 镜像构建之后
-    - cron: '0 20 * * 0'
+  # 由 build-all.yml 经 workflow_call 编排，上游是 base（由 build-all.yml 的
+  # needs: 保证 base 全部 job 成功后才调用本文件）。
+  workflow_call:
+  # 保留手动入口：单层重建直接 dispatch 本文件，不必跑整条链。
   workflow_dispatch:
 
 permissions:
