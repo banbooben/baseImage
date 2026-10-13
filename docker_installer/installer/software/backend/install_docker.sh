@@ -4,8 +4,13 @@ source /deployment/scripts/common.sh
 # Install latest docker (no major series pin).
 #
 #   Debian 系：Docker 官方 apt 源（docker-ce + buildx/compose 插件）
-#   openEuler：发行版自带 moby-engine。注意不要选 docker-engine——它仍停在
-#              18.09（2018 年），openEuler 24.03 里 moby-engine 才是 25.x。
+#   openEuler：发行版把 daemon 和 CLI 拆成了两个包——
+#                moby-engine 只有 dockerd / docker-init，
+#                docker 命令在 moby-client 里（24.03-LTS update 源，两者都是 25.0.3）。
+#              只装 moby-engine 会得到 `docker: command not found`（buildx/compose
+#              插件的校验也会跟着失败），所以这两个包必须一起装。
+#              换成 docker-engine 也不行：25.0.3 的 docker-engine 同样只有
+#              dockerd + docker-proxy，自带全部 CLI 的是 18.09（2018 年）那版。
 #              发行版不提供 buildx / compose v2 插件，取上游静态二进制补齐。
 
 # docker CLI 插件的系统级搜索路径（docker 会依次查找这几处）
@@ -86,13 +91,22 @@ installDocker(){
   if [ "$DISTRO_FAMILY" = "debian" ]; then
     install_docker_apt
   else
+    # moby-engine 提供 dockerd、moby-client 提供 docker 命令，少装哪个都不完整；
     # containerd 由 moby-engine 依赖带入，显式列出以固定版本来源
-    pkg_install moby-engine containerd
-    install_cli_plugins
+    pkg_install moby-engine moby-client containerd
   fi
 
+  # 先确认 CLI 在不在：缺了它后面 buildx/compose 只会报 "command not found"，
+  # 看不出是包装少了
+  command -v docker >/dev/null 2>&1 || {
+    echo "docker 命令不存在（openEuler 需同时安装 moby-client）" >&2
+    return 1
+  }
   docker --version || return 1
   dockerd --version || return 1
+
+  # buildx / compose 插件在发行版源里没有，装上后必须能跑通才算完成
+  [ "$DISTRO_FAMILY" = "debian" ] || install_cli_plugins
 }
 
 autoExecuteFunc installDocker initConfigFile
