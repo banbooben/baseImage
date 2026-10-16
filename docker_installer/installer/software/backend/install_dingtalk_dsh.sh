@@ -180,6 +180,12 @@ installDeps(){
 
   echo "Node.js $(node --version) installed"
 
+  # npm 全局 prefix：官方 tarball 解到 /usr/local/lib/nodejs 后，npm 会把默认 prefix
+  # 推导成 /usr/local/lib/nodejs，导致 `npm i -g` 的 bin（dws/dsh/pnpm）落到
+  # /usr/local/lib/nodejs/bin —— 该目录不在构建期 PATH 上，装完 `dws` 会 command not found。
+  # 显式钉回 /usr/local，让 global bin 进 /usr/local/bin（与上面 node/npm/npx 软链一致）。
+  npm config set prefix /usr/local || return 1
+
   # npm 源 + pnpm（dsh plugin add 内部依赖 pnpm 解析/安装插件包）
   npm config set registry "${NPM_REGISTRY}" || return 1
   npm install -g pnpm --registry="${NPM_REGISTRY}" || return 1
