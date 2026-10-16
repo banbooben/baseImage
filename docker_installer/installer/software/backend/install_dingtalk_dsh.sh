@@ -190,9 +190,11 @@ installDeps(){
 installDws(){
   mkdir -p /deployment/bin
 
-  local install_cmd="npm install -g dingtalk-workspace-cli --registry=${NPM_REGISTRY}"
+  # npm 12 起默认禁用 install 脚本（postinstall 等），必须 --allow-scripts 放行，
+  # 否则 dingtalk-workspace-cli 的 postinstall(node install.js) 被拦截，dws 二进制不会生成。
+  local install_cmd="npm install -g dingtalk-workspace-cli --allow-scripts=dingtalk-workspace-cli --registry=${NPM_REGISTRY}"
   if [ -n "${DWS_PIN_VERSION}" ]; then
-    install_cmd="npm install -g dingtalk-workspace-cli@${DWS_PIN_VERSION} --registry=${NPM_REGISTRY}"
+    install_cmd="npm install -g dingtalk-workspace-cli@${DWS_PIN_VERSION} --allow-scripts=dingtalk-workspace-cli --registry=${NPM_REGISTRY}"
   fi
 
   echo "Installing: ${install_cmd}"
@@ -210,7 +212,7 @@ installDws(){
 }
 
 installDsh(){
-  local install_cmd="npm install -g @deepseek-ai/dsh@${DSH_PIN_VERSION} --registry=${NPM_REGISTRY}"
+  local install_cmd="npm install -g @deepseek-ai/dsh@${DSH_PIN_VERSION} --allow-scripts=@deepseek-ai/dsh --registry=${NPM_REGISTRY}"
 
   echo "Installing: ${install_cmd}"
   ${install_cmd} || { echo "Failed to install DSH (@deepseek-ai/dsh@${DSH_PIN_VERSION})" >&2; return 1; }

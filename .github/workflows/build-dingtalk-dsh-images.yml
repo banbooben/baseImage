@@ -1,0 +1,132 @@
+name: 构建钉钉数字同事镜像
+
+# 钉钉数字同事（DWS + DSH + 钉钉插件）独立构建入口 —— 单独重建这一组镜像，
+# 不必跑完整条 base → language → software → deployment 链。
+#
+# 与分层 workflow 的关系：这三个 job 分别是 build-software-images.yml 里的
+# `build-dingtalk-dsh`（backend）、以及 build-deployment-images.yml 里的两个
+# `build-desktop-python-3.1x-ext-dingtalk-dsh` 的副本。单独放这里，是为了迭代
+# 安装脚本（install_dingtalk_dsh.sh）时能一键只重建 dingtalk-dsh 相关镜像。
+#
+# 前置条件（先已推送的产物，本 workflow 不再构建）：
+#   - backend 版 FROM base:<os>            —— 由 build-base-images.yml 产出
+#   - desktop 版 FROM deployment:<os>-desktop-python3.12/3.14-extension-pack
+#                                          —— 由 build-deployment-images.yml 产出
+
+on:
+  workflow_dispatch:
+    inputs:
+      dsh_version:
+        description: 'DSH 版本（@deepseek-ai/dsh 的 pin 版本）'
+        required: false
+        default: '0.1.2-rc.1'
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ${{ secrets.REGISTRY }}
+  NAMESPACE: ${{ secrets.NAMESPACE }}
+
+jobs:
+  # ── backend 版 software:<os>-dingtalk-dsh ──────────────────────────────
+  build-dingtalk-dsh-backend:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+      - uses: docker/build-push-action@v5
+        with:
+          provenance: false
+          sbom: false
+          context: .
+          file: ./docker_installer/dockerfiles/software/backend/dingtalk-dsh
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-dingtalk-dsh
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
+            NPM_REGISTRY=https://registry.npmmirror.com
+            DSH_PIN_VERSION=${{ inputs.dsh_version }}
+
+  # ── desktop 版（基于 Python 3.12 extension-pack）──────────────────────
+  build-desktop-python-312-ext-dingtalk-dsh:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+      - uses: docker/build-push-action@v5
+        with:
+          provenance: false
+          sbom: false
+          context: .
+          file: ./deployment/common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python3.12-extension-pack-dingtalk-dsh
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
+            NPM_REGISTRY=https://registry.npmmirror.com
+            DSH_PIN_VERSION=${{ inputs.dsh_version }}
+
+  # ── desktop 版（基于 Python 3.14 extension-pack）──────────────────────
+  build-desktop-python-314-ext-dingtalk-dsh:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+      - uses: docker/build-push-action@v5
+        with:
+          provenance: false
+          sbom: false
+          context: .
+          file: ./deployment/common/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python3.14-extension-pack-dingtalk-dsh
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
+            NPM_REGISTRY=https://registry.npmmirror.com
+            DSH_PIN_VERSION=${{ inputs.dsh_version }}
