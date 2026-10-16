@@ -3,10 +3,12 @@ name: 构建钉钉数字同事镜像
 # 钉钉数字同事（DWS + DSH + 钉钉插件）独立构建入口 —— 单独重建这一组镜像，
 # 不必跑完整条 base → language → software → deployment 链。
 #
-# 与分层 workflow 的关系：这三个 job 分别是 build-software-images.yml 里的
-# `build-dingtalk-dsh`（backend）、以及 build-deployment-images.yml 里的两个
-# `build-desktop-python-3.1x-ext-dingtalk-dsh` 的副本。单独放这里，是为了迭代
-# 安装脚本（install_dingtalk_dsh.sh）时能一键只重建 dingtalk-dsh 相关镜像。
+# 与分层 workflow 的关系：三个镜像已全部从分层链移除 —— backend 的
+# `software:<os>-dingtalk-dsh` 从 build-software-images.yml 移除，desktop 两个
+# `build-desktop-python-3.1x-ext-dingtalk-dsh` 从 build-deployment-images.yml
+# 移除，现在都只在这里构建。单独放这里，是为了迭代安装脚本
+# （install_dingtalk_dsh.sh）时能一键只重建 dingtalk-dsh 相关镜像，且不并入
+# 自动的 base → software → deployment 链。
 #
 # 前置条件（先已推送的产物，本 workflow 不再构建）：
 #   - backend 版 FROM base:<os>            —— 由 build-base-images.yml 产出

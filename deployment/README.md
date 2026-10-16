@@ -129,6 +129,6 @@ deployment/common/
 > **二级依赖**：桌面版的 `-dingtalk-dsh` 两个镜像不直接 FROM 分层产物，而是在
 > `deployment:<os>-desktop-python3.12/3.14-extension-pack` **之上**再叠加
 > `install_dingtalk_dsh.sh`（复用 backend 的安装脚本），即 deployment 层内的第二次
-> 构建。该依赖在 `build-deployment-images.yml` 里用 `needs` 表达，保证 extension-pack
-> 先构建推送、再被这两个 job FROM。
+> 构建。dingtalk-dsh 的三个镜像（backend + 桌面两个）已移出分层链，改由独立的
+> `build-dingtalk-dsh-images.yml` 单独构建（需先推送 extension-pack 作为上游）。
 

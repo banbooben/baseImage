@@ -54,48 +54,6 @@ jobs:
             NAMESPACE=${{ env.NAMESPACE }}
             OS_TAG=${{ matrix.os_tag }}
 
-  # ── Desktop: Python 3.12 + 钉钉数字同事 ────────────────────────────────
-  build-desktop-python-312-ext-dingtalk-dsh:
-    runs-on: ubuntu-latest
-    needs: build-desktop-python-312-ext
-    # 在 desktop python-extension-pack 产物之上叠加 install_dingtalk_dsh.sh，
-    # FROM 的是 deployment:<os>-desktop-python3.12-extension-pack（本层内依赖，
-    # 用 needs 保证 extension-pack 先构建推送、再被本 job FROM）。
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-qemu-action@v3
-
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./deployment/common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python3.12-extension-pack-dingtalk-dsh
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-            NPM_REGISTRY=https://registry.npmmirror.com
-            DSH_PIN_VERSION=0.1.2-rc.1
-
   # ── Desktop: single Python 3.14 ───────────────────────────────────────
   build-desktop-python-314-ext:
     runs-on: ubuntu-latest
@@ -133,48 +91,6 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             OS_TAG=${{ matrix.os_tag }}
-
-  # ── Desktop: Python 3.14 + 钉钉数字同事 ────────────────────────────────
-  build-desktop-python-314-ext-dingtalk-dsh:
-    runs-on: ubuntu-latest
-    needs: build-desktop-python-314-ext
-    # 在 desktop python-extension-pack 产物之上叠加 install_dingtalk_dsh.sh，
-    # FROM 的是 deployment:<os>-desktop-python3.14-extension-pack（本层内依赖，
-    # 用 needs 保证 extension-pack 先构建推送、再被本 job FROM）。
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-qemu-action@v3
-
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./deployment/common/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python3.14-extension-pack-dingtalk-dsh
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-            NPM_REGISTRY=https://registry.npmmirror.com
-            DSH_PIN_VERSION=0.1.2-rc.1
 
   # ── Server: single Python 3.12 ────────────────────────────────────────
   build-server-python-312-ext:
