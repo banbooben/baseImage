@@ -59,9 +59,12 @@ jobs:
     secrets: inherit
 
   # ── 第 3 层 ───────────────────────────────────────────────────────────
-  # deployment 的 5 个 Dockerfile 只 FROM base / language(python) / software
-  # 三者的产物，不消费 java 与 middleware —— 所以本层不 gate 在那两者上，
-  # 它们照常并行构建，失败也不会挡住 deployment。
+  # deployment 的 Dockerfile 主要 FROM base / language(python) / software 三者
+  # 的产物，不消费 java 与 middleware —— 所以本层不 gate 在那两者上，它们照常
+  # 并行构建，失败也不会挡住 deployment。
+  # 例外：desktop 的 dingtalk-dsh 两个镜像 FROM 的是 desktop python-extension-pack
+  # 产物（deployment 层内二级依赖），该依赖已在 build-deployment-images.yml 内部
+  # 用 needs 表达，不在这里额外 gate。
   # needs 里显式列出 base 是被 python/software 传递蕴含的，写出来用于自我说明。
   deployment:
     needs: [base, python, software]

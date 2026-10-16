@@ -17,6 +17,8 @@
 | --- | --- |
 | [desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode](common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode) | Python 3.12 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
 | [desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode](common/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode) | Python 3.14 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
+| [desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh](common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh) | 上述 Python 3.12 桌面环境 + 钉钉数字同事（DWS + DSH + 钉钉插件） |
+| [desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh](common/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh) | 上述 Python 3.14 桌面环境 + 钉钉数字同事（DWS + DSH + 钉钉插件） |
 
 ### 服务器开发环境
 
@@ -95,7 +97,9 @@ deployment/common/
 ├── desktop/
 │   └── python-extension-pack/
 │       ├── py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
-│       └── py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
+│       ├── py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
+│       ├── py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
+│       └── py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
 └── server/
     ├── nginx-code/
     │   └── openresty-nginx
@@ -121,4 +125,10 @@ deployment/common/
                      ▼                    ▼
                 deployment ── (COPY --from 各层)
 ```
+
+> **二级依赖**：桌面版的 `-dingtalk-dsh` 两个镜像不直接 FROM 分层产物，而是在
+> `deployment:<os>-desktop-python3.12/3.14-extension-pack` **之上**再叠加
+> `install_dingtalk_dsh.sh`（复用 backend 的安装脚本），即 deployment 层内的第二次
+> 构建。该依赖在 `build-deployment-images.yml` 里用 `needs` 表达，保证 extension-pack
+> 先构建推送、再被这两个 job FROM。
 
