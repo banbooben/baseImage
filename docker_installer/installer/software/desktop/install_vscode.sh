@@ -160,9 +160,14 @@ export VSCODE_BIN="\${VSCODE_BIN:-${VSCODE_BIN}}"
 
 mkdir -p "\${VSCODE_DATA}"
 
+# 容器内无硬件 GPU，禁用 GPU 加速走软件渲染。切勿改回 --in-process-gpu：
+# 它会把 GPU 进程内联进主进程，切换 Workspace Trust 触发窗口 reload 时
+# GL 上下文重建会直接 SIGTRAP(133) 崩溃。--disable-dev-shm-usage 规避容器
+# /dev/shm 过小导致的渲染进程崩溃。
 exec "\${VSCODE_BIN}" \\
   --no-sandbox \\
-  --in-process-gpu \\
+  --disable-gpu \\
+  --disable-dev-shm-usage \\
   --extensions-dir "\${VSCODE_EXTENSIONS}" \\
   --user-data-dir "\${VSCODE_DATA}" \\
   "\$@"
@@ -200,6 +205,10 @@ COPY --from=<vscode-image> /deployment/bin/vscode /deployment/bin/vscode
 \`\`\`
 
 Launch: \`/deployment/bin/vscode\`
+
+启动参数：\`--no-sandbox --disable-gpu --disable-dev-shm-usage\`。
+容器内无硬件 GPU，禁用 GPU 加速走软件渲染；切换 Workspace Trust 触发的窗口 reload
+在 \`--in-process-gpu\` 下会因 GL 上下文重建而 SIGTRAP(133) 崩溃，故不可改回。
 EOF
 
   chown -R sarmn:sarmn "${INSTALL_PATH}"
