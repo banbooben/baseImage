@@ -250,13 +250,20 @@ installAssistant(){
   echo "dingtalk-dsh-assistant installed into ${DSH_HOME}"
 }
 
-# 把 $HOME 钉死的技能目录归拢到 INSTALL_PATH：搬内容 → 删原目录 → 建软链（幂等）。
-# DWS/DSH 把技能目录硬编码在 $HOME（/root/.dws、/root/.agents），不受 DSH_HOME /
+# 把运行用户 $HOME 钉死的技能目录归拢到 INSTALL_PATH：搬内容 → 删原目录 → 建软链（幂等）。
+# DWS/DSH 把技能目录硬编码在运行用户的 $HOME（~/.dws、~/.agents），不受 DSH_HOME /
 # DWS_CONFIG_DIR 控制；只有用 symlink 把这两处指进 INSTALL_PATH，单路径挂载才能覆盖技能。
+# 运行用户统一为 sarmn（base 层 create_user 把其 home 定为 /deployment/accounts/sarmn），
+# 故软链跟随 sarmn 的 home，不再写死 /root（root 只存在于构建期，运行期进程是 sarmn）。
 relocateSkillDirs(){
+  local run_user="${1:-sarmn}"
+  local home_dir
+  home_dir="$(getent passwd "${run_user}" | cut -d: -f6)"
+  [ -n "${home_dir}" ] || home_dir="/deployment/accounts/${run_user}"
+
   local d src dst
   for d in dws agents; do
-    src="/root/.${d}"
+    src="${home_dir}/.${d}"
     dst="${INSTALL_PATH}/${d}"
     mkdir -p "${dst}"
     if [ -L "${src}" ]; then
@@ -267,6 +274,7 @@ relocateSkillDirs(){
       rm -rf "${src}"
     fi
     ln -sfn "${dst}" "${src}"
+    chown -R "${run_user}:${run_user}" "${dst}" 2>/dev/null || true
   done
 }
 
@@ -274,24 +282,56 @@ initS6Config(){
   mkdir -p "${INSTALL_PATH}"
 
   # 技能目录归拢到 INSTALL_PATH（见 relocateSkillDirs）
-  relocateSkillDirs
+  relocateSkillDirs sarmn
+
+  # DSH_HOME/登录态/技能整目录收归 sarmn，保证运行期 sarmn 进程可读写（bake 时是 root 装的）
+  chown -R sarmn:sarmn "${INSTALL_PATH}" 2>/dev/null || true
 
   # ── s6 longrun 的 run body ────────────────────────────────────────────
-  # 先自检登录态（只警告不阻断），再前台常驻 DSH Web；重启语义交给 s6。
-  # run body 落在 /deployment/bin（挂载点 INSTALL_PATH 之外），避免整目录挂卷时被遮蔽。
+  # run body 以 root 启动（register_s6_longrun_cmd 不传 run_user），先在 root 态完成
+  # PUID/PGID 对齐 + 属主修正 + 技能软链，再 setuidgid 切到 sarmn 前台常驻 DSH Web；
+  # 重启语义交给 s6。run body 落在 /deployment/bin（挂载点 INSTALL_PATH 之外），
+  # 避免整目录挂卷时被遮蔽。
   cat > /deployment/bin/dingtalk-dsh-start.sh <<EOF
 #!/bin/bash
 set -e
-mkdir -p "\${DSH_HOME}" "\${DWS_CONFIG_DIR}" "${INSTALL_PATH}/dws" "${INSTALL_PATH}/agents"
 
-# DWS 登录态自检：DWS_CONFIG_DIR 为空 = 尚未登录，只提醒，不阻断 DSH 起服务。
-# 登录需交互（设备码），请用 docker exec 补做一次：
-#   docker exec -it <container> dws auth login --device
-if [ -z "\$(ls -A "\${DWS_CONFIG_DIR}" 2>/dev/null)" ]; then
-  echo "[dingtalk-dsh] 未检测到 DWS 登录态（\${DWS_CONFIG_DIR} 为空）；请先执行: dws auth login --device" >&2
+RUN_USER="sarmn"
+HOME_DIR="\$(getent passwd "\${RUN_USER}" | cut -d: -f6)"
+[ -n "\${HOME_DIR}" ] || HOME_DIR="/deployment/accounts/\${RUN_USER}"
+
+# ── PUID / PGID：运行期把 sarmn 的 uid/gid 对齐到指定值（不设 = 维持 base 默认）──
+# 用途：挂载卷的宿主机属主常是宿主机用户 uid（非 1000），设 PUID/PGID 即可让容器内
+# sarmn 进程以相同 uid/gid 读写卷，避免权限错配。例如：
+#   docker run -e PUID=\$(id -u) -e PGID=\$(id -g) ...
+if [ -n "\${PUID}" ] && [ "\${PUID}" != "\$(id -u "\${RUN_USER}")" ]; then
+  echo "[dingtalk-dsh] 将 \${RUN_USER} uid 调整为 \${PUID}"
+  usermod -u "\${PUID}" -o "\${RUN_USER}"
+fi
+if [ -n "\${PGID}" ] && [ "\${PGID}" != "\$(id -g "\${RUN_USER}")" ]; then
+  echo "[dingtalk-dsh] 将 \${RUN_USER} gid 调整为 \${PGID}"
+  groupmod -g "\${PGID}" -o "\${RUN_USER}"
 fi
 
-exec dsh web --no-open
+mkdir -p "\${DSH_HOME}" "\${DWS_CONFIG_DIR}" "${INSTALL_PATH}/dws" "${INSTALL_PATH}/agents"
+
+# PUID 改动后重 chown 数据域/家目录，否则 sarmn 进程写不了旧 uid 的文件
+chown -R "\${RUN_USER}:\${RUN_USER}" "${INSTALL_PATH}" "\${HOME_DIR}" 2>/dev/null || true
+
+# 技能目录软链跟随运行用户 home（幂等；home 不随 PUID 变化，始终 /deployment/accounts/sarmn）
+for d in dws agents; do
+  ln -sfn "${INSTALL_PATH}/\${d}" "\${HOME_DIR}/.\${d}"
+done
+
+# DWS 登录态自检：DWS_CONFIG_DIR 为空 = 尚未登录，只提醒，不阻断 DSH 起服务。
+# 登录需交互（设备码），请以 sarmn 身份 exec 补做一次（保证登录态落 sarmn 名下）：
+#   docker exec -it -u sarmn <container> dws auth login --device
+if [ -z "\$(ls -A "\${DWS_CONFIG_DIR}" 2>/dev/null)" ]; then
+  echo "[dingtalk-dsh] 未检测到 DWS 登录态（\${DWS_CONFIG_DIR} 为空）；请先执行: docker exec -it -u sarmn <container> dws auth login --device" >&2
+fi
+
+# 切到运行用户 sarmn 前台常驻 DSH Web
+exec s6-setuidgid "\${RUN_USER}" dsh web --no-open
 EOF
   chmod 0755 /deployment/bin/dingtalk-dsh-start.sh
 
@@ -308,7 +348,7 @@ EOF
     echo "export PATH=/deployment/bin:\$PATH"
   } >> /etc/environment
 
-  # 注册常驻服务（root 运行，与 redis 等 middleware 服务一致）
+  # 注册常驻服务：run body 以 root 起，内部对齐 PUID/PGID 后 setuidgid 切到 sarmn 常驻
   register_s6_longrun_cmd dingtalk-dsh "exec /bin/bash /deployment/bin/dingtalk-dsh-start.sh"
 
   # ── README ────────────────────────────────────────────────────────────
@@ -340,13 +380,32 @@ docker run -d --name dingtalk-dsh \
 
 挂载点：只需挂 \`/deployment/software/dingtalk-dsh\` 一个路径，即可持久化全部状态——
 \`DSH_HOME\`（\`home\`：会话/轨迹/插件配置）、\`DWS_CONFIG_DIR\`（\`dws-config\`：登录态）、
-DWS/DSH 技能（\`/root/.dws\`、\`/root/.agents\` 已软链到 \`dws\`、\`agents\`）。
+DWS/DSH 技能（\`/deployment/accounts/sarmn/.dws\`、\`/deployment/accounts/sarmn/.agents\`
+已软链到 \`dws\`、\`agents\`）。
+
+## 运行用户与 PUID/PGID
+
+服务统一以 \`sarmn\` 用户常驻（与 desktop 版一致）。默认 uid/gid 由 base 层
+\`create_user sarmn\` 决定（通常 1000）。若挂载卷在宿主机上的属主是别的 uid/gid，
+可用环境变量 \`PUID\` / \`PGID\` 让运行期把 \`sarmn\` 的 uid/gid 对齐过去，避免读写权限错配：
+
+\`\`\`bash
+docker run -d --name dingtalk-dsh \
+  -e PUID=$(id -u) -e PGID=$(id -g) \
+  -v dsh_data:/deployment/software/dingtalk-dsh \
+  -p 127.0.0.1:3080:3080 \
+  registry.cn-hangzhou.aliyuncs.com/sarmn/software:noble-dingtalk-dsh
+\`\`\`
+
+不设 \`PUID\` / \`PGID\` 时保持 base 默认（1000）。\`PUID\` / \`PGID\` 只影响 uid/gid，
+不改变 \`sarmn\` 的家目录（始终 \`/deployment/accounts/sarmn\`），技能软链跟随该 home。
 
 ## 首次登录
 
 \`\`\`bash
-# 一次性：弹出设备码，用钉钉扫码/访问链接完成登录（登录态写入 DWS_CONFIG_DIR 卷）
-docker exec -it dingtalk-dsh dws auth login --device
+# 一次性：弹出设备码，用钉钉扫码/访问链接完成登录（登录态写入 DWS_CONFIG_DIR 卷）。
+# 以 sarmn 身份执行，保证登录态落在运行用户名下（运行期 DSH 以 sarmn 常驻）。
+docker exec -it -u sarmn dingtalk-dsh dws auth login --device
 \`\`\`
 
 ## 关键配置（对应需求）
@@ -355,8 +414,9 @@ docker exec -it dingtalk-dsh dws auth login --device
   默认镜像已把 \`dingtalk-dsh-assistant\` bake 进默认 \`home\`，挂新卷后需重跑一次
   \`docker exec -it <container> dsh plugin --profile web add dingtalk-dsh-assistant\`。
 - \`DWS_CONFIG_DIR\`（\`dws-config\`）：DWS 登录态，走挂载卷持久化（容器重建不丢登录态）。
-- 技能：\`/root/.dws\`、\`/root/.agents\` 已软链到 \`dws\`、\`agents\`，运行期
-  \`dws skill install\` / \`dws skill setup\` 新装的技能都会落进挂载路径，容器重建不丢。
+- 技能：\`/deployment/accounts/sarmn/.dws\`、\`/deployment/accounts/sarmn/.agents\`
+  已软链到 \`dws\`、\`agents\`，运行期 \`dws skill install\` / \`dws skill setup\`
+  新装的技能都会落进挂载路径，容器重建不丢。
 - 插件权限：resident 主会话只读，leaf 任务会话拥有完整执行权限（在 DSH Web
   控制台 → Settings → Plugins → 钉钉个人助理 里配置）。
 - \`dsh web\` 只监听 \`127.0.0.1:3080\`，\`--host 0.0.0.0\` 被 CLI 禁用。
