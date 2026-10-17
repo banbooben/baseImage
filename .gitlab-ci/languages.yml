@@ -1,314 +1,98 @@
 # 对应 .github/workflows/build-python-images.yml / build-java-images.yml
 # Schedule（BUILD_GROUP=languages）：rules 非空 needs → 等 base 链
 # 手动：继承 job 级 needs: []，base 未跑也能直接点
+#
+# python 矩阵条目：PYTHON_SERIES=版本系列，TAG_SUFFIX=tag 后缀（-ft 为 free-threaded，
+# 对应 DISABLE_GIL=true），FALLBACK 为版本解析失败时的兜底，
+# PRERELEASE=true 时正式版发布前走 ftp 目录解析预发布包
 
-python3.15:
+python:
   stage: languages-python
   extends: .schedule_languages
   # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
   # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
   parallel:
     matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
+      - OS_TAG: [noble, openeuler-24.03]
+        PYTHON_SERIES: "3.15"
+        TAG_SUFFIX: ""
+        DISABLE_GIL: "false"
+        FALLBACK: "3.15.0rc2"
+        PRERELEASE: "true"
+      - OS_TAG: [noble, openeuler-24.03]
+        PYTHON_SERIES: "3.15"
+        TAG_SUFFIX: "-ft"
+        DISABLE_GIL: "true"
+        FALLBACK: "3.15.0rc2"
+        PRERELEASE: "true"
+      - OS_TAG: [noble, openeuler-24.03]
+        PYTHON_SERIES: "3.14"
+        TAG_SUFFIX: ""
+        DISABLE_GIL: "false"
+        FALLBACK: "3.14.0"
+        PRERELEASE: "false"
+      - OS_TAG: [noble, openeuler-24.03]
+        PYTHON_SERIES: "3.14"
+        TAG_SUFFIX: "-ft"
+        DISABLE_GIL: "true"
+        FALLBACK: "3.14.0"
+        PRERELEASE: "false"
+      - OS_TAG: [noble, openeuler-24.03]
+        PYTHON_SERIES: "3.13"
+        TAG_SUFFIX: ""
+        DISABLE_GIL: "false"
+        FALLBACK: "3.13.0"
+        PRERELEASE: "false"
+      - OS_TAG: [noble, openeuler-24.03]
+        PYTHON_SERIES: "3.13"
+        TAG_SUFFIX: "-ft"
+        DISABLE_GIL: "true"
+        FALLBACK: "3.13.0"
+        PRERELEASE: "false"
+      - OS_TAG: [noble, openeuler-24.03]
+        PYTHON_SERIES: "3.12"
+        TAG_SUFFIX: ""
+        DISABLE_GIL: "false"
+        FALLBACK: "3.12.0"
+        PRERELEASE: "false"
+      - OS_TAG: [noble, openeuler-24.03]
+        PYTHON_SERIES: "3.11"
+        TAG_SUFFIX: ""
+        DISABLE_GIL: "false"
+        FALLBACK: "3.11.0"
+        PRERELEASE: "false"
+      - OS_TAG: [noble, openeuler-24.03]
+        PYTHON_SERIES: "3.10"
+        TAG_SUFFIX: ""
+        DISABLE_GIL: "false"
+        FALLBACK: "3.10.0"
+        PRERELEASE: "false"
   script:
-    - echo "开始构建python3.15镜像"
+    - echo "开始构建python${PYTHON_SERIES}${TAG_SUFFIX}镜像"
     - cd $ROOT_PATH/${project_repo_name}
     - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.15.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      # 3.15 正式版发布前 endoflife 无数据：以 ftp 目录内真实存在的 tar 包名为准解析（预发布包放在 3.15.0/ 目录里）
-      if [ -z "$VERSION" ]; then
-        VERSION=$(curl -fsSL "https://www.python.org/ftp/python/3.15.0/" 2>/dev/null | grep -oE "Python-3\.15\.[0-9]+((a|b|rc)[0-9]+)?\.tar\.xz" | sed 's/^Python-//; s/\.tar\.xz$//' | sort -Vu | tail -n 1)
+      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/${PYTHON_SERIES}.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      # 正式版发布前 endoflife 无数据：以 ftp 目录内真实存在的 tar 包名为准解析（预发布包放在 X.Y.0/ 目录里）
+      if [ -z "$VERSION" ] && [ "$PRERELEASE" = "true" ]; then
+        ESCAPED="${PYTHON_SERIES//./\\.}"
+        VERSION=$(curl -fsSL "https://www.python.org/ftp/python/${PYTHON_SERIES}.0/" 2>/dev/null | grep -oE "Python-${ESCAPED}\.[0-9]+((a|b|rc)[0-9]+)?\.tar\.xz" | sed 's/^Python-//; s/\.tar\.xz$//' | sort -Vu | tail -n 1)
       fi
       if [ -z "$VERSION" ]; then
         echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.15.0rc2"
+        VERSION="$FALLBACK"
       fi
       echo "Resolved Python version: $VERSION"
     - >
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.15
-      -f ./images/languages/python/python3.15
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-${PYTHON_SERIES}${TAG_SUFFIX}
+      -f ./images/languages/python/Dockerfile
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_PIN_VERSION=$VERSION
-      --push
-      .
-
-python3.15-ft:
-  stage: languages-python
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建python3.15-ft镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.15.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      # 3.15 正式版发布前 endoflife 无数据：以 ftp 目录内真实存在的 tar 包名为准解析（预发布包放在 3.15.0/ 目录里）
-      if [ -z "$VERSION" ]; then
-        VERSION=$(curl -fsSL "https://www.python.org/ftp/python/3.15.0/" 2>/dev/null | grep -oE "Python-3\.15\.[0-9]+((a|b|rc)[0-9]+)?\.tar\.xz" | sed 's/^Python-//; s/\.tar\.xz$//' | sort -Vu | tail -n 1)
-      fi
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.15.0rc2"
-      fi
-      echo "Resolved Python version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.15-ft
-      -f ./images/languages/python/python3.15-ft
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_PIN_VERSION=$VERSION
-      --push
-      .
-
-python3.14:
-  stage: languages-python
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建python3.14镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.14.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.14.0"
-      fi
-      echo "Resolved Python version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.14
-      -f ./images/languages/python/python3.14
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_PIN_VERSION=$VERSION
-      --push
-      .
-
-
-python3.14-ft:
-  stage: languages-python
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建python3.14-ft镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.14.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.14.0"
-      fi
-      echo "Resolved Python version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.14-ft
-      -f ./images/languages/python/python3.14-ft
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_PIN_VERSION=$VERSION
-      --push
-      .
-
-
-python3.13-ft:
-  stage: languages-python
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建python3.13-ft镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.13.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.13.0"
-      fi
-      echo "Resolved Python version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.13-ft
-      -f ./images/languages/python/python3.13-ft
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_PIN_VERSION=$VERSION
-      --push
-      .
-
-
-python3.13:
-  stage: languages-python
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建python3.13镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.13.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.13.0"
-      fi
-      echo "Resolved Python version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.13
-      -f ./images/languages/python/python3.13
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_PIN_VERSION=$VERSION
-      --push
-      .
-
-
-python3.12:
-  stage: languages-python
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建python3.12镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.12.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.12.0"
-      fi
-      echo "Resolved Python version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.12
-      -f ./images/languages/python/python3.12
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_PIN_VERSION=$VERSION
-      --push
-      .
-
-
-python3.11:
-  stage: languages-python
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建python3.11镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.11.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.11.0"
-      fi
-      echo "Resolved Python version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.11
-      -f ./images/languages/python/python3.11
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_PIN_VERSION=$VERSION
-      --push
-      .
-
-
-python3.10:
-  stage: languages-python
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建python3.10镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.10.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="3.10.0"
-      fi
-      echo "Resolved Python version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.10
-      -f ./images/languages/python/python3.10
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
+      --build-arg PYTHON_SERIES=${PYTHON_SERIES}
+      --build-arg PYTHON_DISABLE_GIL=${DISABLE_GIL}
       --build-arg PYTHON_PIN_VERSION=$VERSION
       --push
       .
@@ -340,25 +124,33 @@ miniconda3:
       .
 
 
-openjdk21:
+# openjdk 矩阵条目：JDK_VERSION=主版本号，FALLBACK 为版本解析失败时的兜底
+openjdk:
   stage: languages-java
   extends: .schedule_languages
   # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
   # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
   parallel:
     matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
+      - OS_TAG: [noble, openeuler-24.03]
+        JDK_VERSION: "21"
+        FALLBACK: "21.0.0"
+      - OS_TAG: [noble, openeuler-24.03]
+        JDK_VERSION: "24"
+        FALLBACK: "24.0.0"
+      - OS_TAG: [noble, openeuler-24.03]
+        JDK_VERSION: "25"
+        FALLBACK: "25.0.0"
   script:
-    - echo "开始构建openjdk21镜像"
+    - echo "开始构建openjdk${JDK_VERSION}镜像"
     - cd $ROOT_PATH/${project_repo_name}
     - |
-      export VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B21%2C22%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+      NEXT=$((JDK_VERSION + 1))
+      export VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B${JDK_VERSION}%2C${NEXT}%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
       VERSION="${VERSION%-LTS}"
       if [ -z "$VERSION" ]; then
         echo "Failed to resolve version, using fallback" >&2
-        VERSION="21.0.0"
+        VERSION="$FALLBACK"
       fi
       export VERSION
       echo "Resolved OpenJDK version: $VERSION"
@@ -366,84 +158,12 @@ openjdk21:
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-21
-      -f ./images/languages/java/openjdk-21
+      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-${JDK_VERSION}
+      -f ./images/languages/java/Dockerfile
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
+      --build-arg JDK_VERSION=${JDK_VERSION}
       --build-arg JAVA_PIN_VERSION=$VERSION
       --push
       .
-
-
-openjdk24:
-  stage: languages-java
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建openjdk24镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B24%2C25%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      VERSION="${VERSION%-LTS}"
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="24.0.0"
-      fi
-      export VERSION
-      echo "Resolved OpenJDK version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-24
-      -f ./images/languages/java/openjdk-24
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg JAVA_PIN_VERSION=$VERSION
-      --push
-      .
-
-
-openjdk25:
-  stage: languages-java
-  extends: .schedule_languages
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建openjdk25镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B25%2C26%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      VERSION="${VERSION%-LTS}"
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="25.0.0"
-      fi
-      export VERSION
-      echo "Resolved OpenJDK version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-25
-      -f ./images/languages/java/openjdk-25
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg JAVA_PIN_VERSION=$VERSION
-      --push
-      .
-

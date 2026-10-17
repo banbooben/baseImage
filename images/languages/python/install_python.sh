@@ -4,7 +4,7 @@ setEnv(){
   export INSTALL_PATH=/deployment/software/python
   export PATH=${INSTALL_PATH}/bin:$PATH
   export LANG=C.UTF-8
-  export PYTHON_SERIES=3.15
+  export PYTHON_SERIES="${PYTHON_SERIES:?PYTHON_SERIES is required (e.g. 3.12)}"
   PYTHON_VERSION="$(resolve_python_latest_version "$PYTHON_SERIES")" || return 1
   export PYTHON_VERSION
   echo "Using Python ${PYTHON_VERSION} (series ${PYTHON_SERIES})"
@@ -38,9 +38,14 @@ make_install(){
     "--enable-loadable-sqlite-extensions"
     "--enable-option-checking=fatal"
     "--enable-shared"
+  )
+  # free-threaded 构建（tag 后缀 -ft）：PYTHON_DISABLE_GIL=true
+  if [ "${PYTHON_DISABLE_GIL:-false}" = "true" ]; then
+    configure_args+=("--disable-gil")
+  fi
+  configure_args+=(
     "--with-system-expat"
     "--with-ensurepip"
-    "--disable-gil"
   )
 
   if [ "$buildArch" = "arm64" ]; then
@@ -48,7 +53,13 @@ make_install(){
     makeJobs="${PYTHON_MAKE_JOBS:-1}"
     armExtraCflags="${PYTHON_ARM_EXTRA_CFLAGS:--O2 -fno-strict-aliasing}"
   else
-    if [ "${PYTHON_ENABLE_OPTIMIZATIONS:-true}" != "false" ]; then
+    if [ -n "${PYTHON_PERF_FLAGS:-}" ]; then
+      # 兼容旧接口：PYTHON_PERF_FLAGS 显式设置时整体覆盖 PGO 参数
+      # （新接口用 PYTHON_ENABLE_OPTIMIZATIONS=false 关闭即可）
+      for flag in $PYTHON_PERF_FLAGS; do
+        configure_args+=("$flag")
+      done
+    elif [ "${PYTHON_ENABLE_OPTIMIZATIONS:-true}" != "false" ]; then
       configure_args+=("--enable-optimizations" "--with-lto")
     fi
     makeJobs="${PYTHON_MAKE_JOBS:-$cpuCount}"

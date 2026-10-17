@@ -15,32 +15,47 @@ env:
   NAMESPACE: ${{ secrets.NAMESPACE }}
 
 jobs:
-  build-python3-15:
+  build-python:
     runs-on: ubuntu-latest
     # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签。
+    # python 矩阵条目：series=版本系列, suffix=tag 后缀（-ft 为 free-threaded），
+    # disable_gil 透传 --disable-gil，fallback 为版本解析失败时的兜底，
+    # prerelease=true 时正式版发布前走 ftp 目录解析预发布包
     strategy:
       fail-fast: false
       matrix:
         os_tag:
           - noble
           - openeuler-24.03
+        python:
+          - { series: "3.15", suffix: "", fallback: "3.15.0rc2", prerelease: true }
+          - { series: "3.15", suffix: "-ft", disable_gil: true, fallback: "3.15.0rc2", prerelease: true }
+          - { series: "3.14", suffix: "", fallback: "3.14.0" }
+          - { series: "3.14", suffix: "-ft", disable_gil: true, fallback: "3.14.0" }
+          - { series: "3.13", suffix: "", fallback: "3.13.0" }
+          - { series: "3.13", suffix: "-ft", disable_gil: true, fallback: "3.13.0" }
+          - { series: "3.12", suffix: "", fallback: "3.12.0" }
+          - { series: "3.11", suffix: "", fallback: "3.11.0" }
+          - { series: "3.10", suffix: "", fallback: "3.10.0" }
     steps:
       - uses: actions/checkout@v4
       - name: Resolve latest Python version
         id: version
         run: |
-          VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.15.json" 2>/dev/null \
+          SERIES="${{ matrix.python.series }}"
+          VERSION=$(curl -fsSL "https://endoflife.date/api/python/${SERIES}.json" 2>/dev/null \
             | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          # 3.15 正式版发布前 endoflife 无数据：以 ftp 目录内真实存在的 tar 包名为准解析（预发布包放在 3.15.0/ 目录里）
-          if [ -z "$VERSION" ]; then
-            VERSION=$(curl -fsSL "https://www.python.org/ftp/python/3.15.0/" 2>/dev/null \
-              | grep -oE "Python-3\.15\.[0-9]+((a|b|rc)[0-9]+)?\.tar\.xz" \
+          # 正式版发布前 endoflife 无数据：以 ftp 目录内真实存在的 tar 包名为准解析（预发布包放在 X.Y.0/ 目录里）
+          if [ -z "$VERSION" ] && [ "${{ matrix.python.prerelease || false }}" = "true" ]; then
+            ESCAPED="${SERIES//./\\.}"
+            VERSION=$(curl -fsSL "https://www.python.org/ftp/python/${SERIES}.0/" 2>/dev/null \
+              | grep -oE "Python-${ESCAPED}\.[0-9]+((a|b|rc)[0-9]+)?\.tar\.xz" \
               | sed 's/^Python-//; s/\.tar\.xz$//' | sort -Vu | tail -n 1)
           fi
           if [ -z "$VERSION" ]; then
             echo "Failed to resolve version, using fallback" >&2
-            VERSION="3.15.0rc2"
+            VERSION="${{ matrix.python.fallback }}"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Resolved Python version: $VERSION"
@@ -56,380 +71,16 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./images/languages/python/python3.15
+          file: ./images/languages/python/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.15
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-${{ matrix.python.series }}${{ matrix.python.suffix }}
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             OS_TAG=${{ matrix.os_tag }}
-            PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-
-  build-python3-15-ft:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve latest Python version
-        id: version
-        run: |
-          VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.15.json" 2>/dev/null \
-            | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          # 3.15 正式版发布前 endoflife 无数据：以 ftp 目录内真实存在的 tar 包名为准解析（预发布包放在 3.15.0/ 目录里）
-          if [ -z "$VERSION" ]; then
-            VERSION=$(curl -fsSL "https://www.python.org/ftp/python/3.15.0/" 2>/dev/null \
-              | grep -oE "Python-3\.15\.[0-9]+((a|b|rc)[0-9]+)?\.tar\.xz" \
-              | sed 's/^Python-//; s/\.tar\.xz$//' | sort -Vu | tail -n 1)
-          fi
-          if [ -z "$VERSION" ]; then
-            echo "Failed to resolve version, using fallback" >&2
-            VERSION="3.15.0rc2"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved Python version: $VERSION"
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/languages/python/python3.15-ft
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.15-ft
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-            PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-
-  build-python3-14:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve latest Python version
-        id: version
-        run: |
-          VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.14.json" 2>/dev/null \
-            | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          if [ -z "$VERSION" ]; then
-            echo "Failed to resolve version, using fallback" >&2
-            VERSION="3.14.0"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved Python version: $VERSION"
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/languages/python/python3.14
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.14
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-            PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-
-  build-python3-14-ft:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve latest Python version
-        id: version
-        run: |
-          VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.14.json" 2>/dev/null \
-            | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          if [ -z "$VERSION" ]; then
-            echo "Failed to resolve version, using fallback" >&2
-            VERSION="3.14.0"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved Python version: $VERSION"
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/languages/python/python3.14-ft
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.14-ft
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-            PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-
-  build-python3-13:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve latest Python version
-        id: version
-        run: |
-          VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.13.json" 2>/dev/null \
-            | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          if [ -z "$VERSION" ]; then
-            echo "Failed to resolve version, using fallback" >&2
-            VERSION="3.13.0"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved Python version: $VERSION"
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/languages/python/python3.13
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.13
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-            PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-
-  build-python3-13-ft:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve latest Python version
-        id: version
-        run: |
-          VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.13.json" 2>/dev/null \
-            | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          if [ -z "$VERSION" ]; then
-            echo "Failed to resolve version, using fallback" >&2
-            VERSION="3.13.0"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved Python version: $VERSION"
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/languages/python/python3.13-ft
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.13-ft
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-            PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-
-  build-python3-12:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve latest Python version
-        id: version
-        run: |
-          VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.12.json" 2>/dev/null \
-            | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          if [ -z "$VERSION" ]; then
-            echo "Failed to resolve version, using fallback" >&2
-            VERSION="3.12.0"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved Python version: $VERSION"
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/languages/python/python3.12
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.12
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-            PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-
-  build-python3-11:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve latest Python version
-        id: version
-        run: |
-          VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.11.json" 2>/dev/null \
-            | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          if [ -z "$VERSION" ]; then
-            echo "Failed to resolve version, using fallback" >&2
-            VERSION="3.11.0"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved Python version: $VERSION"
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/languages/python/python3.11
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.11
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-            PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
-
-  build-python3-10:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve latest Python version
-        id: version
-        run: |
-          VERSION=$(curl -fsSL "https://endoflife.date/api/python/3.10.json" 2>/dev/null \
-            | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          if [ -z "$VERSION" ]; then
-            echo "Failed to resolve version, using fallback" >&2
-            VERSION="3.10.0"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved Python version: $VERSION"
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/languages/python/python3.10
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.10
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
+            PYTHON_SERIES=${{ matrix.python.series }}
+            PYTHON_DISABLE_GIL=${{ matrix.python.disable_gil || false }}
             PYTHON_PIN_VERSION=${{ steps.version.outputs.version }}
 
   build-miniconda3:

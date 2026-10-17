@@ -221,13 +221,15 @@ docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESP
   -t $REGISTRY/$NAMESPACE/base:openeuler-24.03 .
 ```
 
-派生层不必再传 `BASE_OS_IMAGE`，`OS_TAG` 会逐层透传（各 Dockerfile 内 `ARG OS_TAG` 默认 `noble`）：
+派生层不必再传 `BASE_OS_IMAGE`，`OS_TAG` 会逐层透传（各 Dockerfile 内 `ARG OS_TAG` 默认 `noble`）。
+语言镜像为单一参数化 Dockerfile：`images/languages/python/Dockerfile` 用 `PYTHON_SERIES`
+（free-threaded 版本再加 `PYTHON_DISABLE_GIL=true`），`images/languages/java/Dockerfile` 用 `JDK_VERSION`：
 
 ```bash
 docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
   --build-arg OS_TAG=openeuler-24.03 \
-  --build-arg PYTHON_PIN_VERSION=3.12.11 --secret id=CODE_SERVER_PASSWORD,env=CODE_SERVER_PASSWORD \
-  -f images/languages/python/python3.12 \
+  --build-arg PYTHON_SERIES=3.12 --build-arg PYTHON_PIN_VERSION=3.12.11 \
+  -f images/languages/python/Dockerfile \
   -t $REGISTRY/$NAMESPACE/language:openeuler-24.03-python-3.12 .
 ```
 
