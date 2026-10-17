@@ -8,11 +8,9 @@ name: 定时构建全部镜像
 # 用 needs: 后，上游全部 job 成功才触发下游，顺序是确定性的，也没有空等。
 #
 # 层次：
-#   base ─┬─ python ──┐
-#         ├─ java     │
-#         ├─ middleware
-#         └─ software ┘
-#              └────────┴─→ deployment（needs: base, python, software）
+#   base ─┬─ python-software ──┐
+#         └─ java-middleware   │
+#              └───────────────┴─→ deployment（needs: base, python-software）
 
 on:
   schedule:
@@ -37,33 +35,25 @@ jobs:
     uses: ./.github/workflows/build-base-images.yml
     secrets: inherit
 
-  # ── 第 2 层：四者并行，都只依赖 base ─────────────────────────────────
-  python:
+  # ── 第 2 层：两者并行，都只依赖 base ─────────────────────────────────
+  # python-software：deployment 的上游（python / miniconda3 / software 三个 job）
+  python-software:
     needs: base
-    uses: ./.github/workflows/build-python-images.yml
+    uses: ./.github/workflows/build-python-software-images.yml
     secrets: inherit
 
-  java:
+  # java-middleware：无下游消费（openjdk / redis 两个 job），失败不挡 deployment
+  java-middleware:
     needs: base
-    uses: ./.github/workflows/build-java-images.yml
-    secrets: inherit
-
-  middleware:
-    needs: base
-    uses: ./.github/workflows/build-middleware-images.yml
-    secrets: inherit
-
-  software:
-    needs: base
-    uses: ./.github/workflows/build-software-images.yml
+    uses: ./.github/workflows/build-java-middleware-images.yml
     secrets: inherit
 
   # ── 第 3 层 ───────────────────────────────────────────────────────────
   # deployment 的 Dockerfile 主要 FROM base / language(python) / software 三者
-  # 的产物，不消费 java 与 middleware —— 所以本层不 gate 在那两者上，它们照常
-  # 并行构建，失败也不会挡住 deployment。
-  # needs 里显式列出 base 是被 python/software 传递蕴含的，写出来用于自我说明。
+  # 的产物，不消费 java 与 middleware —— 所以本层不 gate 在 java-middleware
+  # 上，它照常并行构建，失败也不会挡住 deployment。
+  # needs 里显式列出 base 是被 python-software 传递蕴含的，写出来用于自我说明。
   deployment:
-    needs: [base, python, software]
+    needs: [base, python-software]
     uses: ./.github/workflows/build-deployment-images.yml
     secrets: inherit

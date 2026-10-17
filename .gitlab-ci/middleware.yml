@@ -1,4 +1,4 @@
-# 对应 .github/workflows/build-middleware-images.yml
+# 对应 .github/workflows/build-java-middleware-images.yml（redis）
 # Schedule（BUILD_GROUP=middleware）：rules 非空 needs → 等 base 链
 # 手动：继承 job 级 needs: []，base 未跑也能直接点
 #

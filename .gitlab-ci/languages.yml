@@ -1,4 +1,5 @@
-# 对应 .github/workflows/build-python-images.yml / build-java-images.yml
+# 对应 .github/workflows/build-python-software-images.yml（python/miniconda3）
+# 与 build-java-middleware-images.yml（openjdk）
 # Schedule（BUILD_GROUP=languages）：rules 非空 needs → 等 base 链
 # 手动：继承 job 级 needs: []，base 未跑也能直接点
 #

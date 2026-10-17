@@ -1,0 +1,115 @@
+name: 构建 Java 与中间件镜像
+
+# 由 build-all.yml 经 workflow_call 编排，上游是 base（由 build-all.yml 的
+# needs: 保证 base 全部 job 成功后才调用本文件）。
+# 没有下游层消费本 workflow 的产物（deployment 只 FROM base / python / software），
+# 所以 build-all.yml 里 deployment 不 gate 在本 workflow 上——java / redis
+# 失败不会挡住 deployment，与被合并前的 java + middleware 双文件语义相同。
+
+on:
+  workflow_call:
+  # 保留手动入口：单层重建直接 dispatch 本文件，不必跑整条链。
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ${{ secrets.REGISTRY }}
+  NAMESPACE: ${{ secrets.NAMESPACE }}
+
+jobs:
+  build-openjdk:
+    runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签。
+    # java 矩阵条目：major=主版本号，fallback 为版本解析失败时的兜底
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
+        java:
+          - { major: "21", fallback: "21.0.0" }
+          - { major: "24", fallback: "24.0.0" }
+          - { major: "25", fallback: "25.0.0" }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve latest OpenJDK version
+        id: version
+        run: |
+          VERSION=$(ci/resolve_versions.sh java "${{ matrix.java.major }}" "${{ matrix.java.fallback }}")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+      - uses: docker/build-push-action@v5
+        with:
+          provenance: false
+          sbom: false
+          context: .
+          file: ./images/languages/java/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-openjdk-${{ matrix.java.major }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:language-openjdk-${{ matrix.java.major }}-${{ matrix.os_tag }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:language-openjdk-${{ matrix.java.major }}-${{ matrix.os_tag }},mode=max
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
+            JDK_VERSION=${{ matrix.java.major }}
+            JAVA_PIN_VERSION=${{ steps.version.outputs.version }}
+
+  build-redis:
+    runs-on: ubuntu-latest
+    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签。
+    # redis 矩阵条目：series=版本系列，fallback 为版本解析失败时的兜底
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
+        redis:
+          - { series: "7.4", fallback: "7.4.0" }
+          - { series: "8.2", fallback: "8.2.0" }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve latest Redis version
+        id: version
+        run: |
+          VERSION=$(ci/resolve_versions.sh redis "${{ matrix.redis.series }}" "${{ matrix.redis.fallback }}")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+      - uses: docker/build-push-action@v5
+        with:
+          provenance: false
+          sbom: false
+          context: .
+          file: ./images/middleware/redis/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:${{ matrix.os_tag }}-redis-${{ matrix.redis.series }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:middleware-redis-${{ matrix.redis.series }}-${{ matrix.os_tag }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:middleware-redis-${{ matrix.redis.series }}-${{ matrix.os_tag }},mode=max
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
+            REDIS_SERIES=${{ matrix.redis.series }}
+            REDIS_PIN_VERSION=${{ steps.version.outputs.version }}
+          secrets: |
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
