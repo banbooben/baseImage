@@ -24,3 +24,99 @@ nginx-code:
       --build-arg OS_TAG=${OS_TAG}
       --push
       .
+
+desktop-python-312-ext:
+  extends: .manual_only
+  # 上游 base / software 层都已双发行版化，这里跟着出两套
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
+  stage: deployment
+  script:
+    - echo "开始构建桌面开发环境镜像（Python 3.12 extension-pack）"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-desktop-python3.12-extension-pack
+      -f ./deployment/common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
+      --push
+      .
+
+desktop-python-314-ext:
+  extends: .manual_only
+  # 上游 base / software 层都已双发行版化，这里跟着出两套
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
+  stage: deployment
+  script:
+    - echo "开始构建桌面开发环境镜像（Python 3.14 extension-pack）"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-desktop-python3.14-extension-pack
+      -f ./deployment/common/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
+      --push
+      .
+
+server-python-312-ext:
+  extends: .manual_only
+  # 上游 base / software 层都已双发行版化，这里跟着出两套
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
+  stage: deployment
+  script:
+    - echo "开始构建服务器开发环境镜像（Python 3.12 extension-pack）"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-server-python3.12-extension-pack
+      -f ./deployment/common/server/python-extension-pack/py-3.12-codeserver-sshd
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
+      --push
+      .
+
+server-python-314-ext:
+  extends: .manual_only
+  # 上游 base / software 层都已双发行版化，这里跟着出两套
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
+  stage: deployment
+  script:
+    - echo "开始构建服务器开发环境镜像（Python 3.14 extension-pack）"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-server-python3.14-extension-pack
+      -f ./deployment/common/server/python-extension-pack/py-3.14-codeserver-sshd
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
+      --push
+      .

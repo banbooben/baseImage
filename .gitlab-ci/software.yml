@@ -176,3 +176,53 @@ wps:
       --build-arg OS_TAG=${OS_TAG}
       --push
       .
+
+claude:
+  extends: .manual_only
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
+  stage: software
+  script:
+    - echo "开始构建claude镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-claude
+      -f ./images/software/backend/claude
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
+      --push
+      .
+
+vscode:
+  extends: .manual_only
+  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+  parallel:
+    matrix:
+      - OS_TAG:
+          - noble
+          - openeuler-24.03
+  stage: software
+  script:
+    - echo "开始构建vscode镜像"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-vscode
+      -f ./images/software/desktop/vscode
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=${OS_TAG}
+      --push
+      .

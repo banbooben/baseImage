@@ -4,6 +4,7 @@ include:
   - local: '.gitlab-ci/middleware.yml'
   - local: '.gitlab-ci/software.yml'
   - local: '.gitlab-ci/deployment.yml'
+  - local: '.gitlab-ci/dingtalk.yml'
 
 stages:
   - base
