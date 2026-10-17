@@ -129,6 +129,7 @@
 | `${REGISTRY}/${NAMESPACE}/software:<os>-docker` | Docker CLI + docker-compose |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-claude` | Claude Code CLI（基于 Node.js 22） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-openresty` | OpenResty（Nginx + LuaJIT，源码编译，s6 自启动，端口 80） |
+| `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-dsh` | 钉钉数字同事 backend（DWS + DSH + 钉钉插件，Node 24） |
 
 **桌面应用**（基于 `base:<os>-desktop`）
 
@@ -155,7 +156,7 @@ base ─┬─ python ────┐
            └─────────┴─→ deployment（needs: base, python, software）
 ```
 
-deployment 的 5 个 Dockerfile 只 `FROM` base / language(python) / software 三者的产物，
+deployment 的 7 个 Dockerfile 只 `FROM` base / language(python) / software 三者的产物，
 不消费 java 与 middleware，所以它不 gate 在那两者上 —— 它们照常并行构建。
 
 **不再按时间错峰。** 旧方案是 3.5 小时间隔（base 18:00 → 语言/中间件/软件 21:30 →
