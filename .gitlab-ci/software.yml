@@ -18,7 +18,7 @@ code-server:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-code-server
-      -f ./docker_installer/dockerfiles/software/backend/code-server
+      -f ./images/software/backend/code-server
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -44,7 +44,7 @@ docker:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-docker
-      -f ./docker_installer/dockerfiles/software/backend/docker
+      -f ./images/software/backend/docker
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -69,7 +69,7 @@ openresty:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-openresty
-      -f ./docker_installer/dockerfiles/software/backend/openresty
+      -f ./images/software/backend/openresty
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -94,7 +94,7 @@ dbeaver:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-dbeaver
-      -f ./docker_installer/dockerfiles/software/desktop/dbeaver
+      -f ./images/software/desktop/dbeaver
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -119,7 +119,7 @@ clash-verge:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-clash-verge
-      -f ./docker_installer/dockerfiles/software/desktop/clash-verge
+      -f ./images/software/desktop/clash-verge
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -145,7 +145,7 @@ chrome:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-chrome
-      -f ./docker_installer/dockerfiles/software/desktop/chrome
+      -f ./images/software/desktop/chrome
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -170,7 +170,7 @@ wps:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-wps
-      -f ./docker_installer/dockerfiles/software/desktop/wps
+      -f ./images/software/desktop/wps
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}

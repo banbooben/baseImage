@@ -35,10 +35,10 @@ ARG WPS_PKG_URL
 ARG VSCODE_PIN_VERSION
 
 # install chrome、 dbeaver、wps、vscode
-COPY ./docker_installer/installer/software/desktop/install_chrome.sh /tmp/install_chrome.sh
-COPY ./docker_installer/installer/software/desktop/install_dbeaver.sh /tmp/install_dbeaver.sh
-COPY ./docker_installer/installer/software/desktop/install_wps.sh /tmp/install_wps.sh
-COPY ./docker_installer/installer/software/desktop/install_vscode.sh /tmp/install_vscode.sh
+COPY ./images/software/desktop/install_chrome.sh /tmp/install_chrome.sh
+COPY ./images/software/desktop/install_dbeaver.sh /tmp/install_dbeaver.sh
+COPY ./images/software/desktop/install_wps.sh /tmp/install_wps.sh
+COPY ./images/software/desktop/install_vscode.sh /tmp/install_vscode.sh
 
 RUN set -eux; \
     /bin/bash /tmp/install_chrome.sh; \

@@ -1,5 +1,4 @@
 .idea/
-docker_installer/cache/
 
 # Deployment runtime files
 deployment/.env

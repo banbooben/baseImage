@@ -39,7 +39,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/backend/code-server
+          file: ./images/software/backend/code-server
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-code-server
@@ -74,7 +74,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/backend/docker
+          file: ./images/software/backend/docker
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-docker
@@ -107,7 +107,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/backend/claude
+          file: ./images/software/backend/claude
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-claude
@@ -140,7 +140,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/backend/openresty
+          file: ./images/software/backend/openresty
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-openresty
@@ -173,7 +173,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/desktop/dbeaver
+          file: ./images/software/desktop/dbeaver
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-dbeaver
@@ -206,7 +206,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/desktop/clash-verge
+          file: ./images/software/desktop/clash-verge
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-clash-verge
@@ -239,7 +239,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/desktop/chrome
+          file: ./images/software/desktop/chrome
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-chrome
@@ -272,7 +272,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/desktop/wps
+          file: ./images/software/desktop/wps
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-wps
@@ -305,7 +305,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/desktop/vscode
+          file: ./images/software/desktop/vscode
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-vscode

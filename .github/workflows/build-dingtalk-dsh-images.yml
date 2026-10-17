@@ -54,7 +54,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/software/backend/dingtalk-dsh
+          file: ./images/software/backend/dingtalk-dsh
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-dingtalk-dsh

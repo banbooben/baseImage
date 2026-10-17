@@ -27,7 +27,7 @@ redis-7.4:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/middleware:${OS_TAG}-redis-7.4
-      -f ./docker_installer/dockerfiles/middleware/redis/Dockerfile.7.4
+      -f ./images/middleware/redis/Dockerfile.7.4
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -62,7 +62,7 @@ redis-8.2:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/middleware:${OS_TAG}-redis-8.2
-      -f ./docker_installer/dockerfiles/middleware/redis/Dockerfile.8.2
+      -f ./images/middleware/redis/Dockerfile.8.2
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}

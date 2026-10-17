@@ -93,7 +93,7 @@ jobs:
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }} \
-            -f ./docker_installer/dockerfiles/base/Dockerfile \
+            -f ./images/base/Dockerfile \
             --build-arg REGISTRY=${{ env.REGISTRY }} \
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
             --build-arg OS_TAG=${{ matrix.os_tag }} \
@@ -137,7 +137,7 @@ jobs:
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-desktop \
-            -f ./docker_installer/dockerfiles/base/Dockerfile-desktop \
+            -f ./images/base/Dockerfile-desktop \
             --build-arg REGISTRY=${{ env.REGISTRY }} \
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
             --build-arg OS_TAG=${{ matrix.os_tag }} \

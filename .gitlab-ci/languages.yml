@@ -31,7 +31,7 @@ python3.15:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.15
-      -f ./docker_installer/dockerfiles/languages/python/python3.15
+      -f ./images/languages/python/python3.15
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -68,7 +68,7 @@ python3.15-ft:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.15-ft
-      -f ./docker_installer/dockerfiles/languages/python/python3.15-ft
+      -f ./images/languages/python/python3.15-ft
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -101,7 +101,7 @@ python3.14:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.14
-      -f ./docker_installer/dockerfiles/languages/python/python3.14
+      -f ./images/languages/python/python3.14
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -135,7 +135,7 @@ python3.14-ft:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.14-ft
-      -f ./docker_installer/dockerfiles/languages/python/python3.14-ft
+      -f ./images/languages/python/python3.14-ft
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -169,7 +169,7 @@ python3.13-ft:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.13-ft
-      -f ./docker_installer/dockerfiles/languages/python/python3.13-ft
+      -f ./images/languages/python/python3.13-ft
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -203,7 +203,7 @@ python3.13:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.13
-      -f ./docker_installer/dockerfiles/languages/python/python3.13
+      -f ./images/languages/python/python3.13
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -237,7 +237,7 @@ python3.12:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.12
-      -f ./docker_installer/dockerfiles/languages/python/python3.12
+      -f ./images/languages/python/python3.12
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -271,7 +271,7 @@ python3.11:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.11
-      -f ./docker_installer/dockerfiles/languages/python/python3.11
+      -f ./images/languages/python/python3.11
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -305,7 +305,7 @@ python3.10:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.10
-      -f ./docker_installer/dockerfiles/languages/python/python3.10
+      -f ./images/languages/python/python3.10
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -332,7 +332,7 @@ miniconda3:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-miniconda-3
-      -f ./docker_installer/dockerfiles/languages/python/miniconda3
+      -f ./images/languages/python/miniconda3
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -367,7 +367,7 @@ openjdk21:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-21
-      -f ./docker_installer/dockerfiles/languages/java/openjdk-21
+      -f ./images/languages/java/openjdk-21
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -403,7 +403,7 @@ openjdk24:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-24
-      -f ./docker_installer/dockerfiles/languages/java/openjdk-24
+      -f ./images/languages/java/openjdk-24
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
@@ -439,7 +439,7 @@ openjdk25:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-openjdk-25
-      -f ./docker_installer/dockerfiles/languages/java/openjdk-25
+      -f ./images/languages/java/openjdk-25
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}

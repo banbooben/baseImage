@@ -49,7 +49,7 @@ noble:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/base:noble
-      -f ./docker_installer/dockerfiles/base/Dockerfile
+      -f ./images/base/Dockerfile
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=noble
@@ -79,7 +79,7 @@ noble-desktop:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/base:noble-desktop
-      -f ./docker_installer/dockerfiles/base/Dockerfile-desktop
+      -f ./images/base/Dockerfile-desktop
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=noble
@@ -106,7 +106,7 @@ openeuler:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/base:openeuler-24.03
-      -f ./docker_installer/dockerfiles/base/Dockerfile
+      -f ./images/base/Dockerfile
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=openeuler-24.03
@@ -137,7 +137,7 @@ openeuler-desktop:
       --builder builder
       --platform linux/amd64,linux/arm64
       -t ${REGISTRY}/${NAMESPACE}/base:openeuler-24.03-desktop
-      -f ./docker_installer/dockerfiles/base/Dockerfile-desktop
+      -f ./images/base/Dockerfile-desktop
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=openeuler-24.03

@@ -56,7 +56,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/python3.15
+          file: ./images/languages/python/python3.15
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.15
@@ -107,7 +107,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/python3.15-ft
+          file: ./images/languages/python/python3.15-ft
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.15-ft
@@ -152,7 +152,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/python3.14
+          file: ./images/languages/python/python3.14
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.14
@@ -197,7 +197,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/python3.14-ft
+          file: ./images/languages/python/python3.14-ft
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.14-ft
@@ -242,7 +242,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/python3.13
+          file: ./images/languages/python/python3.13
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.13
@@ -287,7 +287,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/python3.13-ft
+          file: ./images/languages/python/python3.13-ft
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.13-ft
@@ -332,7 +332,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/python3.12
+          file: ./images/languages/python/python3.12
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.12
@@ -377,7 +377,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/python3.11
+          file: ./images/languages/python/python3.11
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.11
@@ -422,7 +422,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/python3.10
+          file: ./images/languages/python/python3.10
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-python-3.10
@@ -456,7 +456,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/languages/python/miniconda3
+          file: ./images/languages/python/miniconda3
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-miniconda-3

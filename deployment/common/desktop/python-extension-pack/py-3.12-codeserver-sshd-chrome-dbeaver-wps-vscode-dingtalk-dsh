@@ -17,7 +17,7 @@ ARG DWS_PIN_VERSION
 ARG DSH_PIN_VERSION=0.1.2-rc.1
 
 # 复用 backend 的安装脚本（自举 Node 24 + DWS + DSH + 钉钉插件 + s6 longrun）
-COPY ./docker_installer/installer/software/backend/install_dingtalk_dsh.sh /tmp/install_dingtalk_dsh.sh
+COPY ./images/software/backend/install_dingtalk_dsh.sh /tmp/install_dingtalk_dsh.sh
 RUN set -eux; \
     /bin/bash /tmp/install_dingtalk_dsh.sh
 

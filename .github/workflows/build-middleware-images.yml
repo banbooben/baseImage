@@ -50,7 +50,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/middleware/redis/Dockerfile.7.4
+          file: ./images/middleware/redis/Dockerfile.7.4
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:${{ matrix.os_tag }}-redis-7.4
@@ -97,7 +97,7 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./docker_installer/dockerfiles/middleware/redis/Dockerfile.8.2
+          file: ./images/middleware/redis/Dockerfile.8.2
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:${{ matrix.os_tag }}-redis-8.2

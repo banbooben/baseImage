@@ -185,7 +185,7 @@ QEMU、网络波动：一旦某次变慢，后一层拉到的仍是上周推上�
 ### openEuler 支持
 
 同一套代码树同时产出两个发行版的镜像。发行版差异收敛在安装脚本的抽象层
-（`docker_installer/installer/common.sh` 的 `detect_distro` / `pkg_*` / `map_packages`），
+（`images/common.sh` 的 `detect_distro` / `pkg_*` / `map_packages`），
 20+ 个 installer 脚本本身不写 `if 发行版` 分支。
 
 #### 支持的发行版
@@ -208,7 +208,7 @@ export SARMN_PASSWORD='SArMnTop1' ROOT_PASSWORD='Sam.Tech'
 # Ubuntu 24.04（不传 OS_TAG 时即为此默认值，行为与旧版一致）
 docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
   --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
-  -f docker_installer/dockerfiles/base/Dockerfile \
+  -f images/base/Dockerfile \
   -t $REGISTRY/$NAMESPACE/base:noble .
 
 # openEuler 24.03 LTS
@@ -216,7 +216,7 @@ docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESP
   --build-arg OS_TAG=openeuler-24.03 \
   --build-arg BASE_OS_IMAGE=$REGISTRY/$NAMESPACE/openeuler:24.03-lts \
   --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
-  -f docker_installer/dockerfiles/base/Dockerfile \
+  -f images/base/Dockerfile \
   -t $REGISTRY/$NAMESPACE/base:openeuler-24.03 .
 ```
 
@@ -226,7 +226,7 @@ docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESP
 docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
   --build-arg OS_TAG=openeuler-24.03 \
   --build-arg PYTHON_PIN_VERSION=3.12.11 --secret id=CODE_SERVER_PASSWORD,env=CODE_SERVER_PASSWORD \
-  -f docker_installer/dockerfiles/languages/python/python3.12 \
+  -f images/languages/python/python3.12 \
   -t $REGISTRY/$NAMESPACE/language:openeuler-24.03-python-3.12 .
 ```
 
@@ -295,6 +295,6 @@ docker buildx build \
   --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
   --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD \
   --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
-  -f docker_installer/dockerfiles/base/Dockerfile \
+  -f images/base/Dockerfile \
   -t $REGISTRY/$NAMESPACE/base:noble .
 ```
