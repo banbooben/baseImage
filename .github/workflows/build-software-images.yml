@@ -15,16 +15,28 @@ env:
   NAMESPACE: ${{ secrets.NAMESPACE }}
 
 jobs:
-  build-code-server:
+  build-software:
     runs-on: ubuntu-latest
     # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签。
+    # target 矩阵条目：flavor=backend|desktop（Dockerfile 目录），name=镜像名
+    # （= Dockerfile 文件名 = tag 后缀）。dingtalk-dsh 不在此列（独立 workflow）
     strategy:
       fail-fast: false
       matrix:
         os_tag:
           - noble
           - openeuler-24.03
+        target:
+          - { flavor: backend, name: code-server }
+          - { flavor: backend, name: docker }
+          - { flavor: backend, name: claude }
+          - { flavor: backend, name: openresty }
+          - { flavor: desktop, name: chrome }
+          - { flavor: desktop, name: clash-verge }
+          - { flavor: desktop, name: dbeaver }
+          - { flavor: desktop, name: wps }
+          - { flavor: desktop, name: vscode }
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -39,277 +51,15 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./images/software/backend/code-server
+          file: ./images/software/${{ matrix.target.flavor }}/${{ matrix.target.name }}
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-code-server
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-${{ matrix.target.name }}
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             OS_TAG=${{ matrix.os_tag }}
+          # 只有 code-server 的 Dockerfile 会 mount 这个 secret；
+          # 对其余镜像它只是被忽略的定义，不会进入镜像内容
           secrets: |
             CODE_SERVER_PASSWORD=${{ secrets.CODE_SERVER_PASSWORD }}
-
-  build-docker:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/software/backend/docker
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-docker
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-
-  build-claude:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/software/backend/claude
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-claude
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-
-  build-openresty:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/software/backend/openresty
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-openresty
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-
-  build-dbeaver:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/software/desktop/dbeaver
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-dbeaver
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-
-  build-clash-verge:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/software/desktop/clash-verge
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-clash-verge
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-
-  build-chrome:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/software/desktop/chrome
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-chrome
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-
-  build-wps:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/software/desktop/wps
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-wps
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
-
-  build-vscode:
-    runs-on: ubuntu-latest
-    # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./images/software/desktop/vscode
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-vscode
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
