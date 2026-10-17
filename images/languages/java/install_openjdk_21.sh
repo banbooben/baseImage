@@ -4,7 +4,6 @@ setEnv(){
   export JAVA_HOME=/deployment/software/openjdk
   export PATH=${JAVA_HOME}/bin:$PATH
   export LANG=C.UTF-8
-  export GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305
   export JDK_VERSION=21
   echo "Using Oracle JDK ${JDK_VERSION} latest update"
   write_cont_env JAVA_VERSION "${JDK_VERSION}"

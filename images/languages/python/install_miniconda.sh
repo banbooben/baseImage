@@ -1,3 +1,4 @@
+source /deployment/scripts/common.sh
 
 setEnv(){
   export INSTALL_PATH=/deployment/miniconda
@@ -28,5 +29,4 @@ download_and_install(){
   rm -rf ~/miniconda3/
 }
 
-source /deployment/scripts/common.sh
 autoExecuteFunc setEnv download_and_install

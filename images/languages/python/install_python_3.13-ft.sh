@@ -4,7 +4,6 @@ setEnv(){
   export INSTALL_PATH=/deployment/software/python
   export PATH=${INSTALL_PATH}/bin:$PATH
   export LANG=C.UTF-8
-  export GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305
   export PYTHON_SERIES=3.13
   PYTHON_VERSION="$(resolve_python_latest_version "$PYTHON_SERIES")" || return 1
   export PYTHON_VERSION

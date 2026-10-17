@@ -1,4 +1,5 @@
 #!/bin/bash
+source /deployment/scripts/common.sh
 
 setEnv() {
   # 设置环境变量
@@ -318,24 +319,4 @@ FCITX4_UI
   echo "input method configured (pinyin, Ctrl+Space toggle)"
 }
 
-source /deployment/scripts/common.sh
 autoExecuteFunc setEnv installDesktop initVncConfig initDesktopConfig initInputMethodConfig
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

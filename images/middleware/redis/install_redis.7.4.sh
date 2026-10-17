@@ -51,7 +51,7 @@ redis-server /deployment/software/redis/redis.conf
 }
 
 
-download_python_package(){
+download_redis_package(){
 
     mkdir -p ${BASE_PATH}/bin ${INSTALL_PATH}/install ${INSTALL_PATH}/data
     cd ${INSTALL_PATH}/install
@@ -92,5 +92,5 @@ initS6Config(){
   register_s6_longrun_cmd redis "exec /bin/bash ${INSTALL_PATH}/start.sh"
 }
 
-autoExecuteFunc setEnv download_python_package clear_folder initS6Config
+autoExecuteFunc setEnv download_redis_package clear_folder initS6Config
 unset REDIS_PASSWORD

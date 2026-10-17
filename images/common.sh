@@ -699,44 +699,6 @@ resolve_github_latest_tag() {
   echo "$latest"
 }
 
-# Resolve latest Apache Hive version for a series (e.g. 4 or 4.0 -> 4.2.0).
-resolve_apache_hive_latest_version() {
-  local series="$1"
-  local pin_env="${2:-HIVE_PIN_VERSION}"
-  local pin_value=""
-  local latest=""
-  local listing=""
-
-  eval "pin_value=\${${pin_env}:-}"
-  if [ -n "$pin_value" ]; then
-    echo "$pin_value"
-    return 0
-  fi
-
-  listing="$(_installer_http_get "https://downloads.apache.org/hive/" 2>/dev/null || true)"
-  latest="$(printf '%s\n' "$listing" \
-    | grep -oE "hive-${series}(\.[0-9]+)+/" \
-    | sed 's#hive-##;s#/##' \
-    | sort -t. -k1,1n -k2,2n -k3,3n \
-    | tail -n 1)"
-
-  if [ -z "$latest" ]; then
-    listing="$(_installer_http_get "https://archive.apache.org/dist/hive/" 2>/dev/null || true)"
-    latest="$(printf '%s\n' "$listing" \
-      | grep -oE "hive-${series}(\.[0-9]+)+/" \
-      | sed 's#hive-##;s#/##' \
-      | sort -t. -k1,1n -k2,2n -k3,3n \
-      | tail -n 1)"
-  fi
-
-  if [ -z "$latest" ]; then
-    echo "Failed to resolve latest Apache Hive version for series ${series}" >&2
-    return 1
-  fi
-
-  echo "$latest"
-}
-
 # Write an s6-overlay container env var (/etc/cont-env.d/KEY).
 write_cont_env() {
   local key="$1"
@@ -836,46 +798,6 @@ autoExecuteFunc(){
 
   endInstall
   merge_and_save_env
-
-}
-
-node_is_master(){
-  # 获取 Swarm 集群节点列表
-  node_list=$(docker node ls --format "{{.ID}}:{{.Hostname}}")
-
-  # 存储 manager 节点信息
-  manager_nodes=()
-
-  # 遍历节点并筛选 manager
-  while IFS= read -r node_info; do
-    node_id=$(echo "$node_info" | cut -d ':' -f 1)
-    node_hostname=$(echo "$node_info" | cut -d ':' -f 2)
-    node_role=$(docker node inspect --format "{{.Spec.Role}}" "$node_id")
-
-    if [ "$node_role" == "manager" ]; then
-      manager_nodes+=("$node_hostname")
-    fi
-
-  # 初始化标记
-  found=false
-
-  # 检查目标主机是否在 manager 列表中
-  for item in "${manager_nodes[@]}"; do
-    if [ "$item" == "$1" ]; then
-      found=true
-      break
-    fi
-  done
-
-  done <<< "$node_list"
-
-  if [ "$found" == true ]; then
-    echo "$1 is manager node"
-    return 0
-  else
-    echo "$1 不是管理节点"
-    return 1
-  fi
 
 }
 
