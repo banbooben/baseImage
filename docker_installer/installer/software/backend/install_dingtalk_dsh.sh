@@ -14,11 +14,12 @@
  #   3. DSH：npm i -g @deepseek-ai/dsh（钉版本，默认 0.1.2-rc.1）
  #   4. 插件：dsh plugin --profile web add dingtalk-dsh-assistant（bake 进默认 DSH_HOME）
  #
- # Layer layout（数据域/登录态走运行期挂载，软件本体 npm 全局装在 /usr/local）：
- #   /deployment/software/dingtalk-dsh/home        # DSH_HOME：会话/轨迹/插件配置
- #   /deployment/software/dingtalk-dsh/dws-config  # DWS_CONFIG_DIR：登录态
- #   /deployment/software/dingtalk-dsh/start.sh    # s6 longrun 的 run body
- #   /deployment/bin/dsh / dws                      # 启动器（软链到 npm 全局 bin）
+ # Layer layout（数据域/登录态/技能统一在 INSTALL_PATH 下，运行期挂这一个路径；软件本体 npm 全局装在 /usr/local）：
+ #   /deployment/software/dingtalk-dsh/home          # DSH_HOME：会话/轨迹/插件配置
+ #   /deployment/software/dingtalk-dsh/dws-config    # DWS_CONFIG_DIR：登录态
+ #   /deployment/software/dingtalk-dsh/{dws,agents}  # 技能（$HOME 软链归拢，见 relocateSkillDirs）
+ #   /deployment/bin/dingtalk-dsh-start.sh           # s6 longrun 的 run body（在挂载点之外）
+ #   /deployment/bin/dsh / dws                        # 启动器（软链到 npm 全局 bin）
  #
  # 构建期可覆盖（Dockerfile build-arg / 环境变量）：
  #   NPM_REGISTRY     npm 源（默认 https://registry.npmmirror.com）
@@ -73,8 +74,9 @@ setEnv(){
   export DWS_PIN_VERSION="${DWS_PIN_VERSION:-}"
   export DSH_PIN_VERSION="${DSH_PIN_VERSION:-0.1.2-rc.1}"
 
-  # 数据域与登录态：默认落在 INSTALL_PATH 下（插件已 bake 进默认 home），
-  # 运行期可被容器 env / 卷挂载覆盖，实现按实例隔离。
+  # 数据域/登录态/技能统一收进 INSTALL_PATH 本身（不再套 data/ 子层）：
+  #   home（DSH_HOME）、dws-config（登录态）、dws/agents（技能，见 relocateSkillDirs）。
+  # 运行期只需挂 INSTALL_PATH 一个路径，即可持久化会话 + 登录态 + 全部技能。
   export DSH_HOME="${INSTALL_PATH}/home"
   export DWS_CONFIG_DIR="${INSTALL_PATH}/dws-config"
 
@@ -248,15 +250,39 @@ installAssistant(){
   echo "dingtalk-dsh-assistant installed into ${DSH_HOME}"
 }
 
+# 把 $HOME 钉死的技能目录归拢到 INSTALL_PATH：搬内容 → 删原目录 → 建软链（幂等）。
+# DWS/DSH 把技能目录硬编码在 $HOME（/root/.dws、/root/.agents），不受 DSH_HOME /
+# DWS_CONFIG_DIR 控制；只有用 symlink 把这两处指进 INSTALL_PATH，单路径挂载才能覆盖技能。
+relocateSkillDirs(){
+  local d src dst
+  for d in dws agents; do
+    src="/root/.${d}"
+    dst="${INSTALL_PATH}/${d}"
+    mkdir -p "${dst}"
+    if [ -L "${src}" ]; then
+      continue
+    fi
+    if [ -d "${src}" ]; then
+      cp -a "${src}/." "${dst}/" 2>/dev/null || true
+      rm -rf "${src}"
+    fi
+    ln -sfn "${dst}" "${src}"
+  done
+}
+
 initS6Config(){
   mkdir -p "${INSTALL_PATH}"
 
+  # 技能目录归拢到 INSTALL_PATH（见 relocateSkillDirs）
+  relocateSkillDirs
+
   # ── s6 longrun 的 run body ────────────────────────────────────────────
   # 先自检登录态（只警告不阻断），再前台常驻 DSH Web；重启语义交给 s6。
-  cat > "${INSTALL_PATH}/start.sh" <<EOF
+  # run body 落在 /deployment/bin（挂载点 INSTALL_PATH 之外），避免整目录挂卷时被遮蔽。
+  cat > /deployment/bin/dingtalk-dsh-start.sh <<EOF
 #!/bin/bash
 set -e
-mkdir -p "\${DSH_HOME}" "\${DWS_CONFIG_DIR}"
+mkdir -p "\${DSH_HOME}" "\${DWS_CONFIG_DIR}" "${INSTALL_PATH}/dws" "${INSTALL_PATH}/agents"
 
 # DWS 登录态自检：DWS_CONFIG_DIR 为空 = 尚未登录，只提醒，不阻断 DSH 起服务。
 # 登录需交互（设备码），请用 docker exec 补做一次：
@@ -267,7 +293,7 @@ fi
 
 exec dsh web --no-open
 EOF
-  chmod 0755 "${INSTALL_PATH}/start.sh"
+  chmod 0755 /deployment/bin/dingtalk-dsh-start.sh
 
   # ── 运行期环境持久化（s6 with-contenv 会注入）────────────────────────
   write_cont_env DSH_HOME "${DSH_HOME}"
@@ -283,7 +309,7 @@ EOF
   } >> /etc/environment
 
   # 注册常驻服务（root 运行，与 redis 等 middleware 服务一致）
-  register_s6_longrun_cmd dingtalk-dsh "exec /bin/bash ${INSTALL_PATH}/start.sh"
+  register_s6_longrun_cmd dingtalk-dsh "exec /bin/bash /deployment/bin/dingtalk-dsh-start.sh"
 
   # ── README ────────────────────────────────────────────────────────────
   cat > "${INSTALL_PATH}/README.md" <<EOF
@@ -307,14 +333,14 @@ backend 软件镜像 \`software:<os_tag>-dingtalk-dsh\`，把钉钉群聊接入 
 
 \`\`\`bash
 docker run -d --name dingtalk-dsh \
-  -v dsh_home:/deployment/software/dingtalk-dsh/home \
-  -v dws_config:/deployment/software/dingtalk-dsh/dws-config \
+  -v dsh_data:/deployment/software/dingtalk-dsh \
   -p 127.0.0.1:3080:3080 \
   registry.cn-hangzhou.aliyuncs.com/sarmn/software:noble-dingtalk-dsh
 \`\`\`
 
-挂载点：\`DSH_HOME\`（会话/轨迹/插件配置）、\`DWS_CONFIG_DIR\`（登录态）。
-两者默认都指向 \`/deployment/software/dingtalk-dsh/{home,dws-config}\`。
+挂载点：只需挂 \`/deployment/software/dingtalk-dsh\` 一个路径，即可持久化全部状态——
+\`DSH_HOME\`（\`home\`：会话/轨迹/插件配置）、\`DWS_CONFIG_DIR\`（\`dws-config\`：登录态）、
+DWS/DSH 技能（\`/root/.dws\`、\`/root/.agents\` 已软链到 \`dws\`、\`agents\`）。
 
 ## 首次登录
 
@@ -325,10 +351,12 @@ docker exec -it dingtalk-dsh dws auth login --device
 
 ## 关键配置（对应需求）
 
-- \`DSH_HOME\`：按实例隔离的数据域（每个数字同事实例独立一份；挂新卷即新实例）。
+- \`DSH_HOME\`（\`home\`）：按实例隔离的数据域（每个数字同事实例独立一份；挂新卷即新实例）。
   默认镜像已把 \`dingtalk-dsh-assistant\` bake 进默认 \`home\`，挂新卷后需重跑一次
   \`docker exec -it <container> dsh plugin --profile web add dingtalk-dsh-assistant\`。
-- \`DWS_CONFIG_DIR\`：DWS 登录态，走挂载卷持久化（容器重建不丢登录态）。
+- \`DWS_CONFIG_DIR\`（\`dws-config\`）：DWS 登录态，走挂载卷持久化（容器重建不丢登录态）。
+- 技能：\`/root/.dws\`、\`/root/.agents\` 已软链到 \`dws\`、\`agents\`，运行期
+  \`dws skill install\` / \`dws skill setup\` 新装的技能都会落进挂载路径，容器重建不丢。
 - 插件权限：resident 主会话只读，leaf 任务会话拥有完整执行权限（在 DSH Web
   控制台 → Settings → Plugins → 钉钉个人助理 里配置）。
 - \`dsh web\` 只监听 \`127.0.0.1:3080\`，\`--host 0.0.0.0\` 被 CLI 禁用。
