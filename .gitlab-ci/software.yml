@@ -1,7 +1,15 @@
+# 对应 .github/workflows/build-python-software-images.yml（build-software job）
 # 仅手动；job 级 needs: [] 打断 stage 顺序
 #
+# ⚠️ GitLab 侧只保留「最小业务闭环」子集：deployment 层实际 FROM 的
+# code-server（ext-pack / nginx-code 消费）与 openresty（nginx-code 消费）。
+# 其余 7 个独立 software 镜像（chrome / clash-verge / dbeaver / wps / vscode /
+# docker / claude）全部由 GitHub Actions 全量构建（本地 runner 下载外网安装包
+# 不稳定）。需要加回某个：在下表补一条矩阵条目即可。
+# dingtalk-dsh 不在此列（见 dingtalk.yml）
+#
 # 矩阵条目：FLAVOR=backend|desktop（Dockerfile 目录），NAME=镜像名
-# （= Dockerfile 文件名 = tag 后缀）。dingtalk-dsh 不在此列（见 dingtalk.yml）
+# （= Dockerfile 文件名 = tag 后缀）
 
 software:
   extends: .manual_only
@@ -14,34 +22,13 @@ software:
         NAME: code-server
       - OS_TAG: [noble, openeuler-24.03]
         FLAVOR: backend
-        NAME: docker
-      - OS_TAG: [noble, openeuler-24.03]
-        FLAVOR: backend
-        NAME: claude
-      - OS_TAG: [noble, openeuler-24.03]
-        FLAVOR: backend
         NAME: openresty
-      - OS_TAG: [noble, openeuler-24.03]
-        FLAVOR: desktop
-        NAME: chrome
-      - OS_TAG: [noble, openeuler-24.03]
-        FLAVOR: desktop
-        NAME: clash-verge
-      - OS_TAG: [noble, openeuler-24.03]
-        FLAVOR: desktop
-        NAME: dbeaver
-      - OS_TAG: [noble, openeuler-24.03]
-        FLAVOR: desktop
-        NAME: wps
-      - OS_TAG: [noble, openeuler-24.03]
-        FLAVOR: desktop
-        NAME: vscode
   stage: software
   script:
     - echo "开始构建 ${NAME} 镜像"
     - cd $ROOT_PATH/${project_repo_name}
     # 只有 code-server 的 Dockerfile 会 mount 这个 secret；
-    # 对其余镜像它只是被忽略的定义，不会进入镜像内容
+    # 对 openresty 它只是被忽略的定义，不会进入镜像内容
     - >
       docker buildx build
       --builder builder

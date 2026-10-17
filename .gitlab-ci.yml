@@ -1,16 +1,13 @@
 include:
   - local: '.gitlab-ci/base.yml'
   - local: '.gitlab-ci/languages.yml'
-  - local: '.gitlab-ci/middleware.yml'
   - local: '.gitlab-ci/software.yml'
   - local: '.gitlab-ci/deployment.yml'
   - local: '.gitlab-ci/dingtalk.yml'
 
 stages:
   - base
-  - languages-java
   - languages-python
-  - middleware-redis
   - software
   - deployment
 
@@ -32,17 +29,20 @@ variables:
 # ---------------------------------------------------------------------------
 # 定时分组（GitLab 无法按 job 设 cron，用多个 Schedule + BUILD_GROUP 变量）
 #
+# GitLab 侧只跑「最小业务闭环」子集（base → python 3.12/3.14），全量矩阵
+# （其余 Python 系列 / miniconda3 / openjdk / redis / 独立 software）由
+# GitHub Actions 承担，本地 runner 不再下载那些外网源码包与镜像。
+#
 # Build → Pipeline schedules：
 #
 #   1) base        Interval: 0 16 * * *   BUILD_GROUP=base
 #   2) languages   Interval: 0 19 * * *   BUILD_GROUP=languages
-#   3) middleware  Interval: 0 19 * * *   BUILD_GROUP=middleware
 #
 # 注意：rules 里写 needs: [] 在多数 GitLab 版本会被静默忽略（仍按 stage 排队）。
 # 因此「无依赖」必须写在 job 级 needs: []；定时依赖用「非空」rules:needs 覆盖。
 # ---------------------------------------------------------------------------
 
-# base：定时（base/languages/middleware）自动跑；手动靠 job 级 needs:[] 可单独点
+# base：定时（base/languages）自动跑；手动靠 job 级 needs:[] 可单独点
 .schedule_base:
   tags:
     - sync
@@ -59,16 +59,6 @@ variables:
   needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "languages"
-    - if: $CI_PIPELINE_SOURCE != "schedule"
-      when: manual
-
-# middleware：定时覆盖 needs 依赖 base；手动沿用 job 级 needs:[]
-.schedule_middleware:
-  tags:
-    - sync
-  needs: []
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "middleware"
     - if: $CI_PIPELINE_SOURCE != "schedule"
       when: manual
 
