@@ -2,7 +2,7 @@ ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
 ARG OS_TAG=noble
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
-FROM ${BASE_IMAGE} as builder
+FROM ${BASE_IMAGE} AS builder
 
 # JDK_VERSION 必填（主版本号，如 21）；JAVA_PIN_VERSION 可钉住具体 update（如 21.0.5+9）
 ARG JDK_VERSION

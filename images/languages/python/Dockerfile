@@ -5,7 +5,7 @@ ARG NAMESPACE=sarmn
 #            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 images/common.sh）
 ARG OS_TAG=noble
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
-FROM ${BASE_IMAGE} as builder
+FROM ${BASE_IMAGE} AS builder
 
 # PYTHON_SERIES 必填（如 3.12）；free-threaded 构建（tag 后缀 -ft）加 PYTHON_DISABLE_GIL=true
 ARG PYTHON_SERIES
@@ -30,8 +30,8 @@ COPY --from=builder /deployment/software/python /deployment/software/python
 COPY --from=builder /etc/cont-env.d/PYTHON_VERSION /etc/cont-env.d/PYTHON_VERSION
 COPY --from=builder /etc/cont-env.d/PYTHON_SERIES /etc/cont-env.d/PYTHON_SERIES
 ENV PATH="/deployment/software/python/bin:$PATH" \
-    PYTHONPATH="/deployment/software/python/lib/python${PYTHON_SERIES}/site-packages:$PYTHONPATH" \
+    PYTHONPATH="/deployment/software/python/lib/python${PYTHON_SERIES}/site-packages" \
     PYTHON_SERIES=${PYTHON_SERIES}
 
 ENTRYPOINT ["/init"]
-CMD python3
+CMD ["python3"]
