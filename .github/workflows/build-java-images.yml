@@ -35,17 +35,8 @@ jobs:
       - name: Resolve latest OpenJDK version
         id: version
         run: |
-          MAJOR="${{ matrix.java.major }}"
-          NEXT=$((MAJOR + 1))
-          VERSION=$(curl -fsSL "https://api.adoptium.net/v3/info/release_versions?version=%5B${MAJOR}%2C${NEXT}%29&release_type=ga&page_size=1&sort_method=DATE&sort_order=DESC" 2>/dev/null \
-            | sed -n 's/.*"openjdk_version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-          VERSION="${VERSION%-LTS}"
-          if [ -z "$VERSION" ]; then
-            echo "Failed to resolve version, using fallback" >&2
-            VERSION="${{ matrix.java.fallback }}"
-          fi
+          VERSION=$(ci/resolve_versions.sh java "${{ matrix.java.major }}" "${{ matrix.java.fallback }}")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Resolved OpenJDK version: $VERSION"
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
