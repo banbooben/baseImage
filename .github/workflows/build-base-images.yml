@@ -100,6 +100,8 @@ jobs:
             --build-arg BASE_OS_IMAGE=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ matrix.base_os_image }} \
             --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
             --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD \
+            --cache-from type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:base-${{ matrix.os_tag }} \
+            --cache-to type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:base-${{ matrix.os_tag }},mode=max \
             --provenance=false \
             --sbom=false \
             --push \
@@ -142,6 +144,8 @@ jobs:
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
             --build-arg OS_TAG=${{ matrix.os_tag }} \
             --secret id=VNC_PASSWORD,env=VNC_PASSWORD \
+            --cache-from type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:base-${{ matrix.os_tag }}-desktop \
+            --cache-to type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:base-${{ matrix.os_tag }}-desktop,mode=max \
             --provenance=false \
             --sbom=false \
             --push \

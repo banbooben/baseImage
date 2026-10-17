@@ -33,5 +33,7 @@ redis:
       --build-arg REDIS_SERIES=${REDIS_SERIES}
       --build-arg REDIS_PIN_VERSION=$VERSION
       --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:middleware-redis-${REDIS_SERIES}-${OS_TAG}
+      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:middleware-redis-${REDIS_SERIES}-${OS_TAG},mode=max
       --push
       .

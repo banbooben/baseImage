@@ -52,6 +52,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:${{ matrix.os_tag }}-redis-${{ matrix.redis.series }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:middleware-redis-${{ matrix.redis.series }}-${{ matrix.os_tag }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:middleware-redis-${{ matrix.redis.series }}-${{ matrix.os_tag }},mode=max
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}

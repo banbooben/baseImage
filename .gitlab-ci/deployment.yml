@@ -44,6 +44,8 @@ python-ext-pack:
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_SERIES=${PYTHON_SERIES}
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:deployment-${FLAVOR}-python${PYTHON_SERIES}-ext-${OS_TAG}
+      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:deployment-${FLAVOR}-python${PYTHON_SERIES}-ext-${OS_TAG},mode=max
       --push
       .
 
@@ -67,5 +69,7 @@ nginx-code:
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:deployment-server-nginx-code-${OS_TAG}
+      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:deployment-server-nginx-code-${OS_TAG},mode=max
       --push
       .

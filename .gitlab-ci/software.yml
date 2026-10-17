@@ -52,5 +52,7 @@ software:
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
       --secret id=CODE_SERVER_PASSWORD,env=CODE_SERVER_PASSWORD
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:software-${NAME}-${OS_TAG}
+      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:software-${NAME}-${OS_TAG},mode=max
       --push
       .

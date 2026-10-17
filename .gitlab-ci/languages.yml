@@ -86,6 +86,8 @@ python:
       --build-arg PYTHON_SERIES=${PYTHON_SERIES}
       --build-arg PYTHON_DISABLE_GIL=${DISABLE_GIL}
       --build-arg PYTHON_PIN_VERSION=$VERSION
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:language-python-${PYTHON_SERIES}${TAG_SUFFIX}-${OS_TAG}
+      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:language-python-${PYTHON_SERIES}${TAG_SUFFIX}-${OS_TAG},mode=max
       --push
       .
 
@@ -112,6 +114,8 @@ miniconda3:
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:language-miniconda-3-${OS_TAG}
+      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:language-miniconda-3-${OS_TAG},mode=max
       --push
       .
 
@@ -148,5 +152,7 @@ openjdk:
       --build-arg OS_TAG=${OS_TAG}
       --build-arg JDK_VERSION=${JDK_VERSION}
       --build-arg JAVA_PIN_VERSION=$VERSION
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:language-openjdk-${JDK_VERSION}-${OS_TAG}
+      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:language-openjdk-${JDK_VERSION}-${OS_TAG},mode=max
       --push
       .
