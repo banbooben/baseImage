@@ -3,15 +3,18 @@ ARG NAMESPACE=sarmn
 # OS_TAG 产物标签后缀：本层与上游各层（base / language / software / middleware）
 #        的标签统一由它派生，例如 base:<OS_TAG>-desktop、language:<OS_TAG>-python-3.12
 ARG OS_TAG=noble
+# PYTHON_SERIES 必填（如 3.12）：上游 language 镜像与 python/pip 链接名都由它派生
+ARG PYTHON_SERIES
 
 FROM ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-code-server AS codeserver
-FROM ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-3.14 AS py314
+FROM ${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-${PYTHON_SERIES} AS python
 
 
 FROM ${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
 
 LABEL authors="sarmn"
 
+ARG PYTHON_SERIES
 ARG UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
 ENV UV_DEFAULT_INDEX=${UV_DEFAULT_INDEX}
 ENV UV_LINK_MODE=copy
@@ -21,7 +24,7 @@ ENV UV_LINK_MODE=copy
 ENV PATH=/deployment/software/code-server/bin:/deployment/bin:$PATH
 
 
-COPY --from=py314 /deployment/software/python /deployment/software/python
+COPY --from=python /deployment/software/python /deployment/software/python
 
 COPY --from=codeserver /deployment/software/code-server /deployment/software/code-server
 COPY --from=codeserver /etc/s6-overlay/s6-rc.d/code-server /etc/s6-overlay/s6-rc.d/code-server
@@ -31,7 +34,7 @@ COPY --from=codeserver /etc/s6-overlay/s6-rc.d/user/contents.d/code-server /etc/
 RUN mkdir -p /deployment/bin; \
     : > /etc/s6-overlay/s6-rc.d/user/contents.d/sshd; \
     ln -s /deployment/software/code-server/bin/code-server /deployment/bin/code-server; \
-    ln -s /deployment/software/python/bin/python3.14 /deployment/bin/python3; \
-    ln -s /deployment/software/python/bin/pip3.14 /deployment/bin/pip3
+    ln -s /deployment/software/python/bin/python${PYTHON_SERIES} /deployment/bin/python3; \
+    ln -s /deployment/software/python/bin/pip${PYTHON_SERIES} /deployment/bin/pip3
 
 ENTRYPOINT ["/init"]

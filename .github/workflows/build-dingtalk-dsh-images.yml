@@ -65,15 +65,20 @@ jobs:
             NPM_REGISTRY=https://registry.npmmirror.com
             DSH_PIN_VERSION=${{ inputs.dsh_version }}
 
-  # ── desktop 版（基于 Python 3.12 extension-pack）──────────────────────
-  build-desktop-python-312-ext-dingtalk-dsh:
+  # ── desktop 版（python-extension-pack 矩阵：Python 3.12 / 3.14）─────────
+  build-desktop-ext-dingtalk-dsh:
     runs-on: ubuntu-latest
+    # python_series 矩阵条目：透传 PYTHON_SERIES build-arg 派生上游
+    # deployment:<os>-desktop-python<series>-extension-pack 与产物 tag
     strategy:
       fail-fast: false
       matrix:
         os_tag:
           - noble
           - openeuler-24.03
+        python_series:
+          - "3.12"
+          - "3.14"
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -88,47 +93,14 @@ jobs:
           provenance: false
           sbom: false
           context: .
-          file: ./deployment/common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
+          file: ./deployment/common/desktop/python-extension-pack/Dockerfile-dingtalk-dsh
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python3.12-extension-pack-dingtalk-dsh
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python${{ matrix.python_series }}-extension-pack-dingtalk-dsh
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             OS_TAG=${{ matrix.os_tag }}
-            NPM_REGISTRY=https://registry.npmmirror.com
-            DSH_PIN_VERSION=${{ inputs.dsh_version }}
-
-  # ── desktop 版（基于 Python 3.14 extension-pack）──────────────────────
-  build-desktop-python-314-ext-dingtalk-dsh:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        os_tag:
-          - noble
-          - openeuler-24.03
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALY_ARC_USERNAME }}
-          password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
-        with:
-          provenance: false
-          sbom: false
-          context: .
-          file: ./deployment/common/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python3.14-extension-pack-dingtalk-dsh
-          build-args: |
-            REGISTRY=${{ env.REGISTRY }}
-            NAMESPACE=${{ env.NAMESPACE }}
-            OS_TAG=${{ matrix.os_tag }}
+            PYTHON_SERIES=${{ matrix.python_series }}
             NPM_REGISTRY=https://registry.npmmirror.com
             DSH_PIN_VERSION=${{ inputs.dsh_version }}

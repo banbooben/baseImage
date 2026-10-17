@@ -13,22 +13,22 @@
 
 基于 `base:<os>-desktop`，含 Xfce 桌面 + VNC/noVNC + 中文输入法。
 
-| 镜像 | 包含组件 |
-| --- | --- |
-| [desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode](common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode) | Python 3.12 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
-| [desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode](common/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode) | Python 3.14 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
-| [desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh](common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh) | 上述 Python 3.12 桌面环境 + 钉钉数字同事（DWS + DSH + 钉钉插件） |
-| [desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh](common/desktop/python-extension-pack/py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh) | 上述 Python 3.14 桌面环境 + 钉钉数字同事（DWS + DSH + 钉钉插件） |
+| 镜像 | Dockerfile | 包含组件 |
+| --- | --- | --- |
+| `deployment:<os>-desktop-python3.12-extension-pack` | [desktop/python-extension-pack/Dockerfile](common/desktop/python-extension-pack/Dockerfile)（`PYTHON_SERIES=3.12`） | Python 3.12 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
+| `deployment:<os>-desktop-python3.14-extension-pack` | 同上（`PYTHON_SERIES=3.14`） | Python 3.14 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
+| `deployment:<os>-desktop-python3.12-extension-pack-dingtalk-dsh` | [desktop/python-extension-pack/Dockerfile-dingtalk-dsh](common/desktop/python-extension-pack/Dockerfile-dingtalk-dsh)（`PYTHON_SERIES=3.12`） | 上述 Python 3.12 桌面环境 + 钉钉数字同事（DWS + DSH + 钉钉插件） |
+| `deployment:<os>-desktop-python3.14-extension-pack-dingtalk-dsh` | 同上（`PYTHON_SERIES=3.14`） | 上述 Python 3.14 桌面环境 + 钉钉数字同事（DWS + DSH + 钉钉插件） |
 
 ### 服务器开发环境
 
 基于 `base:<os>`，纯命令行环境。
 
-| 镜像 | 包含组件 |
-| --- | --- |
-| [server/python-extension-pack/py-3.12-codeserver-sshd](common/server/python-extension-pack/py-3.12-codeserver-sshd) | Python 3.12 + code-server + SSH |
-| [server/python-extension-pack/py-3.14-codeserver-sshd](common/server/python-extension-pack/py-3.14-codeserver-sshd) | Python 3.14 + code-server + SSH |
-| [server/nginx-code/openresty-nginx](common/server/nginx-code/openresty-nginx) | OpenResty + code-server |
+| 镜像 | Dockerfile | 包含组件 |
+| --- | --- | --- |
+| `deployment:<os>-server-python3.12-extension-pack` | [server/python-extension-pack/Dockerfile](common/server/python-extension-pack/Dockerfile)（`PYTHON_SERIES=3.12`） | Python 3.12 + code-server + SSH |
+| `deployment:<os>-server-python3.14-extension-pack` | 同上（`PYTHON_SERIES=3.14`） | Python 3.14 + code-server + SSH |
+| `deployment:<os>-server-nginx-code` | [server/nginx-code/openresty-nginx](common/server/nginx-code/openresty-nginx) | OpenResty + code-server |
 
 ## 构建
 
@@ -40,17 +40,17 @@ export REGISTRY=registry.cn-hangzhou.aliyuncs.com NAMESPACE=sarmn
 
 # Desktop + Python 3.12
 docker build \
-  -f deployment/common/desktop/python-extension-pack/py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode \
+  -f deployment/common/desktop/python-extension-pack/Dockerfile \
   -t $REGISTRY/$NAMESPACE/deployment:<os>-desktop-python3.12-extension-pack \
   --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
-  --build-arg OS_TAG=<os> .
+  --build-arg OS_TAG=<os> --build-arg PYTHON_SERIES=3.12 .
 
 # Server + Python 3.14
 docker build \
-  -f deployment/common/server/python-extension-pack/py-3.14-codeserver-sshd \
+  -f deployment/common/server/python-extension-pack/Dockerfile \
   -t $REGISTRY/$NAMESPACE/deployment:<os>-server-python3.14-extension-pack \
   --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
-  --build-arg OS_TAG=<os> .
+  --build-arg OS_TAG=<os> --build-arg PYTHON_SERIES=3.14 .
 
 ```
 
@@ -96,16 +96,13 @@ docker run -d --name nginx-code \
 deployment/common/
 ├── desktop/
 │   └── python-extension-pack/
-│       ├── py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode
-│       ├── py-3.12-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
-│       ├── py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode
-│       └── py-3.14-codeserver-sshd-chrome-dbeaver-wps-vscode-dingtalk-dsh
+│       ├── Dockerfile                # PYTHON_SERIES 必填（3.12 / 3.14）
+│       └── Dockerfile-dingtalk-dsh   # 同上，叠加钉钉数字同事
 └── server/
     ├── nginx-code/
     │   └── openresty-nginx
     └── python-extension-pack/
-        ├── py-3.12-codeserver-sshd
-        └── py-3.14-codeserver-sshd
+        └── Dockerfile                # PYTHON_SERIES 必填（3.12 / 3.14）
 ```
 
 ## 依赖关系

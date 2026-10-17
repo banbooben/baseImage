@@ -1,14 +1,16 @@
 # 钉钉数字同事（desktop 版）—— 在 desktop python-extension-pack 基础上叠加 dingtalk-dsh
 #
 # 与 backend 版 software:<os>-dingtalk-dsh 的区别：本镜像把「数字同事」服务装进
-# 桌面开发环境（Xfce + code-server + Python 3.14 + Chrome/DBeaver/WPS/VS Code），
+# 桌面开发环境（Xfce + code-server + Python + Chrome/DBeaver/WPS/VS Code），
 # s6 启动即常驻 dsh web（127.0.0.1:3080），登录态/数据域走卷挂载。
 # 安装脚本复用 backend 的 install_dingtalk_dsh.sh；common.sh 已由 base 内置。
 
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
 ARG OS_TAG=noble
-FROM ${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-desktop-python3.14-extension-pack
+# PYTHON_SERIES 必填（如 3.12）：上游 deployment 镜像 tag 由它派生
+ARG PYTHON_SERIES
+FROM ${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-desktop-python${PYTHON_SERIES}-extension-pack
 
 LABEL authors="sarmn"
 
