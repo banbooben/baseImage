@@ -1,76 +1,37 @@
 # 对应 .github/workflows/build-middleware-images.yml
 # Schedule（BUILD_GROUP=middleware）：rules 非空 needs → 等 base 链
 # 手动：继承 job 级 needs: []，base 未跑也能直接点
+#
+# redis 矩阵条目：REDIS_SERIES=版本系列，FALLBACK 为版本解析失败时的兜底
 
-redis-7.4:
+redis:
   stage: middleware-redis
   extends: .schedule_middleware
   # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
   # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
   parallel:
     matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
+      - OS_TAG: [noble, openeuler-24.03]
+        REDIS_SERIES: "7.4"
+        FALLBACK: "7.4.0"
+      - OS_TAG: [noble, openeuler-24.03]
+        REDIS_SERIES: "8.2"
+        FALLBACK: "8.2.0"
   script:
-    - echo "开始构建redis 7.4镜像"
+    - echo "开始构建redis ${REDIS_SERIES}镜像"
     - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/redis/7.4.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="7.4.0"
-      fi
-      echo "Resolved Redis version: $VERSION"
+    - export VERSION=$(ci/resolve_versions.sh redis "${REDIS_SERIES}" "${FALLBACK}")
     - >
       docker buildx build
       --builder builder
       --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/middleware:${OS_TAG}-redis-7.4
-      -f ./images/middleware/redis/Dockerfile.7.4
+      -t ${REGISTRY}/${NAMESPACE}/middleware:${OS_TAG}-redis-${REDIS_SERIES}
+      -f ./images/middleware/redis/Dockerfile
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
+      --build-arg REDIS_SERIES=${REDIS_SERIES}
       --build-arg REDIS_PIN_VERSION=$VERSION
       --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
       --push
       .
-
-
-redis-8.2:
-  stage: middleware-redis
-  extends: .schedule_middleware
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
-  # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  script:
-    - echo "开始构建redis 8.2镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - |
-      export VERSION=$(curl -fsSL "https://endoflife.date/api/redis/8.2.json" 2>/dev/null | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-      if [ -z "$VERSION" ]; then
-        echo "Failed to resolve version, using fallback" >&2
-        VERSION="8.2.0"
-      fi
-      echo "Resolved Redis version: $VERSION"
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/middleware:${OS_TAG}-redis-8.2
-      -f ./images/middleware/redis/Dockerfile.8.2
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg REDIS_PIN_VERSION=$VERSION
-      --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
-      --push
-      .
-
-
-
-

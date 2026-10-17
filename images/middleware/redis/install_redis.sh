@@ -4,7 +4,7 @@ setEnv(){
   export BASE_PATH=/deployment
   export INSTALL_PATH=/deployment/software/redis
   export LANG=C.UTF-8
-  export REDIS_SERIES=7.4
+  export REDIS_SERIES="${REDIS_SERIES:?REDIS_SERIES is required (e.g. 7.4)}"
   REDIS_VERSION="$(resolve_eol_latest_version redis "$REDIS_SERIES" REDIS_PIN_VERSION)" || return 1
   export REDIS_VERSION
   echo "Using Redis ${REDIS_VERSION} (series ${REDIS_SERIES})"

@@ -2,15 +2,17 @@ ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn
 # OS_TAG     产物标签后缀：base:<OS_TAG> / language:<OS_TAG>-python-3.12 …
 # BASE_IMAGE 上游 base 镜像（桌面链为 base:<OS_TAG>-desktop）。Ubuntu 与 openEuler
-#            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 installer/common.sh）
+#            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 images/common.sh）
 ARG OS_TAG=noble
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
-FROM ${BASE_IMAGE} as builder
+FROM ${BASE_IMAGE} AS builder
 
+# REDIS_SERIES 必填（如 7.4）；REDIS_PIN_VERSION 可钉住具体版本
+ARG REDIS_SERIES
 ARG REDIS_PIN_VERSION
 
 COPY ./images/common.sh /deployment/scripts/common.sh
-COPY ./images/middleware/redis/install_redis.8.2.sh /tmp/install_redis.sh
+COPY ./images/middleware/redis/install_redis.sh /tmp/install_redis.sh
 # --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
 RUN --mount=type=secret,id=REDIS_PASSWORD,required=false \
     set -eux; \
@@ -18,6 +20,7 @@ RUN --mount=type=secret,id=REDIS_PASSWORD,required=false \
     /bin/bash /tmp/install_redis.sh
 
 FROM ${BASE_IMAGE}
+ARG REDIS_SERIES
 COPY --from=builder /deployment/software/redis /deployment/software/redis
 COPY --from=builder /etc/s6-overlay/s6-rc.d/redis /etc/s6-overlay/s6-rc.d/redis
 COPY --from=builder /etc/s6-overlay/s6-rc.d/user/contents.d/redis /etc/s6-overlay/s6-rc.d/user/contents.d/redis
@@ -26,7 +29,7 @@ COPY --from=builder /etc/cont-env.d/REDIS_SERIES /etc/cont-env.d/REDIS_SERIES
 COPY --from=builder /etc/environment /etc/environments/env-redis
 
 ENV PATH=/deployment/bin:/deployment/software/redis/bin:$PATH \
-    REDIS_SERIES=8.2
+    REDIS_SERIES=${REDIS_SERIES}
 
 RUN ln -s /deployment/software/redis/bin/redis-server /deployment/bin/redis-server ;\
     ln -s /deployment/software/redis/bin/redis-cli /deployment/bin/redis-cli ;\
