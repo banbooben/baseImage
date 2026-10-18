@@ -58,8 +58,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-dingtalk-dsh
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:software-dingtalk-dsh-${{ matrix.os_tag }}
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:software-dingtalk-dsh-${{ matrix.os_tag }},mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-dingtalk-dsh
+          cache-to: type=inline
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -99,8 +99,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python${{ matrix.python_series }}-extension-pack-dingtalk-dsh
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:deployment-desktop-python${{ matrix.python_series }}-ext-dingtalk-dsh-${{ matrix.os_tag }}
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:deployment-desktop-python${{ matrix.python_series }}-ext-dingtalk-dsh-${{ matrix.os_tag }},mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python${{ matrix.python_series }}-extension-pack-dingtalk-dsh
+          cache-to: type=inline
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}

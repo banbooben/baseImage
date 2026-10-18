@@ -57,8 +57,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-openjdk-${{ matrix.java.major }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:language-openjdk-${{ matrix.java.major }}-${{ matrix.os_tag }}
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:language-openjdk-${{ matrix.java.major }}-${{ matrix.os_tag }},mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/language:${{ matrix.os_tag }}-openjdk-${{ matrix.java.major }}
+          cache-to: type=inline
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -103,8 +103,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:${{ matrix.os_tag }}-redis-${{ matrix.redis.series }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:middleware-redis-${{ matrix.redis.series }}-${{ matrix.os_tag }}
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:middleware-redis-${{ matrix.redis.series }}-${{ matrix.os_tag }},mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/middleware:${{ matrix.os_tag }}-redis-${{ matrix.redis.series }}
+          cache-to: type=inline
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}

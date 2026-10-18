@@ -56,8 +56,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-${{ matrix.target.flavor }}-python${{ matrix.target.series }}-extension-pack
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:deployment-${{ matrix.target.flavor }}-python${{ matrix.target.series }}-ext-${{ matrix.os_tag }}
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:deployment-${{ matrix.target.flavor }}-python${{ matrix.target.series }}-ext-${{ matrix.os_tag }},mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-${{ matrix.target.flavor }}-python${{ matrix.target.series }}-extension-pack
+          cache-to: type=inline
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
@@ -95,8 +95,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-server-nginx-code
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:deployment-server-nginx-code-${{ matrix.os_tag }}
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/cache:deployment-server-nginx-code-${{ matrix.os_tag }},mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-server-nginx-code
+          cache-to: type=inline
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}

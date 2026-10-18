@@ -55,8 +55,8 @@ noble:
       --build-arg OS_TAG=noble
       --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD
       --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD
-      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:base-noble
-      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:base-noble,mode=max
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:noble
+      --cache-to type=inline
       --push
       .
 
@@ -86,8 +86,8 @@ noble-desktop:
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=noble
       --secret id=VNC_PASSWORD,env=VNC_PASSWORD
-      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:base-noble-desktop
-      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:base-noble-desktop,mode=max
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:noble-desktop
+      --cache-to type=inline
       --push
       .
 
@@ -117,8 +117,8 @@ openeuler:
       --build-arg BASE_OS_IMAGE=${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts
       --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD
       --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD
-      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:base-openeuler-24.03
-      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:base-openeuler-24.03,mode=max
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:openeuler-24.03
+      --cache-to type=inline
       --push
       .
 
@@ -148,7 +148,7 @@ openeuler-desktop:
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=openeuler-24.03
       --secret id=VNC_PASSWORD,env=VNC_PASSWORD
-      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:base-openeuler-24.03-desktop
-      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:base-openeuler-24.03-desktop,mode=max
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:openeuler-24.03-desktop
+      --cache-to type=inline
       --push
       .

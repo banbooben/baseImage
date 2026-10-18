@@ -51,7 +51,7 @@ python:
       --build-arg PYTHON_SERIES=${PYTHON_SERIES}
       --build-arg PYTHON_DISABLE_GIL=${DISABLE_GIL}
       --build-arg PYTHON_PIN_VERSION=$VERSION
-      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:language-python-${PYTHON_SERIES}${TAG_SUFFIX}-${OS_TAG}
-      --cache-to type=registry,ref=${REGISTRY}/${NAMESPACE}/cache:language-python-${PYTHON_SERIES}${TAG_SUFFIX}-${OS_TAG},mode=max
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-${PYTHON_SERIES}${TAG_SUFFIX}
+      --cache-to type=inline
       --push
       .
