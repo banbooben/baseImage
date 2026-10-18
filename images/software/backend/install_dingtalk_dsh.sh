@@ -289,9 +289,10 @@ initS6Config(){
 
   # ── s6 longrun 的 run body ────────────────────────────────────────────
   # run body 以 root 启动（register_s6_longrun_cmd 不传 run_user），先在 root 态完成
-  # PUID/PGID 对齐 + 属主修正 + 技能软链，再 setuidgid 切到 sarmn 前台常驻 DSH Web；
-  # 重启语义交给 s6。run body 落在 /deployment/bin（挂载点 INSTALL_PATH 之外），
-  # 避免整目录挂卷时被遮蔽。
+  # 属主修正 + 技能软链，再 setuidgid 切到 sarmn 前台常驻 DSH Web；重启语义交给 s6。
+  # PUID/PGID 的 uid/gid 对齐由 base 层 /etc/cont-init.d/05-puid-pgid 在服务启动前
+  # 统一完成，此处不再重复。run body 落在 /deployment/bin（挂载点 INSTALL_PATH
+  # 之外），避免整目录挂卷时被遮蔽。
   cat > /deployment/bin/dingtalk-dsh-start.sh <<EOF
 #!/bin/bash
 set -e
@@ -300,22 +301,10 @@ RUN_USER="sarmn"
 HOME_DIR="\$(getent passwd "\${RUN_USER}" | cut -d: -f6)"
 [ -n "\${HOME_DIR}" ] || HOME_DIR="/deployment/accounts/\${RUN_USER}"
 
-# ── PUID / PGID：运行期把 sarmn 的 uid/gid 对齐到指定值（不设 = 维持 base 默认）──
-# 用途：挂载卷的宿主机属主常是宿主机用户 uid（非 1000），设 PUID/PGID 即可让容器内
-# sarmn 进程以相同 uid/gid 读写卷，避免权限错配。例如：
-#   docker run -e PUID=\$(id -u) -e PGID=\$(id -g) ...
-if [ -n "\${PUID}" ] && [ "\${PUID}" != "\$(id -u "\${RUN_USER}")" ]; then
-  echo "[dingtalk-dsh] 将 \${RUN_USER} uid 调整为 \${PUID}"
-  usermod -u "\${PUID}" -o "\${RUN_USER}"
-fi
-if [ -n "\${PGID}" ] && [ "\${PGID}" != "\$(id -g "\${RUN_USER}")" ]; then
-  echo "[dingtalk-dsh] 将 \${RUN_USER} gid 调整为 \${PGID}"
-  groupmod -g "\${PGID}" -o "\${RUN_USER}"
-fi
-
 mkdir -p "\${DSH_HOME}" "\${DWS_CONFIG_DIR}" "${INSTALL_PATH}/dws" "${INSTALL_PATH}/agents"
 
-# PUID 改动后重 chown 数据域/家目录，否则 sarmn 进程写不了旧 uid 的文件
+# 重 chown 数据域/家目录：PUID/PGID 改过 sarmn 的 uid/gid 后，bake 进去的旧属主
+# 文件新 sarmn 读写不了；挂卷场景同样覆盖（cont-init 的 05-puid-pgid 只管 home）
 chown -R "\${RUN_USER}:\${RUN_USER}" "${INSTALL_PATH}" "\${HOME_DIR}" 2>/dev/null || true
 
 # 技能目录软链跟随运行用户 home（幂等；home 不随 PUID 变化，始终 /deployment/accounts/sarmn）
@@ -348,7 +337,7 @@ EOF
     echo "export PATH=/deployment/bin:\$PATH"
   } >> /etc/environment
 
-  # 注册常驻服务：run body 以 root 起，内部对齐 PUID/PGID 后 setuidgid 切到 sarmn 常驻
+  # 注册常驻服务：run body 以 root 起，属主修正后 setuidgid 切到 sarmn 常驻
   register_s6_longrun_cmd dingtalk-dsh "exec /bin/bash /deployment/bin/dingtalk-dsh-start.sh"
 
   # ── README ────────────────────────────────────────────────────────────
@@ -399,6 +388,8 @@ docker run -d --name dingtalk-dsh \
 
 不设 \`PUID\` / \`PGID\` 时保持 base 默认（1000）。\`PUID\` / \`PGID\` 只影响 uid/gid，
 不改变 \`sarmn\` 的家目录（始终 \`/deployment/accounts/sarmn\`），技能软链跟随该 home。
+对齐由 base 层 \`/etc/cont-init.d/05-puid-pgid\` 在所有 s6 服务启动前统一完成，
+镜像内所有以 \`sarmn\` 常驻的服务（含 extension-pack 组合镜像里的其它服务）一并生效。
 
 ## 首次登录
 

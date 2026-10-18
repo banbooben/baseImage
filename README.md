@@ -301,3 +301,24 @@ docker buildx build \
   -f images/base/Dockerfile \
   -t $REGISTRY/$NAMESPACE/base:noble .
 ```
+
+### 运行用户与 PUID/PGID
+
+镜像内以 `sarmn` 常驻的服务（vnc / desktop / clash-verge / redis / dingtalk-dsh 等）
+默认使用 base 层 `create_user` 分配的 uid/gid（通常 1000）。挂载卷在宿主机上的属主
+若是别的 uid/gid，可在启动时用环境变量 `PUID` / `PGID` 把 `sarmn` 的 uid/gid 对齐过去，
+避免读写权限错配：
+
+```bash
+docker run -d \
+  -e PUID=$(id -u) -e PGID=$(id -g) \
+  -v some_data:/deployment/software/<app> \
+  ...
+```
+
+- 对齐在 base 层 `/etc/cont-init.d/05-puid-pgid` 完成，早于**所有** s6 服务启动；
+  镜像内所有以 `sarmn` 常驻的服务一并生效，各服务零改动。
+- 不设 `PUID` / `PGID` 时保持 bake 默认（1000），行为与未提供该特性时完全一致。
+- 只影响 uid/gid，不改变家目录（始终 `/deployment/accounts/sarmn`）。
+- 非法值（非数字）只告警跳过，不会把容器 init 打挂。
+- `sshd` / `code-server` / `openresty` 等本来就是 root 的服务不受影响。

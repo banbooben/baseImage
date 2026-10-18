@@ -240,5 +240,60 @@ addUser(){
 
 }
 
+# PUID/PGID 全局对齐：cont-init.d 在**所有** s6-rc 服务启动之前执行一次。
+# 之后启动的服务（vnc/desktop/clash-verge/redis/dingtalk-dsh …）用 s6-setuidgid
+# sarmn 时按名字查 /etc/passwd，查到的就是这里改过的新 uid/gid —— 各服务零改动生效。
+#
+# 注意 shebang 必须用 #!/command/with-contenv bash（与 register_s6_longrun_cmd 一致）：
+# s6-overlay v3 里 cont-init.d 脚本经 s6rc-oneshot-runner 以**纯净环境**执行，
+# 普通 #!/bin/bash 下既看不到容器 -e 变量也看不到 cont-env.d，PUID/PGID 恒为空、
+# 脚本走快速路径静默跳过（实测确认）；with-contenv 从 /run/s6/container_environment
+# 载入完整容器环境后才能读到 PUID/PGID。
+initPuidPgid(){
 
-autoExecuteFunc setEnv initFolder installBase initSudoers installS6 initSshd addUser initChineseEnv initConfigFile
+  mkdir -p /etc/cont-init.d
+  cat > /etc/cont-init.d/05-puid-pgid << 'EOF'
+#!/command/with-contenv bash
+# PUID / PGID：容器启动时把 sarmn 的 uid/gid 对齐到指定值（不设 = 维持 bake 默认）。
+# 用途：挂载卷的宿主机属主常是宿主机用户 uid（非 1000），对齐后容器内 sarmn 进程
+# 以相同 uid/gid 读写卷，避免权限错配。例如：
+#   docker run -e PUID=$(id -u) -e PGID=$(id -g) ...
+RUN_USER="sarmn"
+
+# 两个都未设置：快速路径直接退出（默认行为与未提供该特性时完全一致）
+[ -n "${PUID}${PGID}" ] || exit 0
+
+# 非法输入只告警跳过，不让一个写错的 env 把容器 init 打挂
+case "${PUID}" in ''|*[!0-9]*) [ -z "${PUID}" ] || { echo "[puid-pgid] PUID 非数字，忽略: '${PUID}'" >&2; PUID=""; };; esac
+case "${PGID}" in ''|*[!0-9]*) [ -z "${PGID}" ] || { echo "[puid-pgid] PGID 非数字，忽略: '${PGID}'" >&2; PGID=""; };; esac
+[ -n "${PUID}${PGID}" ] || exit 0
+
+id "${RUN_USER}" >/dev/null 2>&1 || exit 0
+cur_uid="$(id -u "${RUN_USER}")"
+cur_gid="$(id -g "${RUN_USER}")"
+changed=0
+
+if [ -n "${PGID}" ] && [ "${PGID}" != "${cur_gid}" ]; then
+  echo "[puid-pgid] ${RUN_USER} gid: ${cur_gid} -> ${PGID}"
+  groupmod -g "${PGID}" -o "${RUN_USER}"
+  changed=1
+fi
+if [ -n "${PUID}" ] && [ "${PUID}" != "${cur_uid}" ]; then
+  echo "[puid-pgid] ${RUN_USER} uid: ${cur_uid} -> ${PUID}"
+  usermod -u "${PUID}" -o "${RUN_USER}"
+  changed=1
+fi
+
+# 只有 uid/gid 真的变了才 chown home：bake 进去的文件属主还是旧 uid，不重 chown
+# 新 sarmn 读写不了。没变（带相同 PUID 重启）则跳过，避免每次启动全量扫 home。
+# 注意 cont-init.d 按文件名序执行：本脚本 05 先于 desktop 的 10-fix-sarmn-home，
+# 后者会再无条件 chown 一次 home（既有行为，幂等）。
+if [ "${changed}" = "1" ]; then
+  chown -R "${RUN_USER}:${RUN_USER}" "/deployment/accounts/${RUN_USER}" 2>/dev/null || true
+fi
+EOF
+  chmod 0755 /etc/cont-init.d/05-puid-pgid
+
+}
+
+autoExecuteFunc setEnv initFolder installBase initSudoers installS6 initSshd addUser initChineseEnv initConfigFile initPuidPgid
