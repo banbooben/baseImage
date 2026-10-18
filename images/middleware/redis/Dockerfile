@@ -22,6 +22,7 @@ RUN --mount=type=secret,id=REDIS_PASSWORD,required=false \
 FROM ${BASE_IMAGE}
 ARG REDIS_SERIES
 COPY --from=builder /deployment/software/redis /deployment/software/redis
+COPY --from=builder /deployment/bin/redis-start.sh /deployment/bin/redis-start.sh
 COPY --from=builder /etc/s6-overlay/s6-rc.d/redis /etc/s6-overlay/s6-rc.d/redis
 COPY --from=builder /etc/s6-overlay/s6-rc.d/user/contents.d/redis /etc/s6-overlay/s6-rc.d/user/contents.d/redis
 COPY --from=builder /etc/cont-env.d/REDIS_VERSION /etc/cont-env.d/REDIS_VERSION
