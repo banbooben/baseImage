@@ -188,9 +188,14 @@ installDeps(){
   # 显式钉回 /usr/local，让 global bin 进 /usr/local/bin（与上面 node/npm/npx 软链一致）。
   npm config set prefix /usr/local || return 1
 
-  # npm 源 + pnpm（dsh plugin add 内部依赖 pnpm 解析/安装插件包）
+  # npm 源 + pnpm（dsh plugin add 内部依赖 pnpm 解析/安装插件包）。
+  # 钉 pnpm@10：pnpm 11+ 把「未批准的依赖构建脚本」从警告升级为硬错误
+  # （ERR_PNPM_IGNORED_BUILDS），而白名单配置（allowBuilds / dangerouslyAllowAllBuilds）
+  # 只能写进项目根的 pnpm-workspace.yaml —— 插件安装在 dsh 自己生成的 profile 目录里
+  # 进行，外部没有稳定的配置注入点。插件依赖 koffi 的 install 脚本只是选装其自带的
+  # 预编译二进制，pnpm 10 下忽略（仅警告）即可，与此前成功构建的行为一致。
   npm config set registry "${NPM_REGISTRY}" || return 1
-  npm install -g pnpm --registry="${NPM_REGISTRY}" || return 1
+  npm install -g pnpm@10 --registry="${NPM_REGISTRY}" || return 1
   pnpm config set registry "${NPM_REGISTRY}" 2>/dev/null || true
   echo "pnpm $(pnpm --version 2>/dev/null || echo latest) installed"
 }
