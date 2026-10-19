@@ -12,7 +12,8 @@
  #      仓库 base:<os> 不带 Node，这里照 install_claude.sh 的套路自举官方二进制）
  #   2. DWS：npm i -g dingtalk-workspace-cli
  #   3. DSH：npm i -g @deepseek-ai/dsh（钉版本，默认 0.1.2-rc.1）
- #   4. 插件：dsh plugin --profile web add dingtalk-dsh-assistant（bake 进默认 DSH_HOME）
+ #   4. 插件：dsh plugin --profile web add dingtalk-dsh-assistant@<钉版本>（bake 进默认 DSH_HOME；
+ #      2.x 起插件依赖 dsh 0.2.x API 代际，与 0.1.2-rc.1 不兼容，必须钉版本）
  #
  # Layer layout（数据域/登录态/技能统一在 INSTALL_PATH 下，运行期挂这一个路径；软件本体 npm 全局装在 /usr/local）：
  #   /deployment/software/dingtalk-dsh/home          # DSH_HOME：会话/轨迹/插件配置
@@ -25,6 +26,8 @@
  #   NPM_REGISTRY     npm 源（默认 https://registry.npmmirror.com）
  #   DWS_PIN_VERSION  DWS 版本（默认 latest）
  #   DSH_PIN_VERSION  DSH 版本（默认 0.1.2-rc.1）
+ #   DSH_ASSISTANT_PIN_VERSION  钉钉插件版本（默认 1.0.0；必须钉，2.x 起插件
+ #                              依赖 dsh 0.2.x API 代际，与 0.1.2-rc.1 不兼容）
  #
  # 上游：
  #   DWS  https://github.com/DingTalk-Real-AI/dingtalk-workspace-cli
@@ -73,6 +76,7 @@ setEnv(){
   export NPM_CONFIG_REGISTRY="${NPM_REGISTRY}"
   export DWS_PIN_VERSION="${DWS_PIN_VERSION:-}"
   export DSH_PIN_VERSION="${DSH_PIN_VERSION:-0.1.2-rc.1}"
+  export DSH_ASSISTANT_PIN_VERSION="${DSH_ASSISTANT_PIN_VERSION:-1.0.0}"
 
   # 数据域/登录态/技能统一收进 INSTALL_PATH 本身（不再套 data/ 子层）：
   #   home（DSH_HOME）、dws-config（登录态）、dws/agents（技能，见 relocateSkillDirs）。
@@ -246,12 +250,19 @@ installAssistant(){
   export DSH_HOME
 
   # 把钉钉群接入插件装进默认 DSH_HOME 的 web profile（bake 进镜像默认数据域；
-  # 运行期若用卷覆盖 DSH_HOME 为新实例，需要重新 add 一次，见 README）
-  echo "Installing dingtalk-dsh-assistant into ${DSH_HOME} (profile=web)"
-  dsh plugin --profile web add dingtalk-dsh-assistant || {
+  # 运行期若用卷覆盖 DSH_HOME 为新实例，需要重新 add 一次，见 README）。
+  # 版本必须钉：assistant 2.x 依赖 dsh 0.2.x API 代际，与 DSH_PIN_VERSION=0.1.2-rc.1
+  # 不兼容（缺 peer，Cordis 解析失败，dsh web 崩溃循环）。
+  echo "Installing dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION} into ${DSH_HOME} (profile=web)"
+  dsh plugin --profile web add "dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION}" || {
     echo "Failed to install dingtalk-dsh-assistant plugin" >&2
     return 1
   }
+  # dsh plugin add 生成的 profile 默认 patchReload=live，运行期 watchUserPatches
+  # 需要 Cordis HMR 服务，0.1.2-rc.1 树上没有 → dsh web 必崩。钉成 startup
+  # （合法值仅 live/startup；startup 只在做启动时加载补丁层，不做 HMR watch）。
+  sed -i 's/"patchReload": "live"/"patchReload": "startup"/' \
+    "${DSH_HOME}/profiles/web/package.json" 2>/dev/null || true
   echo "dingtalk-dsh-assistant installed into ${DSH_HOME}"
 }
 
@@ -323,6 +334,12 @@ done
 if [ -z "\$(ls -A "\${DWS_CONFIG_DIR}" 2>/dev/null)" ]; then
   echo "[dingtalk-dsh] 未检测到 DWS 登录态（\${DWS_CONFIG_DIR} 为空）；请先执行: docker exec -it -u sarmn <container> dws auth login --device" >&2
 fi
+
+# patchReload=live 需要 Cordis HMR 服务，0.1.2-rc.1 树上没有 → dsh web 必崩。
+# dsh plugin add（含挂新卷后的手工重 add）都会把它重置回 live，每次启动前钉回
+# startup（合法值仅 live/startup；startup 启动时加载补丁层，不做 HMR watch）。
+sed -i 's/"patchReload": "live"/"patchReload": "startup"/' \
+  "\${DSH_HOME}/profiles/web/package.json" 2>/dev/null || true
 
 # 切到运行用户 sarmn 前台常驻 DSH Web
 exec s6-setuidgid "\${RUN_USER}" dsh web --no-open
@@ -408,7 +425,9 @@ docker exec -it -u sarmn dingtalk-dsh dws auth login --device
 
 - \`DSH_HOME\`（\`home\`）：按实例隔离的数据域（每个数字同事实例独立一份；挂新卷即新实例）。
   默认镜像已把 \`dingtalk-dsh-assistant\` bake 进默认 \`home\`，挂新卷后需重跑一次
-  \`docker exec -it <container> dsh plugin --profile web add dingtalk-dsh-assistant\`。
+  \`docker exec -it <container> dsh plugin --profile web add dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION}\`
+  （版本必须与镜像内 DSH 代际兼容：2.x 插件依赖 dsh 0.2.x API，与 0.1.2-rc.1 不兼容；
+  重装后启动脚本会把 profile 的 patchReload 自动钉回 startup，无需手工处理）。
 - \`DWS_CONFIG_DIR\`（\`dws-config\`）：DWS 登录态，走挂载卷持久化（容器重建不丢登录态）。
 - 技能：\`/deployment/accounts/sarmn/.dws\`、\`/deployment/accounts/sarmn/.agents\`
   已软链到 \`dws\`、\`agents\`，运行期 \`dws skill install\` / \`dws skill setup\`

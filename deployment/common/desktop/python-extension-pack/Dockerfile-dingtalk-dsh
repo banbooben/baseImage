@@ -17,6 +17,7 @@ LABEL authors="sarmn"
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ARG DWS_PIN_VERSION
 ARG DSH_PIN_VERSION=0.1.2-rc.1
+ARG DSH_ASSISTANT_PIN_VERSION=1.0.0
 
 # 复用 backend 的安装脚本（自举 Node 24 + DWS + DSH + 钉钉插件 + s6 longrun）
 COPY ./images/software/backend/install_dingtalk_dsh.sh /tmp/install_dingtalk_dsh.sh
