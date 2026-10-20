@@ -17,7 +17,8 @@
  #
  # Layer layout（数据域/登录态/技能统一在 INSTALL_PATH 下，运行期挂这一个路径；软件本体 npm 全局装在 /usr/local）：
  #   /deployment/software/dingtalk-dsh/home          # DSH_HOME：会话/轨迹/插件配置
- #   /deployment/software/dingtalk-dsh/dws-config    # DWS_CONFIG_DIR：登录态
+ #   /deployment/software/dingtalk-dsh/dws-config    # DWS_CONFIG_DIR：profiles/技能状态
+ #   /deployment/software/dingtalk-dsh/dws-cli       # DWS 凭证库（XDG ~/.local/share/dws-cli 软链归拢）
  #   /deployment/software/dingtalk-dsh/{dws,agents}  # 技能（$HOME 软链归拢，见 relocateSkillDirs）
  #   /deployment/bin/dingtalk-dsh-start.sh           # s6 longrun 的 run body（在挂载点之外）
  #   /deployment/bin/dsh / dws                        # 启动器（软链到 npm 全局 bin）
@@ -79,7 +80,8 @@ setEnv(){
   export DSH_ASSISTANT_PIN_VERSION="${DSH_ASSISTANT_PIN_VERSION:-1.0.0}"
 
   # 数据域/登录态/技能统一收进 INSTALL_PATH 本身（不再套 data/ 子层）：
-  #   home（DSH_HOME）、dws-config（登录态）、dws/agents（技能，见 relocateSkillDirs）。
+  #   home（DSH_HOME）、dws-config（profiles）、dws-cli（凭证库，XDG 软链）、
+  #   dws/agents（技能，见 relocateSkillDirs）。
   # 运行期只需挂 INSTALL_PATH 一个路径，即可持久化会话 + 登录态 + 全部技能。
   export DSH_HOME="${INSTALL_PATH}/home"
   export DWS_CONFIG_DIR="${INSTALL_PATH}/dws-config"
@@ -266,9 +268,10 @@ installAssistant(){
   echo "dingtalk-dsh-assistant installed into ${DSH_HOME}"
 }
 
-# 把运行用户 $HOME 钉死的技能目录归拢到 INSTALL_PATH：搬内容 → 删原目录 → 建软链（幂等）。
+# 把运行用户 $HOME 钉死的技能目录/凭证库归拢到 INSTALL_PATH：搬内容 → 删原目录 → 建软链（幂等）。
 # DWS/DSH 把技能目录硬编码在运行用户的 $HOME（~/.dws、~/.agents），不受 DSH_HOME /
-# DWS_CONFIG_DIR 控制；只有用 symlink 把这两处指进 INSTALL_PATH，单路径挂载才能覆盖技能。
+# DWS_CONFIG_DIR 控制；DWS 凭证库（dek + auth-token*.enc）走 XDG（~/.local/share/dws-cli），
+# 同样不受 DWS_CONFIG_DIR 控制——不软链进 INSTALL_PATH 则登录态随容器重建丢失。
 # 运行用户统一为 sarmn（base 层 create_user 把其 home 定为 /deployment/accounts/sarmn），
 # 故软链跟随 sarmn 的 home，不再写死 /root（root 只存在于构建期，运行期进程是 sarmn）。
 relocateSkillDirs(){
@@ -292,6 +295,19 @@ relocateSkillDirs(){
     ln -sfn "${dst}" "${src}"
     chown -R "${run_user}:${run_user}" "${dst}" 2>/dev/null || true
   done
+
+  # DWS 凭证库（XDG 路径，与上面的技能目录同套路）
+  src="${home_dir}/.local/share/dws-cli"
+  dst="${INSTALL_PATH}/dws-cli"
+  mkdir -p "${home_dir}/.local/share" "${dst}"
+  if [ ! -L "${src}" ]; then
+    if [ -d "${src}" ]; then
+      cp -a "${src}/." "${dst}/" 2>/dev/null || true
+      rm -rf "${src}"
+    fi
+    ln -sfn "${dst}" "${src}"
+    chown -R "${run_user}:${run_user}" "${dst}" 2>/dev/null || true
+  fi
 }
 
 initS6Config(){
@@ -328,11 +344,24 @@ for d in dws agents; do
   ln -sfn "${INSTALL_PATH}/\${d}" "\${HOME_DIR}/.\${d}"
 done
 
-# DWS 登录态自检：DWS_CONFIG_DIR 为空 = 尚未登录，只提醒，不阻断 DSH 起服务。
-# 登录需交互（设备码），请以 sarmn 身份 exec 补做一次（保证登录态落 sarmn 名下）：
-#   docker exec -it -u sarmn <container> dws auth login --device
-if [ -z "\$(ls -A "\${DWS_CONFIG_DIR}" 2>/dev/null)" ]; then
-  echo "[dingtalk-dsh] 未检测到 DWS 登录态（\${DWS_CONFIG_DIR} 为空）；请先执行: docker exec -it -u sarmn <container> dws auth login --device" >&2
+# DWS 凭证库软链（XDG：~/.local/share/dws-cli → INSTALL_PATH/dws-cli；幂等。
+# 凭证库不受 DWS_CONFIG_DIR 控制，不软链进 INSTALL_PATH 则登录态随容器重建丢失）
+mkdir -p "\${HOME_DIR}/.local/share" "${INSTALL_PATH}/dws-cli"
+if [ ! -L "\${HOME_DIR}/.local/share/dws-cli" ]; then
+  if [ -d "\${HOME_DIR}/.local/share/dws-cli" ]; then
+    cp -a "\${HOME_DIR}/.local/share/dws-cli/." "${INSTALL_PATH}/dws-cli/" 2>/dev/null || true
+    rm -rf "\${HOME_DIR}/.local/share/dws-cli"
+  fi
+  ln -sfn "${INSTALL_PATH}/dws-cli" "\${HOME_DIR}/.local/share/dws-cli"
+fi
+
+# DWS 登录态自检：凭证库（dek + auth-token*.enc）为空 = 尚未登录，只提醒，不阻断 DSH 起服务。
+# dws 配置目录解析规则：设了 DWS_CONFIG_DIR 就只认它（不设才回退 ~/.dws）——
+# 服务进程带着 DWS_CONFIG_DIR 跑，登录时也必须显式带上同一个变量，否则 profiles
+# 落进 ~/.dws。登录需交互（设备码）：
+#   docker exec -it -u sarmn -e DWS_CONFIG_DIR=<同下> <container> dws auth login --device
+if ! ls "${INSTALL_PATH}/dws-cli"/auth-token*.enc >/dev/null 2>&1; then
+  echo "[dingtalk-dsh] 未检测到 DWS 登录态（dws-cli 凭证库为空）；请先执行: docker exec -it -u sarmn -e DWS_CONFIG_DIR=\${DWS_CONFIG_DIR} <container> dws auth login --device" >&2
 fi
 
 # patchReload=live 需要 Cordis HMR 服务，0.1.2-rc.1 树上没有 → dsh web 必崩。
@@ -341,8 +370,9 @@ fi
 sed -i 's/"patchReload": "live"/"patchReload": "startup"/' \
   "\${DSH_HOME}/profiles/web/package.json" 2>/dev/null || true
 
-# 切到运行用户 sarmn 前台常驻 DSH Web
-exec s6-setuidgid "\${RUN_USER}" dsh web --no-open
+# s6-setuidgid 不改 HOME（仍是 root 的）；dws 凭证走 XDG（$HOME/.local/share/dws-cli），
+# 不把 HOME 归位到运行用户，服务及插件子进程永远读不到登录态
+exec s6-setuidgid "\${RUN_USER}" env HOME="\${HOME_DIR}" dsh web --no-open
 EOF
   chmod 0755 /deployment/bin/dingtalk-dsh-start.sh
 
@@ -390,7 +420,8 @@ docker run -d --name dingtalk-dsh \
 \`\`\`
 
 挂载点：只需挂 \`/deployment/software/dingtalk-dsh\` 一个路径，即可持久化全部状态——
-\`DSH_HOME\`（\`home\`：会话/轨迹/插件配置）、\`DWS_CONFIG_DIR\`（\`dws-config\`：登录态）、
+\`DSH_HOME\`（\`home\`：会话/轨迹/插件配置）、\`DWS_CONFIG_DIR\`（\`dws-config\`：profiles/技能状态）、
+DWS 凭证库（\`~/.local/share/dws-cli\`，XDG 路径，dek + auth-token*.enc，已软链到 \`dws-cli\`）、
 DWS/DSH 技能（\`/deployment/accounts/sarmn/.dws\`、\`/deployment/accounts/sarmn/.agents\`
 已软链到 \`dws\`、\`agents\`）。
 
@@ -416,9 +447,11 @@ docker run -d --name dingtalk-dsh \
 ## 首次登录
 
 \`\`\`bash
-# 一次性：弹出设备码，用钉钉扫码/访问链接完成登录（登录态写入 DWS_CONFIG_DIR 卷）。
+# 一次性：弹出设备码，用钉钉扫码/访问链接完成登录（凭证写入 dws-cli 卷，经 XDG 软链）。
 # 以 sarmn 身份执行，保证登录态落在运行用户名下（运行期 DSH 以 sarmn 常驻）。
-docker exec -it -u sarmn dingtalk-dsh dws auth login --device
+# 必须显式带上 -e DWS_CONFIG_DIR：dws 设了 DWS_CONFIG_DIR 就只认它（否则回退
+# ~/.dws），服务进程带此变量运行；登录不带会把登录态写进 ~/.dws，服务读不到。
+docker exec -it -u sarmn -e DWS_CONFIG_DIR=${DWS_CONFIG_DIR} dingtalk-dsh dws auth login --device
 \`\`\`
 
 ## 关键配置（对应需求）
@@ -428,7 +461,9 @@ docker exec -it -u sarmn dingtalk-dsh dws auth login --device
   \`docker exec -it <container> dsh plugin --profile web add dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION}\`
   （版本必须与镜像内 DSH 代际兼容：2.x 插件依赖 dsh 0.2.x API，与 0.1.2-rc.1 不兼容；
   重装后启动脚本会把 profile 的 patchReload 自动钉回 startup，无需手工处理）。
-- \`DWS_CONFIG_DIR\`（\`dws-config\`）：DWS 登录态，走挂载卷持久化（容器重建不丢登录态）。
+- \`DWS_CONFIG_DIR\`（\`dws-config\`）：DWS profiles/技能状态。
+- DWS 凭证库：登录态本体（dek + auth-token*.enc）在 XDG 路径 \`~/.local/share/dws-cli\`，
+  不受 \`DWS_CONFIG_DIR\` 控制；已软链到 \`dws-cli\`，走挂载卷持久化（容器重建不丢登录态）。
 - 技能：\`/deployment/accounts/sarmn/.dws\`、\`/deployment/accounts/sarmn/.agents\`
   已软链到 \`dws\`、\`agents\`，运行期 \`dws skill install\` / \`dws skill setup\`
   新装的技能都会落进挂载路径，容器重建不丢。
