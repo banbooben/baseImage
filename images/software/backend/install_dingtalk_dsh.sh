@@ -13,9 +13,9 @@
  #   2. DWS：官方 install.sh 装 standalone 二进制（不走 npm——npm 安装的 dws upgrade
  #      会委派包管理器写 /usr/local，sarmn 不可写且随容器重建丢失；standalone 的
  #      upgrade 原地原子替换自身二进制，配合 ~/.local/bin 挂卷，容器内升级持久）
- #   3. DSH：npm i -g @deepseek-ai/dsh（钉版本，默认 0.1.2-rc.1）
+ #   3. DSH：npm i -g @deepseek-ai/dsh（钉版本，默认 0.2.1-rc.2）
  #   4. 插件：dsh plugin --profile web add dingtalk-dsh-assistant@<钉版本>（bake 进种子目录；
- #      2.x 起插件依赖 dsh 0.2.x API 代际，与 0.1.2-rc.1 不兼容，必须钉版本）
+ #      2.x 插件依赖 dsh 0.2.x API 代际，与 dsh 0.1.x 不兼容，版本必须配对钉住）
  #
  # Layer layout（方案 C：不设 DSH_HOME/DWS_CONFIG_DIR，一切走运行用户 home 默认路径；
  # 需要持久化的目录由 compose 按路径单独挂卷；bake 进这些路径的内容统一先落到
@@ -32,9 +32,9 @@
  # 构建期可覆盖（Dockerfile build-arg / 环境变量）：
  #   NPM_REGISTRY     npm 源（默认 https://registry.npmmirror.com）
  #   DWS_PIN_VERSION  DWS 版本（默认 latest；可写 1.0.65 或 v1.0.65）
- #   DSH_PIN_VERSION  DSH 版本（默认 0.1.2-rc.1）
- #   DSH_ASSISTANT_PIN_VERSION  钉钉插件版本（默认 1.0.0；必须钉，2.x 起插件
- #                              依赖 dsh 0.2.x API 代际，与 0.1.2-rc.1 不兼容）
+ #   DSH_PIN_VERSION  DSH 版本（默认 0.2.1-rc.2）
+ #   DSH_ASSISTANT_PIN_VERSION  钉钉插件版本（默认 2.1.0；2.x 插件依赖 dsh 0.2.x
+ #                              API 代际，与 dsh 0.1.x 不兼容，必须配对钉住）
  #
  # 上游：
  #   DWS  https://github.com/DingTalk-Real-AI/dingtalk-workspace-cli
@@ -82,8 +82,8 @@ setEnv(){
   # npm/pnpm 子进程统一走这个源（dsh plugin add 内部会调 pnpm/npm）
   export NPM_CONFIG_REGISTRY="${NPM_REGISTRY}"
   export DWS_PIN_VERSION="${DWS_PIN_VERSION:-}"
-  export DSH_PIN_VERSION="${DSH_PIN_VERSION:-0.1.2-rc.1}"
-  export DSH_ASSISTANT_PIN_VERSION="${DSH_ASSISTANT_PIN_VERSION:-1.0.0}"
+  export DSH_PIN_VERSION="${DSH_PIN_VERSION:-0.2.1-rc.2}"
+  export DSH_ASSISTANT_PIN_VERSION="${DSH_ASSISTANT_PIN_VERSION:-2.1.0}"
 
   # 种子目录：bake 期所有要进挂卷的初始内容（dsh profile、dws 二进制、技能）
   # 都以 HOME=SEED_HOME 落到这里；运行期 start 脚本把卷内缺失的部分拷入。
@@ -270,14 +270,12 @@ installDsh(){
 
 # 装配 assistant resident Runtime 的幂等脚本（bake 时与运行期 start 脚本都会调）。
 # 背景：插件的 Web 设置页通过硬编码 http://127.0.0.1:18998 拉取 dws 状态；
-# `dsh plugin add` 只装 web face（@zzusp/dingtalk-dsh-assistant 的 "." 导出是
-# no-op），真正的 resident 后端（./resident 导出，监听 18998）必须显式插进实际
-# 使用的 Web profile patch——不插则 18998 无人监听，设置页 fetch 失败，永远显示
-# 「dws 未安装」（与配置目录、运行用户均无关）。
-# 另外 resident 的 inject 依赖 dingtalkTaskWorkflowPlatformClients：vendor 的
-# platform-host 面向其企业内部 k3s/woodpecker/bytebase 平台，需要企业 secrets，
-# 本镜像不接入；这里落一个本地空实现占位（该服务仅在配置 workflow.platforms 时
-# 才被解引用，本配置无 workflow，安全）。
+# `dsh plugin add` 只装 web face（2.x 的 bundle patch 只插 web + observer，两者
+# 都是客户端层），真正的 resident 后端（@zzusp/dingtalk-dsh-assistant 的
+# ./resident 导出，监听 18998）必须显式插进实际使用的 Web profile patch——不插则
+# 18998 无人监听，设置页 fetch 失败，永远显示「dws 未安装」（与配置目录、运行
+# 用户均无关）。2.1.0 起 resident 的 inject 全部是 dsh 核心服务，不再需要
+# 1.0.0 时代的 dingtalkTaskWorkflowPlatformClients 占位 stub。
 writeAssembleResidentScript(){
   mkdir -p /deployment/bin
   cat > /deployment/bin/dingtalk-dsh-assemble-resident.sh <<'EOF'
@@ -294,21 +292,9 @@ DWS_CONFIG_DIR="${DWS_CONFIG_DIR:-${HOME}/.dws}"
 
 PROFILE_DIR="${DSH_HOME}/profiles/web"
 PATCH_FILE="${PROFILE_DIR}/cordis.patch.yml"
-STUB_DIR="${PROFILE_DIR}/local-plugins"
 
 # profile 尚未生成（全新 home 还没 dsh plugin add）时跳过
 [ -f "${PATCH_FILE}" ] || exit 0
-
-mkdir -p "${STUB_DIR}"
-cat > "${STUB_DIR}/platform-clients-stub.mjs" <<'STUB'
-// 本地占位插件：resident 的 inject 依赖 dingtalkTaskWorkflowPlatformClients，
-// vendor 的 platform-host 需要其企业内部平台 secrets，这里提供空实现
-// （仅在配置 workflow.platforms 时才会被解引用，本配置无 workflow，安全）。
-export const name = "dingtalk-task-workflow-platform-clients-stub"
-export function apply(ctx) {
-  ctx.provide("dingtalkTaskWorkflowPlatformClients", {})
-}
-STUB
 
 # 清掉旧的受管块（幂等）
 sed -i '/# >>> dingtalk-dsh-assistant resident/,/# <<< dingtalk-dsh-assistant resident/d' "${PATCH_FILE}"
@@ -324,8 +310,6 @@ DWS_PROFILE="$(grep -o '"currentProfile"[^,}]*' "${DWS_CONFIG_DIR}/profiles.json
 {
   echo "# >>> dingtalk-dsh-assistant resident (managed, do not edit between markers) >>>"
   echo "- insert:"
-  echo "    - id: dingtalk-task-workflow-platform-clients-stub"
-  echo "      name: \"./local-plugins/platform-clients-stub.mjs\""
   echo "    - id: dingtalk-dsh-assistant-resident"
   echo "      name: \"@zzusp/dingtalk-dsh-assistant/resident\""
   echo "      config:"
@@ -348,20 +332,14 @@ installAssistant(){
   writeAssembleResidentScript
 
   # 把钉钉群接入插件装进种子 home 的默认 DSH 数据域（${SEED_HOME}/.dsh，web profile；
-  # 运行期 start 脚本在卷内缺失时拷入）。版本必须钉：assistant 2.x 依赖 dsh 0.2.x
-  # API 代际，与 DSH_PIN_VERSION=0.1.2-rc.1 不兼容（缺 peer，Cordis 解析失败，
-  # dsh web 崩溃循环）。dsh 的数据域解析：不设 DSH_HOME 时回退 $HOME/.dsh，
-  # 故以 HOME=SEED_HOME 调用（bake 期 HOME 是 /root，绝不能落进 /root）。
+  # 运行期 start 脚本在卷内缺失时拷入）。版本必须配对钉：assistant 2.x 依赖 dsh
+  # 0.2.x API 代际，与 dsh 0.1.x 不兼容。dsh 的数据域解析：不设 DSH_HOME 时回退
+  # $HOME/.dsh，故以 HOME=SEED_HOME 调用（bake 期 HOME 是 /root，绝不能落进 /root）。
   echo "Installing dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION} into ${SEED_HOME}/.dsh (profile=web)"
   HOME="${SEED_HOME}" dsh plugin --profile web add "dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION}" || {
     echo "Failed to install dingtalk-dsh-assistant plugin" >&2
     return 1
   }
-  # dsh plugin add 生成的 profile 默认 patchReload=live，运行期 watchUserPatches
-  # 需要 Cordis HMR 服务，0.1.2-rc.1 树上没有 → dsh web 必崩。钉成 startup
-  # （合法值仅 live/startup；startup 只在做启动时加载补丁层，不做 HMR watch）。
-  sed -i 's/"patchReload": "live"/"patchReload": "startup"/' \
-    "${SEED_HOME}/.dsh/profiles/web/package.json" 2>/dev/null || true
   # 装配 resident Runtime 进 web profile patch（设置页「dws 未安装」的根源修复；
   # 详见 writeAssembleResidentScript 注释）
   HOME="${SEED_HOME}" /deployment/bin/dingtalk-dsh-assemble-resident.sh || {
@@ -430,12 +408,6 @@ chown -R "\${RUN_USER}:\${RUN_USER}" "\${HOME_DIR}" 2>/dev/null || true
 if ! ls "\${HOME_DIR}/.local/share/dws-cli"/auth-token*.enc >/dev/null 2>&1; then
   echo "[dingtalk-dsh] 未检测到 DWS 登录态（dws-cli 凭证库为空）；请先执行: docker exec -it -u \${RUN_USER} <container> dws auth login --device" >&2
 fi
-
-# patchReload=live 需要 Cordis HMR 服务，0.1.2-rc.1 树上没有 → dsh web 必崩。
-# dsh plugin add（含手工重 add）都会把它重置回 live，每次启动前钉回 startup
-# （合法值仅 live/startup；startup 启动时加载补丁层，不做 HMR watch）。
-sed -i 's/"patchReload": "live"/"patchReload": "startup"/' \\
-  "\${HOME_DIR}/.dsh/profiles/web/package.json" 2>/dev/null || true
 
 # 装配 assistant resident Runtime（幂等；手工重 add 插件后这里补齐 patch，并从
 # profiles.json 刷新 dws.profile）。设置页「dws 未安装」的根源修复：web face 是
@@ -541,10 +513,13 @@ docker exec -it -u sarmn dingtalk-dsh dws auth login --device
 ## 关键配置（对应需求）
 
 - \`~/.dsh\`：按实例隔离的 DSH 数据域（每个数字同事实例独立一份；挂新卷即新实例，
-  启动脚本自动从种子拷入 assistant 插件，并把 profile 的 patchReload 钉回 startup、
-  自动装配 resident Runtime——设置页 dws 状态来源，无需手工处理）。
-  插件版本必须与镜像内 DSH 代际兼容：2.x 插件依赖 dsh 0.2.x API，与 0.1.2-rc.1
-  不兼容（本镜像 bake 的是 ${DSH_ASSISTANT_PIN_VERSION}）。
+  启动脚本自动从种子拷入 assistant 插件并装配 resident Runtime——设置页 dws
+  状态来源，无需手工处理）。
+  插件版本必须与镜像内 DSH 代际配对：2.x 插件依赖 dsh 0.2.x API，与 dsh 0.1.x
+  不兼容（本镜像 bake 的是 DSH ${DSH_PIN_VERSION} + 插件 ${DSH_ASSISTANT_PIN_VERSION}）。
+  注意：老卷里若存着 0.1.x 时代的 profile（\`profiles/web\`），种子不会覆盖——
+  跨代际升级需先清掉卷内 \`profiles/web\` 与 \`storages/\` 让种子重新生成
+  （2.x 任务会话架构与 1.0 存储格式不通用，官方也要求清洁启动）。
 - \`~/.dws\`：DWS profiles（profiles.json）/ 技能状态 / \`skills/\`。
 - \`~/.local/share/dws-cli\`：登录态本体（dek + auth-token*.enc），容器重建不丢。
 - \`~/.agents/skills\` + \`~/.dws/skills\`：技能（multi 模式），运行期

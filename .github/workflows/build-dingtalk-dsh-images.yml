@@ -21,11 +21,11 @@ on:
       dsh_version:
         description: 'DSH 版本（@deepseek-ai/dsh 的 pin 版本）'
         required: false
-        default: '0.1.2-rc.1'
+        default: '0.2.1-rc.2'
       dsh_assistant_version:
         description: '钉钉插件版本（dingtalk-dsh-assistant 的 pin 版本，须与 DSH 代际兼容）'
         required: false
-        default: '1.0.0'
+        default: '2.1.0'
 
 permissions:
   contents: read

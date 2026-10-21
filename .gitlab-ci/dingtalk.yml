@@ -5,7 +5,7 @@
 # 仅手动；job 级 needs: [] 打断 stage 顺序
 
 variables:
-  DSH_VERSION: "0.1.2-rc.1"
+  DSH_VERSION: "0.2.1-rc.2"
 
 dingtalk-dsh-backend:
   extends: .manual_only
