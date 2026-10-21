@@ -16,6 +16,9 @@
  #   3. DSH：npm i -g @deepseek-ai/dsh（钉版本，默认 0.2.1-rc.2）
  #   4. 插件：dsh plugin --profile web add dingtalk-dsh-assistant@<钉版本>（bake 进种子目录；
  #      2.x 插件依赖 dsh 0.2.x API 代际，与 dsh 0.1.x 不兼容，版本必须配对钉住）
+ #   5. 去重：dedup @deepseek-ai 双副本（dsh 运行时与 profile 插件各装了一份同名同版本
+ #      的 @deepseek-ai 包，dsh-tools 的调度器 Symbol 跨副本失配导致工具调用必崩、
+ #      机器人永远无回复；symlink 单副本修复，见 docs/dsh-dws修复方案/DEDUP-FIX.md）
  #
  # Layer layout（方案 C：不设 DSH_HOME/DWS_CONFIG_DIR，一切走运行用户 home 默认路径；
  # 需要持久化的目录由 compose 按路径单独挂卷；bake 进这些路径的内容统一先落到
@@ -327,9 +330,104 @@ EOF
   chmod 0755 /deployment/bin/dingtalk-dsh-assemble-resident.sh
 }
 
+# 消除 @deepseek-ai 双副本的幂等脚本（bake 时与运行期 start 脚本都会调）。
+# 根因（docs/dsh-dws修复方案/DEDUP-FIX.md）：dsh 运行时（本镜像是全局 npm 树）与
+# profile 插件（profiles/web/node_modules）各自装了一份同名同版本的 @deepseek-ai/*
+# 包。其中 dsh-tools 内部 `Symbol("@deepseek-ai/dsh-tools.scheduler")` 每次 require
+# 都是新实例，两份副本各得一个不相等的 Symbol；协调器子 agent 用 A 副本的 Symbol
+# 去查 B 副本注册的调度器 → undefined → `.prepare()` 崩溃：
+#   Cannot read properties of undefined (reading 'prepare')
+# 群里表现为：消息收得到、模型能理解、也调了工具，但工具一执行就崩，机器人永远无回复。
+# 修复：profile 侧的重叠包 symlink 复用运行时那份（版本一致才 link，保证模块实例唯一）。
+writeDedupScript(){
+  mkdir -p /deployment/bin
+  cat > /deployment/bin/dedup-dsh-packages.sh <<'EOF'
+#!/bin/bash
+# 消除 dsh 运行时与 profile 插件（profiles/web/node_modules）之间的
+# @deepseek-ai/* 双副本问题（docs/dsh-dws修复方案/DEDUP-FIX.md）。
+#
+# 注意：profile 侧任何一次 pnpm/npm install（nodeLinker=hoisted）都会重新
+# hoist 真目录、覆盖 symlink，所以 bake（plugin add 之后）与运行期（start
+# 脚本）都要执行本脚本；幂等，已正确的 symlink 直接跳过。
+#
+# 用法：dedup-dsh-packages.sh [--dsh-tools-only]   # 默认去重全部重叠包
+# 环境变量覆盖：
+#   DSH_RUNTIME_NM   dsh 运行时 node_modules 根目录（默认从 dsh bin 真实路径反推）
+#   DSH_PROFILE_NM   profile web 的 node_modules 根目录（默认 $HOME/.dsh/profiles/web/node_modules）
+set -euo pipefail
+
+SCOPE="${1:---all}"
+RUNTIME_NM="${DSH_RUNTIME_NM:-}"
+PROFILE_NM="${DSH_PROFILE_NM:-$HOME/.dsh/profiles/web/node_modules}"
+
+# 本镜像 dsh 是全局 npm 安装：/usr/local/bin/dsh → <prefix>/lib/node_modules/
+# @deepseek-ai/dsh/lib/bin.js。其依赖（dsh-tools 等）随 npm hoist 策略落在
+# 全局 node_modules 根或 dsh 包内 node_modules，两处都探测。
+discover_runtime() {
+  local dsh_bin root cand
+  dsh_bin="$(readlink -f "$(command -v dsh)" 2>/dev/null)" || return 1
+  case "${dsh_bin}" in
+    */node_modules/@deepseek-ai/dsh/lib/bin.js) ;;
+    *) return 1 ;;
+  esac
+  root="${dsh_bin%/node_modules/@deepseek-ai/dsh/lib/bin.js}/node_modules"
+  for cand in "${root}/@deepseek-ai/dsh/node_modules" "${root}"; do
+    if [ -d "${cand}/@deepseek-ai/dsh-tools" ]; then
+      RUNTIME_NM="${cand}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if [ -z "${RUNTIME_NM}" ]; then
+  if ! discover_runtime; then
+    echo "ERROR: 无法定位 dsh 运行时 node_modules（可设 DSH_RUNTIME_NM 显式指定）" >&2
+    exit 1
+  fi
+fi
+
+RUNTIME_DS="${RUNTIME_NM}/@deepseek-ai"
+PROFILE_DS="${PROFILE_NM}/@deepseek-ai"
+[ -d "${RUNTIME_DS}" ] || { echo "ERROR: 运行时 @deepseek-ai 目录不存在: ${RUNTIME_DS}" >&2; exit 1; }
+[ -d "${PROFILE_DS}" ] || { echo "ERROR: profile @deepseek-ai 目录不存在: ${PROFILE_DS}" >&2; exit 1; }
+
+ver() { node -p "JSON.parse(require('fs').readFileSync('$1/package.json','utf8')).version" 2>/dev/null || echo ''; }
+
+linked=0; skipped=0; mismatched=0
+for pkgdir in "${PROFILE_DS}"/*/; do
+  name="$(basename "${pkgdir}")"
+  case "${name}" in *.orig.bak|*.orig.bak.*) continue;; esac  # 跳过历史备份
+  [ -d "${RUNTIME_DS}/${name}" ] || continue                    # 只处理两边都存在的重叠包
+  [ "${SCOPE}" = "--dsh-tools-only" ] && [ "${name}" != "dsh-tools" ] && continue
+
+  wv="$(ver "${PROFILE_DS}/${name}")"; nv="$(ver "${RUNTIME_DS}/${name}")"
+  if [ "${wv}" != "${nv}" ]; then
+    echo "SKIP  ${name}  版本不一致 profile=${wv} runtime=${nv}"
+    mismatched=$((mismatched+1)); continue
+  fi
+
+  target="${PROFILE_DS}/${name}"
+  if [ -L "${target}" ] && [ "$(readlink -f "${target}")" = "$(readlink -f "${RUNTIME_DS}/${name}")" ]; then
+    echo "OK    ${name}  (已是单副本 symlink)"
+    skipped=$((skipped+1)); continue
+  fi
+  [ -L "${target}" ] && rm "${target}"
+  [ -e "${target}" ] && mv "${target}" "${target}.orig.bak.$(date +%s)"
+  ln -s "${RUNTIME_DS}/${name}" "${target}"
+  echo "LINK  ${name}  ->  ${RUNTIME_DS}/${name}"
+  linked=$((linked+1))
+done
+
+echo "dedup-dsh-packages: symlink ${linked}, 已正确 ${skipped}, 版本不一致跳过 ${mismatched}"
+EOF
+  chmod 0755 /deployment/bin/dedup-dsh-packages.sh
+}
+
 installAssistant(){
   mkdir -p "${SEED_HOME}"
   writeAssembleResidentScript
+  writeDedupScript
 
   # 把钉钉群接入插件装进种子 home 的默认 DSH 数据域（${SEED_HOME}/.dsh，web profile；
   # 运行期 start 脚本在卷内缺失时拷入）。版本必须配对钉：assistant 2.x 依赖 dsh
@@ -346,6 +444,16 @@ installAssistant(){
     echo "Failed to assemble assistant resident runtime" >&2
     return 1
   }
+  # 消除 @deepseek-ai 双副本：必须在 plugin add（内部 pnpm install，nodeLinker=hoisted
+  # 会重新 hoist 真目录）之后执行，symlink 才不被覆盖。不修则 dsh-tools 调度器
+  # Symbol 跨副本失配，工具调用必崩、群消息永远无回复（详见 writeDedupScript 注释）。
+  # bake 失败要直接让构建失败——dedup 跑不起来说明插件布局变了，带出去就是废镜像。
+  HOME="${SEED_HOME}" /deployment/bin/dedup-dsh-packages.sh || {
+    echo "Failed to dedup @deepseek-ai packages" >&2
+    return 1
+  }
+  # 种子不保留 .orig.bak 备份（会被 start 脚本 cp -a 带进卷，白白占空间）
+  rm -rf "${SEED_HOME}"/.dsh/profiles/web/node_modules/@deepseek-ai/*.orig.bak.* 2>/dev/null || true
   echo "dingtalk-dsh-assistant installed into ${SEED_HOME}/.dsh"
 }
 
@@ -397,6 +505,13 @@ fi
 # dws 上 PATH（/deployment/bin 在镜像 ENV PATH 最前）。standalone 的 dws upgrade
 # 解析可执行文件真实路径后原地原子替换，替换对象是卷内二进制 → 升级持久。
 ln -sfn "\${HOME_DIR}/.local/bin/dws" /deployment/bin/dws
+
+# 消除 @deepseek-ai 双副本（幂等兜底）：seed 拷入的 symlink 已正确时秒过；运行期
+# 手工 dsh plugin add / 重装插件会重新 hoist 真目录覆盖 symlink，这里在每次启动前
+# 补一遍。失败不阻断启动（dedup 内部对版本不一致的包只会跳过、不会误伤）。
+if [ -d "\${HOME_DIR}/.dsh/profiles/web/node_modules/@deepseek-ai" ]; then
+  HOME="\${HOME_DIR}" /deployment/bin/dedup-dsh-packages.sh || true
+fi
 
 # 重 chown 家目录：PUID/PGID 改过 sarmn 的 uid/gid 后，bake/旧卷里的旧属主文件
 # 新 sarmn 读写不了（种子刚拷出来的文件也一并归位）
@@ -526,6 +641,10 @@ docker exec -it -u sarmn dingtalk-dsh dws auth login --device
   \`dws skill install\` 新装的技能直接落进挂卷。
 - 插件权限：resident 主会话只读，leaf 任务会话拥有完整执行权限（在 DSH Web
   控制台 → Settings → Plugins → 钉钉个人助理 里配置）。
+- \`@deepseek-ai/*\` 单副本：bake 与每次启动都会跑 \`dedup-dsh-packages.sh\`，把
+  profile 插件侧与 dsh 运行时重叠的 @deepseek-ai 包 symlink 到运行时副本——不修
+  则群消息收得到、工具一调就崩、机器人永远无回复（dsh-tools 的调度器 Symbol 跨
+  副本失配；原理见 docs/dsh-dws修复方案/DEDUP-FIX.md）。
 - \`dsh web\` 只监听 \`127.0.0.1:3080\`，\`--host 0.0.0.0\` 被 CLI 禁用。
 
 ## 验收
