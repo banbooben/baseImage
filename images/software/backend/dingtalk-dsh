@@ -23,9 +23,9 @@ RUN set -eux; \
     /bin/bash /tmp/install_dingtalk_dsh.sh; \
     echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
 
-ENV DSH_HOME=/deployment/software/dingtalk-dsh/home \
-    DWS_CONFIG_DIR=/deployment/software/dingtalk-dsh/dws-config \
-    PATH=/deployment/bin:/usr/local/lib/nodejs/bin:$PATH
+# 不设 DSH_HOME / DWS_CONFIG_DIR（方案 C）：DSH/DWS 全部走运行用户 home 默认
+# 路径（~/.dsh、~/.dws、~/.agents、~/.local/...），持久化由 compose 按目录挂卷。
+ENV PATH=/deployment/bin:/usr/local/lib/nodejs/bin:$PATH
 
 EXPOSE 3080
 

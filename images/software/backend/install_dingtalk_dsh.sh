@@ -10,22 +10,28 @@
  # 安装顺序：
  #   1. Node.js 24（DSH 要求 ^22.19.0 || >=24；dingtalk-dsh-assistant 要求 Node 24+；
  #      仓库 base:<os> 不带 Node，这里照 install_claude.sh 的套路自举官方二进制）
- #   2. DWS：npm i -g dingtalk-workspace-cli
+ #   2. DWS：官方 install.sh 装 standalone 二进制（不走 npm——npm 安装的 dws upgrade
+ #      会委派包管理器写 /usr/local，sarmn 不可写且随容器重建丢失；standalone 的
+ #      upgrade 原地原子替换自身二进制，配合 ~/.local/bin 挂卷，容器内升级持久）
  #   3. DSH：npm i -g @deepseek-ai/dsh（钉版本，默认 0.1.2-rc.1）
- #   4. 插件：dsh plugin --profile web add dingtalk-dsh-assistant@<钉版本>（bake 进默认 DSH_HOME；
+ #   4. 插件：dsh plugin --profile web add dingtalk-dsh-assistant@<钉版本>（bake 进种子目录；
  #      2.x 起插件依赖 dsh 0.2.x API 代际，与 0.1.2-rc.1 不兼容，必须钉版本）
  #
- # Layer layout（数据域/登录态/技能统一在 INSTALL_PATH 下，运行期挂这一个路径；软件本体 npm 全局装在 /usr/local）：
- #   /deployment/software/dingtalk-dsh/home          # DSH_HOME：会话/轨迹/插件配置
- #   /deployment/software/dingtalk-dsh/dws-config    # DWS_CONFIG_DIR：profiles/技能状态
- #   /deployment/software/dingtalk-dsh/dws-cli       # DWS 凭证库（XDG ~/.local/share/dws-cli 软链归拢）
- #   /deployment/software/dingtalk-dsh/{dws,agents}  # 技能（$HOME 软链归拢，见 relocateSkillDirs）
- #   /deployment/bin/dingtalk-dsh-start.sh           # s6 longrun 的 run body（在挂载点之外）
- #   /deployment/bin/dsh / dws                        # 启动器（软链到 npm 全局 bin）
+ # Layer layout（方案 C：不设 DSH_HOME/DWS_CONFIG_DIR，一切走运行用户 home 默认路径；
+ # 需要持久化的目录由 compose 按路径单独挂卷；bake 进这些路径的内容统一先落到
+ # SEED_HOME，运行期 start 脚本在卷内缺失时拷入，已有内容一律不覆盖）：
+ #   /deployment/accounts/sarmn/.dsh                 # DSH 数据域：会话/轨迹/插件（种子含 assistant）
+ #   /deployment/accounts/sarmn/.dws                 # DWS profiles/技能状态/技能（种子含技能）
+ #   /deployment/accounts/sarmn/.agents/skills       # 技能（multi 模式，种子含）
+ #   /deployment/accounts/sarmn/.local/share/dws-cli # DWS 凭证库（dek + auth-token*.enc）
+ #   /deployment/accounts/sarmn/.local/bin/dws       # DWS standalone 二进制（种子含；upgrade 原地替换）
+ #   /deployment/software/dingtalk-dsh/seed-home     # SEED_HOME：上述初始内容的种子（镜像内，不挂卷）
+ #   /deployment/bin/dingtalk-dsh-start.sh           # s6 longrun 的 run body
+ #   /deployment/bin/dsh / dws                        # 启动器（dsh→npm 全局 bin；dws→卷内 standalone）
  #
  # 构建期可覆盖（Dockerfile build-arg / 环境变量）：
  #   NPM_REGISTRY     npm 源（默认 https://registry.npmmirror.com）
- #   DWS_PIN_VERSION  DWS 版本（默认 latest）
+ #   DWS_PIN_VERSION  DWS 版本（默认 latest；可写 1.0.65 或 v1.0.65）
  #   DSH_PIN_VERSION  DSH 版本（默认 0.1.2-rc.1）
  #   DSH_ASSISTANT_PIN_VERSION  钉钉插件版本（默认 1.0.0；必须钉，2.x 起插件
  #                              依赖 dsh 0.2.x API 代际，与 0.1.2-rc.1 不兼容）
@@ -79,12 +85,9 @@ setEnv(){
   export DSH_PIN_VERSION="${DSH_PIN_VERSION:-0.1.2-rc.1}"
   export DSH_ASSISTANT_PIN_VERSION="${DSH_ASSISTANT_PIN_VERSION:-1.0.0}"
 
-  # 数据域/登录态/技能统一收进 INSTALL_PATH 本身（不再套 data/ 子层）：
-  #   home（DSH_HOME）、dws-config（profiles）、dws-cli（凭证库，XDG 软链）、
-  #   dws/agents（技能，见 relocateSkillDirs）。
-  # 运行期只需挂 INSTALL_PATH 一个路径，即可持久化会话 + 登录态 + 全部技能。
-  export DSH_HOME="${INSTALL_PATH}/home"
-  export DWS_CONFIG_DIR="${INSTALL_PATH}/dws-config"
+  # 种子目录：bake 期所有要进挂卷的初始内容（dsh profile、dws 二进制、技能）
+  # 都以 HOME=SEED_HOME 落到这里；运行期 start 脚本把卷内缺失的部分拷入。
+  export SEED_HOME="${INSTALL_PATH}/seed-home"
 
   echo "Using DSH ${DSH_PIN_VERSION} (node ${NODE_VERSION}, registry ${NPM_REGISTRY})"
 }
@@ -189,8 +192,8 @@ installDeps(){
   echo "Node.js $(node --version) installed"
 
   # npm 全局 prefix：官方 tarball 解到 /usr/local/lib/nodejs 后，npm 会把默认 prefix
-  # 推导成 /usr/local/lib/nodejs，导致 `npm i -g` 的 bin（dws/dsh/pnpm）落到
-  # /usr/local/lib/nodejs/bin —— 该目录不在构建期 PATH 上，装完 `dws` 会 command not found。
+  # 推导成 /usr/local/lib/nodejs，导致 `npm i -g` 的 bin（dsh/pnpm）落到
+  # /usr/local/lib/nodejs/bin —— 该目录不在构建期 PATH 上，装完 `dsh` 会 command not found。
   # 显式钉回 /usr/local，让 global bin 进 /usr/local/bin（与上面 node/npm/npx 软链一致）。
   npm config set prefix /usr/local || return 1
 
@@ -207,27 +210,45 @@ installDeps(){
 }
 
 installDws(){
-  mkdir -p /deployment/bin
+  mkdir -p /deployment/bin "${SEED_HOME}/.local/bin"
 
-  # npm 12 起默认禁用 install 脚本（postinstall 等），必须 --allow-scripts 放行，
-  # 否则 dingtalk-workspace-cli 的 postinstall(node install.js) 被拦截，dws 二进制不会生成。
-  local install_cmd="npm install -g dingtalk-workspace-cli --allow-scripts=dingtalk-workspace-cli --registry=${NPM_REGISTRY}"
-  if [ -n "${DWS_PIN_VERSION}" ]; then
-    install_cmd="npm install -g dingtalk-workspace-cli@${DWS_PIN_VERSION} --allow-scripts=dingtalk-workspace-cli --registry=${NPM_REGISTRY}"
+  # DWS 走官方 install.sh 装 standalone 二进制（不是 npm 包）。脚本自带：
+  # 架构识别（amd64/arm64）、checksums.txt SHA256 校验（校验不过拒绝安装）、
+  # GitHub 不可达时自动回退 Gitee 镜像、技能安装（multi 模式：~/.agents/skills +
+  # ~/.dws/skills）与技能状态落 $HOME/.dws。
+  # bake 时 HOME 指到 SEED_HOME，二进制与技能全部落进种子目录。
+  local version="${DWS_PIN_VERSION}"
+  if [ -n "${version}" ]; then
+    version="v${version#v}"
+  else
+    # 解析 latest tag；GitHub API 不可达时留空，交给官方脚本自己解析（含 Gitee 回退）
+    version="$(curl -fsSL --connect-timeout 15 --max-time 45 \
+      https://api.github.com/repos/DingTalk-Real-AI/dingtalk-workspace-cli/releases/latest 2>/dev/null \
+      | grep -o '"tag_name"[^,}]*' | cut -d'"' -f4 || true)"
+  fi
+  echo "DWS version: ${version:-latest (resolved by install.sh)}"
+
+  # 安装脚本按 tag 拉取（与二进制同版本，保证可复现）；tag 上没有时回退 main
+  local script=/tmp/dws-install.sh
+  rm -f "${script}"
+  if [ -n "${version}" ]; then
+    curl -fsSL --connect-timeout 20 --max-time 90 -o "${script}" \
+      "https://raw.githubusercontent.com/DingTalk-Real-AI/dingtalk-workspace-cli/${version}/scripts/install.sh" || true
+  fi
+  if [ ! -s "${script}" ]; then
+    curl -fsSL --connect-timeout 20 --max-time 90 -o "${script}" \
+      "https://raw.githubusercontent.com/DingTalk-Real-AI/dingtalk-workspace-cli/main/scripts/install.sh" || {
+      echo "Failed to download DWS install.sh" >&2; return 1; }
   fi
 
-  echo "Installing: ${install_cmd}"
-  ${install_cmd} || { echo "Failed to install DWS (dingtalk-workspace-cli)" >&2; return 1; }
+  local install_env=(HOME="${SEED_HOME}" DWS_INSTALL_DIR="${SEED_HOME}/.local/bin" DWS_SKILL_MODE=multi)
+  [ -n "${version}" ] && install_env+=(DWS_VERSION="${version}")
+  env "${install_env[@]}" sh "${script}" || { echo "Failed to install DWS (standalone)" >&2; return 1; }
 
-  # 验证安装（需求：装完 dws 后 `dws version` 能跑）
-  dws version || dws --version || { echo "DWS binary missing or broken" >&2; return 1; }
-
-  local dws_bin
-  dws_bin="$(command -v dws)"
-  ln -sfn "${dws_bin}" /deployment/bin/dws
-  DWS_VERSION="$(dws version 2>/dev/null | head -n 1 || echo "${DWS_PIN_VERSION:-latest}")"
+  "${SEED_HOME}/.local/bin/dws" version || { echo "DWS binary missing or broken" >&2; return 1; }
+  DWS_VERSION="$("${SEED_HOME}/.local/bin/dws" version 2>/dev/null | head -n 1 || echo "${version:-latest}")"
   export DWS_VERSION
-  echo "DWS version: ${DWS_VERSION}"
+  echo "DWS ${DWS_VERSION} installed (standalone, seeded at ${SEED_HOME}/.local/bin/dws)"
 }
 
 installDsh(){
@@ -247,16 +268,92 @@ installDsh(){
   echo "DSH version: ${DSH_VERSION}"
 }
 
-installAssistant(){
-  mkdir -p "${DSH_HOME}"
-  export DSH_HOME
+# 装配 assistant resident Runtime 的幂等脚本（bake 时与运行期 start 脚本都会调）。
+# 背景：插件的 Web 设置页通过硬编码 http://127.0.0.1:18998 拉取 dws 状态；
+# `dsh plugin add` 只装 web face（@zzusp/dingtalk-dsh-assistant 的 "." 导出是
+# no-op），真正的 resident 后端（./resident 导出，监听 18998）必须显式插进实际
+# 使用的 Web profile patch——不插则 18998 无人监听，设置页 fetch 失败，永远显示
+# 「dws 未安装」（与配置目录、运行用户均无关）。
+# 另外 resident 的 inject 依赖 dingtalkTaskWorkflowPlatformClients：vendor 的
+# platform-host 面向其企业内部 k3s/woodpecker/bytebase 平台，需要企业 secrets，
+# 本镜像不接入；这里落一个本地空实现占位（该服务仅在配置 workflow.platforms 时
+# 才被解引用，本配置无 workflow，安全）。
+writeAssembleResidentScript(){
+  mkdir -p /deployment/bin
+  cat > /deployment/bin/dingtalk-dsh-assemble-resident.sh <<'EOF'
+#!/bin/bash
+# 装配 assistant resident Runtime（dingtalk-dsh-assistant README §3），幂等：
+# 整块用标记注释管理，每次调用重写；dws.profile 从 DWS_CONFIG_DIR/profiles.json
+# 的 currentProfile 派生（仅用于设置页 auth status 展示，取不到则省略该行）。
+# 方案 C：不设环境变量时按默认路径解析（$HOME/.dsh、$HOME/.dws），调用方必须
+# 保证 HOME 指向目标用户的 home（bake 时是 SEED_HOME，运行期 start 脚本是 sarmn home）。
+set -e
 
-  # 把钉钉群接入插件装进默认 DSH_HOME 的 web profile（bake 进镜像默认数据域；
-  # 运行期若用卷覆盖 DSH_HOME 为新实例，需要重新 add 一次，见 README）。
-  # 版本必须钉：assistant 2.x 依赖 dsh 0.2.x API 代际，与 DSH_PIN_VERSION=0.1.2-rc.1
-  # 不兼容（缺 peer，Cordis 解析失败，dsh web 崩溃循环）。
-  echo "Installing dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION} into ${DSH_HOME} (profile=web)"
-  dsh plugin --profile web add "dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION}" || {
+DSH_HOME="${DSH_HOME:-${HOME}/.dsh}"
+DWS_CONFIG_DIR="${DWS_CONFIG_DIR:-${HOME}/.dws}"
+
+PROFILE_DIR="${DSH_HOME}/profiles/web"
+PATCH_FILE="${PROFILE_DIR}/cordis.patch.yml"
+STUB_DIR="${PROFILE_DIR}/local-plugins"
+
+# profile 尚未生成（全新 home 还没 dsh plugin add）时跳过
+[ -f "${PATCH_FILE}" ] || exit 0
+
+mkdir -p "${STUB_DIR}"
+cat > "${STUB_DIR}/platform-clients-stub.mjs" <<'STUB'
+// 本地占位插件：resident 的 inject 依赖 dingtalkTaskWorkflowPlatformClients，
+// vendor 的 platform-host 需要其企业内部平台 secrets，这里提供空实现
+// （仅在配置 workflow.platforms 时才会被解引用，本配置无 workflow，安全）。
+export const name = "dingtalk-task-workflow-platform-clients-stub"
+export function apply(ctx) {
+  ctx.provide("dingtalkTaskWorkflowPlatformClients", {})
+}
+STUB
+
+# 清掉旧的受管块（幂等）
+sed -i '/# >>> dingtalk-dsh-assistant resident/,/# <<< dingtalk-dsh-assistant resident/d' "${PATCH_FILE}"
+
+# 剩余内容只有模板注释 + 空数组时，把空数组行删掉（否则 append 的列表项
+# 接在 [] 后面不是合法 YAML）
+if [ -z "$(grep -vE '^\s*(#|$)' "${PATCH_FILE}" | grep -v '^\[\]$')" ]; then
+  sed -i '/^\[\]$/d' "${PATCH_FILE}"
+fi
+
+DWS_PROFILE="$(grep -o '"currentProfile"[^,}]*' "${DWS_CONFIG_DIR}/profiles.json" 2>/dev/null | cut -d'"' -f4 || true)"
+
+{
+  echo "# >>> dingtalk-dsh-assistant resident (managed, do not edit between markers) >>>"
+  echo "- insert:"
+  echo "    - id: dingtalk-task-workflow-platform-clients-stub"
+  echo "      name: \"./local-plugins/platform-clients-stub.mjs\""
+  echo "    - id: dingtalk-dsh-assistant-resident"
+  echo "      name: \"@zzusp/dingtalk-dsh-assistant/resident\""
+  echo "      config:"
+  echo "        groups: []"
+  echo "        dws:"
+  # 默认启用：群消息接收（enabled，inbound bridge）+ 自动回复（writesAuthorized，
+  # outbound）。quoted heredoc 不展开——assemble 在容器启动时执行，可用
+  # docker run -e DWS_BRIDGE_ENABLED=false / DWS_WRITES_AUTHORIZED=false 按部署关闭。
+  echo "          enabled: ${DWS_BRIDGE_ENABLED:-true}"
+  echo "          writesAuthorized: ${DWS_WRITES_AUTHORIZED:-true}"
+  [ -n "${DWS_PROFILE}" ] && echo "          profile: ${DWS_PROFILE}"
+  echo "# <<< dingtalk-dsh-assistant resident <<<"
+} >> "${PATCH_FILE}"
+EOF
+  chmod 0755 /deployment/bin/dingtalk-dsh-assemble-resident.sh
+}
+
+installAssistant(){
+  mkdir -p "${SEED_HOME}"
+  writeAssembleResidentScript
+
+  # 把钉钉群接入插件装进种子 home 的默认 DSH 数据域（${SEED_HOME}/.dsh，web profile；
+  # 运行期 start 脚本在卷内缺失时拷入）。版本必须钉：assistant 2.x 依赖 dsh 0.2.x
+  # API 代际，与 DSH_PIN_VERSION=0.1.2-rc.1 不兼容（缺 peer，Cordis 解析失败，
+  # dsh web 崩溃循环）。dsh 的数据域解析：不设 DSH_HOME 时回退 $HOME/.dsh，
+  # 故以 HOME=SEED_HOME 调用（bake 期 HOME 是 /root，绝不能落进 /root）。
+  echo "Installing dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION} into ${SEED_HOME}/.dsh (profile=web)"
+  HOME="${SEED_HOME}" dsh plugin --profile web add "dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION}" || {
     echo "Failed to install dingtalk-dsh-assistant plugin" >&2
     return 1
   }
@@ -264,67 +361,30 @@ installAssistant(){
   # 需要 Cordis HMR 服务，0.1.2-rc.1 树上没有 → dsh web 必崩。钉成 startup
   # （合法值仅 live/startup；startup 只在做启动时加载补丁层，不做 HMR watch）。
   sed -i 's/"patchReload": "live"/"patchReload": "startup"/' \
-    "${DSH_HOME}/profiles/web/package.json" 2>/dev/null || true
-  echo "dingtalk-dsh-assistant installed into ${DSH_HOME}"
-}
-
-# 把运行用户 $HOME 钉死的技能目录/凭证库归拢到 INSTALL_PATH：搬内容 → 删原目录 → 建软链（幂等）。
-# DWS/DSH 把技能目录硬编码在运行用户的 $HOME（~/.dws、~/.agents），不受 DSH_HOME /
-# DWS_CONFIG_DIR 控制；DWS 凭证库（dek + auth-token*.enc）走 XDG（~/.local/share/dws-cli），
-# 同样不受 DWS_CONFIG_DIR 控制——不软链进 INSTALL_PATH 则登录态随容器重建丢失。
-# 运行用户统一为 sarmn（base 层 create_user 把其 home 定为 /deployment/accounts/sarmn），
-# 故软链跟随 sarmn 的 home，不再写死 /root（root 只存在于构建期，运行期进程是 sarmn）。
-relocateSkillDirs(){
-  local run_user="${1:-sarmn}"
-  local home_dir
-  home_dir="$(getent passwd "${run_user}" | cut -d: -f6)"
-  [ -n "${home_dir}" ] || home_dir="/deployment/accounts/${run_user}"
-
-  local d src dst
-  for d in dws agents; do
-    src="${home_dir}/.${d}"
-    dst="${INSTALL_PATH}/${d}"
-    mkdir -p "${dst}"
-    if [ -L "${src}" ]; then
-      continue
-    fi
-    if [ -d "${src}" ]; then
-      cp -a "${src}/." "${dst}/" 2>/dev/null || true
-      rm -rf "${src}"
-    fi
-    ln -sfn "${dst}" "${src}"
-    chown -R "${run_user}:${run_user}" "${dst}" 2>/dev/null || true
-  done
-
-  # DWS 凭证库（XDG 路径，与上面的技能目录同套路）
-  src="${home_dir}/.local/share/dws-cli"
-  dst="${INSTALL_PATH}/dws-cli"
-  mkdir -p "${home_dir}/.local/share" "${dst}"
-  if [ ! -L "${src}" ]; then
-    if [ -d "${src}" ]; then
-      cp -a "${src}/." "${dst}/" 2>/dev/null || true
-      rm -rf "${src}"
-    fi
-    ln -sfn "${dst}" "${src}"
-    chown -R "${run_user}:${run_user}" "${dst}" 2>/dev/null || true
-  fi
+    "${SEED_HOME}/.dsh/profiles/web/package.json" 2>/dev/null || true
+  # 装配 resident Runtime 进 web profile patch（设置页「dws 未安装」的根源修复；
+  # 详见 writeAssembleResidentScript 注释）
+  HOME="${SEED_HOME}" /deployment/bin/dingtalk-dsh-assemble-resident.sh || {
+    echo "Failed to assemble assistant resident runtime" >&2
+    return 1
+  }
+  echo "dingtalk-dsh-assistant installed into ${SEED_HOME}/.dsh"
 }
 
 initS6Config(){
   mkdir -p "${INSTALL_PATH}"
 
-  # 技能目录归拢到 INSTALL_PATH（见 relocateSkillDirs）
-  relocateSkillDirs sarmn
-
-  # DSH_HOME/登录态/技能整目录收归 sarmn，保证运行期 sarmn 进程可读写（bake 时是 root 装的）
+  # 种子整目录收归 sarmn：start 脚本 cp -a 进卷时保留属主，卷内容直接归运行用户
+  # （PUID/PGID 改 uid/gid 的场景由 start 脚本的 chown -R 兜底）
   chown -R sarmn:sarmn "${INSTALL_PATH}" 2>/dev/null || true
 
   # ── s6 longrun 的 run body ────────────────────────────────────────────
   # run body 以 root 启动（register_s6_longrun_cmd 不传 run_user），先在 root 态完成
-  # 属主修正 + 技能软链，再 setuidgid 切到 sarmn 前台常驻 DSH Web；重启语义交给 s6。
+  # 种子拷贝 + 属主修正，再 setuidgid 切到 sarmn 前台常驻 DSH Web；重启语义交给 s6。
   # PUID/PGID 的 uid/gid 对齐由 base 层 /etc/cont-init.d/05-puid-pgid 在服务启动前
-  # 统一完成，此处不再重复。run body 落在 /deployment/bin（挂载点 INSTALL_PATH
-  # 之外），避免整目录挂卷时被遮蔽。
+  # 统一完成，此处不再重复。持久化不设 DSH_HOME/DWS_CONFIG_DIR——DSH/DWS 的默认
+  # 路径全在运行用户 home（$HOME/.dsh、$HOME/.dws、~/.agents、~/.local/...），
+  # 由 compose 按目录单独挂卷。
   cat > /deployment/bin/dingtalk-dsh-start.sh <<EOF
 #!/bin/bash
 set -e
@@ -332,62 +392,70 @@ set -e
 RUN_USER="sarmn"
 HOME_DIR="\$(getent passwd "\${RUN_USER}" | cut -d: -f6)"
 [ -n "\${HOME_DIR}" ] || HOME_DIR="/deployment/accounts/\${RUN_USER}"
+SEED_HOME="${INSTALL_PATH}/seed-home"
 
-mkdir -p "\${DSH_HOME}" "\${DWS_CONFIG_DIR}" "${INSTALL_PATH}/dws" "${INSTALL_PATH}/agents"
+# 持久化点（compose 按目录单独挂卷；未挂的目录随容器重建丢失，只剩凭证库必须挂）
+mkdir -p "\${HOME_DIR}/.dsh" "\${HOME_DIR}/.dws" "\${HOME_DIR}/.agents" \\
+         "\${HOME_DIR}/.local/share/dws-cli" "\${HOME_DIR}/.local/bin"
 
-# 重 chown 数据域/家目录：PUID/PGID 改过 sarmn 的 uid/gid 后，bake 进去的旧属主
-# 文件新 sarmn 读写不了；挂卷场景同样覆盖（cont-init 的 05-puid-pgid 只管 home）
-chown -R "\${RUN_USER}:\${RUN_USER}" "${INSTALL_PATH}" "\${HOME_DIR}" 2>/dev/null || true
+# 凭证库目录收紧（dek + auth-token*.enc）
+chmod 700 "\${HOME_DIR}/.local/share/dws-cli" 2>/dev/null || true
 
-# 技能目录软链跟随运行用户 home（幂等；home 不随 PUID 变化，始终 /deployment/accounts/sarmn）
-for d in dws agents; do
-  ln -sfn "${INSTALL_PATH}/\${d}" "\${HOME_DIR}/.\${d}"
-done
-
-# DWS 凭证库软链（XDG：~/.local/share/dws-cli → INSTALL_PATH/dws-cli；幂等。
-# 凭证库不受 DWS_CONFIG_DIR 控制，不软链进 INSTALL_PATH 则登录态随容器重建丢失）
-mkdir -p "\${HOME_DIR}/.local/share" "${INSTALL_PATH}/dws-cli"
-if [ ! -L "\${HOME_DIR}/.local/share/dws-cli" ]; then
-  if [ -d "\${HOME_DIR}/.local/share/dws-cli" ]; then
-    cp -a "\${HOME_DIR}/.local/share/dws-cli/." "${INSTALL_PATH}/dws-cli/" 2>/dev/null || true
-    rm -rf "\${HOME_DIR}/.local/share/dws-cli"
-  fi
-  ln -sfn "${INSTALL_PATH}/dws-cli" "\${HOME_DIR}/.local/share/dws-cli"
+# 种子拷贝：镜像 bake 的初始状态只在目标缺失时拷入——卷里已有的内容
+# （升级过的 dws 二进制、用户改过的 profile/技能）一律不被种子覆盖。
+if [ ! -e "\${HOME_DIR}/.dsh/profiles/web/package.json" ] && [ -d "\${SEED_HOME}/.dsh" ]; then
+  cp -a "\${SEED_HOME}/.dsh/." "\${HOME_DIR}/.dsh/"
+fi
+if [ ! -e "\${HOME_DIR}/.dws/skills" ] && [ -d "\${SEED_HOME}/.dws" ]; then
+  cp -a "\${SEED_HOME}/.dws/." "\${HOME_DIR}/.dws/"
+fi
+if [ ! -e "\${HOME_DIR}/.agents/skills" ] && [ -d "\${SEED_HOME}/.agents" ]; then
+  cp -a "\${SEED_HOME}/.agents/." "\${HOME_DIR}/.agents/"
+fi
+if [ ! -x "\${HOME_DIR}/.local/bin/dws" ] && [ -f "\${SEED_HOME}/.local/bin/dws" ]; then
+  cp -a "\${SEED_HOME}/.local/bin/dws" "\${HOME_DIR}/.local/bin/dws"
 fi
 
-# DWS 登录态自检：凭证库（dek + auth-token*.enc）为空 = 尚未登录，只提醒，不阻断 DSH 起服务。
-# dws 配置目录解析规则：设了 DWS_CONFIG_DIR 就只认它（不设才回退 ~/.dws）——
-# 服务进程带着 DWS_CONFIG_DIR 跑，登录时也必须显式带上同一个变量，否则 profiles
-# 落进 ~/.dws。登录需交互（设备码）：
-#   docker exec -it -u sarmn -e DWS_CONFIG_DIR=<同下> <container> dws auth login --device
-if ! ls "${INSTALL_PATH}/dws-cli"/auth-token*.enc >/dev/null 2>&1; then
-  echo "[dingtalk-dsh] 未检测到 DWS 登录态（dws-cli 凭证库为空）；请先执行: docker exec -it -u sarmn -e DWS_CONFIG_DIR=\${DWS_CONFIG_DIR} <container> dws auth login --device" >&2
+# dws 上 PATH（/deployment/bin 在镜像 ENV PATH 最前）。standalone 的 dws upgrade
+# 解析可执行文件真实路径后原地原子替换，替换对象是卷内二进制 → 升级持久。
+ln -sfn "\${HOME_DIR}/.local/bin/dws" /deployment/bin/dws
+
+# 重 chown 家目录：PUID/PGID 改过 sarmn 的 uid/gid 后，bake/旧卷里的旧属主文件
+# 新 sarmn 读写不了（种子刚拷出来的文件也一并归位）
+chown -R "\${RUN_USER}:\${RUN_USER}" "\${HOME_DIR}" 2>/dev/null || true
+
+# DWS 登录态自检：凭证库（dek + auth-token*.enc）为空 = 尚未登录，只提醒，不阻断
+# DSH 起服务。方案 C 无 DWS_CONFIG_DIR，登录态/配置都走默认路径，登录直接：
+#   docker exec -it -u sarmn <container> dws auth login --device
+if ! ls "\${HOME_DIR}/.local/share/dws-cli"/auth-token*.enc >/dev/null 2>&1; then
+  echo "[dingtalk-dsh] 未检测到 DWS 登录态（dws-cli 凭证库为空）；请先执行: docker exec -it -u \${RUN_USER} <container> dws auth login --device" >&2
 fi
 
 # patchReload=live 需要 Cordis HMR 服务，0.1.2-rc.1 树上没有 → dsh web 必崩。
-# dsh plugin add（含挂新卷后的手工重 add）都会把它重置回 live，每次启动前钉回
-# startup（合法值仅 live/startup；startup 启动时加载补丁层，不做 HMR watch）。
-sed -i 's/"patchReload": "live"/"patchReload": "startup"/' \
-  "\${DSH_HOME}/profiles/web/package.json" 2>/dev/null || true
+# dsh plugin add（含手工重 add）都会把它重置回 live，每次启动前钉回 startup
+# （合法值仅 live/startup；startup 启动时加载补丁层，不做 HMR watch）。
+sed -i 's/"patchReload": "live"/"patchReload": "startup"/' \\
+  "\${HOME_DIR}/.dsh/profiles/web/package.json" 2>/dev/null || true
 
-# s6-setuidgid 不改 HOME（仍是 root 的）；dws 凭证走 XDG（$HOME/.local/share/dws-cli），
+# 装配 assistant resident Runtime（幂等；手工重 add 插件后这里补齐 patch，并从
+# profiles.json 刷新 dws.profile）。设置页「dws 未安装」的根源修复：web face 是
+# no-op，状态来自 resident 的 127.0.0.1:18998 服务。此进程还是 root，assemble
+# 按 \$HOME 解析默认路径，必须显式给 HOME。
+HOME="\${HOME_DIR}" /deployment/bin/dingtalk-dsh-assemble-resident.sh || true
+chown -R "\${RUN_USER}:\${RUN_USER}" "\${HOME_DIR}/.dsh/profiles" 2>/dev/null || true
+
+# s6-setuidgid 不改 HOME（仍是 root 的）；dws 凭证走 XDG（\$HOME/.local/share/dws-cli），
 # 不把 HOME 归位到运行用户，服务及插件子进程永远读不到登录态
 exec s6-setuidgid "\${RUN_USER}" env HOME="\${HOME_DIR}" dsh web --no-open
 EOF
   chmod 0755 /deployment/bin/dingtalk-dsh-start.sh
 
   # ── 运行期环境持久化（s6 with-contenv 会注入）────────────────────────
-  write_cont_env DSH_HOME "${DSH_HOME}"
-  write_cont_env DWS_CONFIG_DIR "${DWS_CONFIG_DIR}"
   write_cont_env DSH_PIN_VERSION "${DSH_PIN_VERSION}"
   write_cont_env DSH_VERSION "${DSH_VERSION}"
   write_cont_env DWS_VERSION "${DWS_VERSION}"
 
-  {
-    echo "export DSH_HOME=${DSH_HOME}"
-    echo "export DWS_CONFIG_DIR=${DWS_CONFIG_DIR}"
-    echo "export PATH=/deployment/bin:\$PATH"
-  } >> /etc/environment
+  echo "export PATH=/deployment/bin:\$PATH" >> /etc/environment
 
   # 注册常驻服务：run body 以 root 起，属主修正后 setuidgid 切到 sarmn 常驻
   register_s6_longrun_cmd dingtalk-dsh "exec /bin/bash /deployment/bin/dingtalk-dsh-start.sh"
@@ -403,70 +471,84 @@ backend 软件镜像 \`software:<os_tag>-dingtalk-dsh\`，把钉钉群聊接入 
 
 | 组件 | 作用 | 安装 |
 |------|------|------|
-| DWS \`dingtalk-workspace-cli\` | 钉钉工作台 CLI：登录态 + 群消息通道 | \`npm i -g\` |
+| DWS \`dingtalk-workspace-cli\` | 钉钉工作台 CLI：登录态 + 群消息通道 | 官方 install.sh，standalone 二进制 |
 | DSH \`@deepseek-ai/dsh\` | DeepSeek Harness Agent 运行时（Node ≥ 24） | \`npm i -g\`（钉版本） |
-| \`dingtalk-dsh-assistant\` | DSH 插件：钉钉群聊接入常驻会话 | \`dsh plugin --profile web add\` |
+| \`dingtalk-dsh-assistant\` | DSH 插件：钉钉群聊接入常驻会话 | \`dsh plugin --profile web add\`（bake 进种子） |
 
-## 运行
+## 持久化（方案 C：默认路径 + 按目录挂卷）
 
-镜像 ENTRYPOINT 是 \`/init\`（s6-overlay），已注册 \`dingtalk-dsh\` longrun 服务，
-启动即常驻 \`dsh web\`，进程崩溃/退出由 s6 自动拉起（无需编排层 restart）。
+不设 \`DSH_HOME\` / \`DWS_CONFIG_DIR\`，DSH/DWS 全部走运行用户 home 的默认路径。
+需要持久化的五个目录，compose 逐个挂到 \`/deployment/accounts/sarmn/\` 下：
+
+| 容器路径 | 内容 |
+|----------|------|
+| \`~/.dsh\` | DSH 数据域：会话/轨迹/插件配置（首次启动从种子拷入 assistant 插件） |
+| \`~/.dws\` | DWS profiles / 技能状态 / \`skills/\`（首次启动从种子拷入技能） |
+| \`~/.agents\` | \`skills/\`（multi 模式技能，首次启动从种子拷入） |
+| \`~/.local/share/dws-cli\` | DWS 凭证库（dek + auth-token*.enc，登录态本体，**必须挂**） |
+| \`~/.local/bin\` | \`dws\` standalone 二进制（首次启动从种子拷入） |
 
 \`\`\`bash
-docker run -d --name dingtalk-dsh \
-  -v dsh_data:/deployment/software/dingtalk-dsh \
-  -p 127.0.0.1:3080:3080 \
+docker run -d --name dingtalk-dsh \\
+  -v dsh_home:/deployment/accounts/sarmn/.dsh \\
+  -v dws_config:/deployment/accounts/sarmn/.dws \\
+  -v dws_agents:/deployment/accounts/sarmn/.agents \\
+  -v dws_creds:/deployment/accounts/sarmn/.local/share/dws-cli \\
+  -v dws_bin:/deployment/accounts/sarmn/.local/bin \\
+  -p 127.0.0.1:3080:3080 \\
   registry.cn-hangzhou.aliyuncs.com/sarmn/software:noble-dingtalk-dsh
 \`\`\`
 
-挂载点：只需挂 \`/deployment/software/dingtalk-dsh\` 一个路径，即可持久化全部状态——
-\`DSH_HOME\`（\`home\`：会话/轨迹/插件配置）、\`DWS_CONFIG_DIR\`（\`dws-config\`：profiles/技能状态）、
-DWS 凭证库（\`~/.local/share/dws-cli\`，XDG 路径，dek + auth-token*.enc，已软链到 \`dws-cli\`）、
-DWS/DSH 技能（\`/deployment/accounts/sarmn/.dws\`、\`/deployment/accounts/sarmn/.agents\`
-已软链到 \`dws\`、\`agents\`）。
+种子语义：挂卷里已有的内容**一律不覆盖**——只有目标缺失时才从镜像种子拷入。
+所以换空卷 = 全新实例（自动补齐插件/技能/二进制）；老卷升级镜像 = 数据原样保留。
+
+## dws upgrade（容器内升级持久）
+
+dws 是 standalone 二进制，位于挂卷 \`~/.local/bin/dws\`（\`/deployment/bin/dws\` 是它的软链）。
+\`dws upgrade\` 解析自身真实路径后**原地原子替换**卷内二进制——以 sarmn 身份执行即可，
+升级结果随卷持久，容器重建不回退：
+
+\`\`\`bash
+docker exec -it -u sarmn dingtalk-dsh dws upgrade
+\`\`\`
+
+（对比：npm 安装的 dws upgrade 会委派包管理器写 \`/usr/local\`，sarmn 不可写、
+且改动落在容器层随重建丢失——这是本镜像弃用 npm 装 dws 的原因。DSH 仍由镜像
+钉版本管理，升级 DSH 请重建镜像。）
 
 ## 运行用户与 PUID/PGID
 
-服务统一以 \`sarmn\` 用户常驻（与 desktop 版一致）。默认 uid/gid 由 base 层
-\`create_user sarmn\` 决定（通常 1000）。若挂载卷在宿主机上的属主是别的 uid/gid，
-可用环境变量 \`PUID\` / \`PGID\` 让运行期把 \`sarmn\` 的 uid/gid 对齐过去，避免读写权限错配：
+服务统一以 \`sarmn\` 用户常驻。默认 uid/gid 由 base 层 \`create_user sarmn\` 决定
+（通常 1000）。挂载卷在宿主机上属主是别的 uid/gid 时，用 \`PUID\` / \`PGID\`
+让运行期把 \`sarmn\` 的 uid/gid 对齐过去：
 
 \`\`\`bash
-docker run -d --name dingtalk-dsh \
-  -e PUID=$(id -u) -e PGID=$(id -g) \
-  -v dsh_data:/deployment/software/dingtalk-dsh \
-  -p 127.0.0.1:3080:3080 \
-  registry.cn-hangzhou.aliyuncs.com/sarmn/software:noble-dingtalk-dsh
+docker run -d --name dingtalk-dsh -e PUID=\$(id -u) -e PGID=\$(id -g) ...
 \`\`\`
 
-不设 \`PUID\` / \`PGID\` 时保持 base 默认（1000）。\`PUID\` / \`PGID\` 只影响 uid/gid，
-不改变 \`sarmn\` 的家目录（始终 \`/deployment/accounts/sarmn\`），技能软链跟随该 home。
 对齐由 base 层 \`/etc/cont-init.d/05-puid-pgid\` 在所有 s6 服务启动前统一完成，
-镜像内所有以 \`sarmn\` 常驻的服务（含 extension-pack 组合镜像里的其它服务）一并生效。
+\`sarmn\` 的家目录不变（始终 \`/deployment/accounts/sarmn\`）。
 
 ## 首次登录
 
 \`\`\`bash
-# 一次性：弹出设备码，用钉钉扫码/访问链接完成登录（凭证写入 dws-cli 卷，经 XDG 软链）。
-# 以 sarmn 身份执行，保证登录态落在运行用户名下（运行期 DSH 以 sarmn 常驻）。
-# 必须显式带上 -e DWS_CONFIG_DIR：dws 设了 DWS_CONFIG_DIR 就只认它（否则回退
-# ~/.dws），服务进程带此变量运行；登录不带会把登录态写进 ~/.dws，服务读不到。
-docker exec -it -u sarmn -e DWS_CONFIG_DIR=${DWS_CONFIG_DIR} dingtalk-dsh dws auth login --device
+# 一次性：弹出设备码，用钉钉扫码/访问链接完成登录。
+# 以 sarmn 身份执行：凭证写进卷内 ~/.local/share/dws-cli，配置走默认 ~/.dws，
+# 与服务进程读的是同一份（方案 C 无 DWS_CONFIG_DIR，不需要额外 -e）。
+docker exec -it -u sarmn dingtalk-dsh dws auth login --device
 \`\`\`
 
 ## 关键配置（对应需求）
 
-- \`DSH_HOME\`（\`home\`）：按实例隔离的数据域（每个数字同事实例独立一份；挂新卷即新实例）。
-  默认镜像已把 \`dingtalk-dsh-assistant\` bake 进默认 \`home\`，挂新卷后需重跑一次
-  \`docker exec -it <container> dsh plugin --profile web add dingtalk-dsh-assistant@${DSH_ASSISTANT_PIN_VERSION}\`
-  （版本必须与镜像内 DSH 代际兼容：2.x 插件依赖 dsh 0.2.x API，与 0.1.2-rc.1 不兼容；
-  重装后启动脚本会把 profile 的 patchReload 自动钉回 startup，无需手工处理）。
-- \`DWS_CONFIG_DIR\`（\`dws-config\`）：DWS profiles/技能状态。
-- DWS 凭证库：登录态本体（dek + auth-token*.enc）在 XDG 路径 \`~/.local/share/dws-cli\`，
-  不受 \`DWS_CONFIG_DIR\` 控制；已软链到 \`dws-cli\`，走挂载卷持久化（容器重建不丢登录态）。
-- 技能：\`/deployment/accounts/sarmn/.dws\`、\`/deployment/accounts/sarmn/.agents\`
-  已软链到 \`dws\`、\`agents\`，运行期 \`dws skill install\` / \`dws skill setup\`
-  新装的技能都会落进挂载路径，容器重建不丢。
+- \`~/.dsh\`：按实例隔离的 DSH 数据域（每个数字同事实例独立一份；挂新卷即新实例，
+  启动脚本自动从种子拷入 assistant 插件，并把 profile 的 patchReload 钉回 startup、
+  自动装配 resident Runtime——设置页 dws 状态来源，无需手工处理）。
+  插件版本必须与镜像内 DSH 代际兼容：2.x 插件依赖 dsh 0.2.x API，与 0.1.2-rc.1
+  不兼容（本镜像 bake 的是 ${DSH_ASSISTANT_PIN_VERSION}）。
+- \`~/.dws\`：DWS profiles（profiles.json）/ 技能状态 / \`skills/\`。
+- \`~/.local/share/dws-cli\`：登录态本体（dek + auth-token*.enc），容器重建不丢。
+- \`~/.agents/skills\` + \`~/.dws/skills\`：技能（multi 模式），运行期
+  \`dws skill install\` 新装的技能直接落进挂卷。
 - 插件权限：resident 主会话只读，leaf 任务会话拥有完整执行权限（在 DSH Web
   控制台 → Settings → Plugins → 钉钉个人助理 里配置）。
 - \`dsh web\` 只监听 \`127.0.0.1:3080\`，\`--host 0.0.0.0\` 被 CLI 禁用。

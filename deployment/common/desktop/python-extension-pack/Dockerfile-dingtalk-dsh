@@ -24,8 +24,7 @@ COPY ./images/software/backend/install_dingtalk_dsh.sh /tmp/install_dingtalk_dsh
 RUN set -eux; \
     /bin/bash /tmp/install_dingtalk_dsh.sh
 
-# 数据域/登录态默认值（运行期可用卷挂载覆盖，实现按实例隔离）
-ENV DSH_HOME=/deployment/software/dingtalk-dsh/home \
-    DWS_CONFIG_DIR=/deployment/software/dingtalk-dsh/dws-config
+# 不设 DSH_HOME / DWS_CONFIG_DIR（方案 C）：DSH/DWS 全部走运行用户 home 默认
+# 路径（~/.dsh、~/.dws、~/.agents、~/.local/...），持久化由 compose 按目录挂卷。
 
 ENTRYPOINT ["/init"]
