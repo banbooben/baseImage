@@ -13,9 +13,11 @@
  #   2. DWS：官方 install.sh 装 standalone 二进制（不走 npm——npm 安装的 dws upgrade
  #      会委派包管理器写 /usr/local，sarmn 不可写且随容器重建丢失；standalone 的
  #      upgrade 原地原子替换自身二进制，配合 ~/.local/bin 挂卷，容器内升级持久）
- #   3. DSH：npm i -g @deepseek-ai/dsh（钉版本，默认 0.2.1-rc.2）
+ #   3. DSH：npm i -g @deepseek-ai/dsh（钉版本，默认 0.2.1-alpha.2）
  #   4. 插件：dsh plugin --profile web add dingtalk-dsh-assistant@<钉版本>（bake 进种子目录；
- #      2.x 插件依赖 dsh 0.2.x API 代际，与 dsh 0.1.x 不兼容，版本必须配对钉住）
+ #      配对规则：assistant 2.x 把 @deepseek-ai/* 依赖精确钉在 0.2.1-alpha.2，DSH 运行时
+ #      必须钉同一版本——钉高了（如 0.2.1-rc.2）dedup 全部 SKIP、dsh 兼容性检查直接把
+ #      profile 插件 disable，机器人不可用）
  #   5. 去重：dedup @deepseek-ai 双副本（dsh 运行时与 profile 插件各装了一份同名同版本
  #      的 @deepseek-ai 包，dsh-tools 的调度器 Symbol 跨副本失配导致工具调用必崩、
  #      机器人永远无回复；symlink 单副本修复，见 docs/dsh-dws修复方案/DEDUP-FIX.md）
@@ -35,9 +37,9 @@
  # 构建期可覆盖（Dockerfile build-arg / 环境变量）：
  #   NPM_REGISTRY     npm 源（默认 https://registry.npmmirror.com）
  #   DWS_PIN_VERSION  DWS 版本（默认 latest；可写 1.0.65 或 v1.0.65）
- #   DSH_PIN_VERSION  DSH 版本（默认 0.2.1-rc.2）
+ #   DSH_PIN_VERSION  DSH 版本（默认 0.2.1-alpha.2；须与插件钉的 @deepseek-ai/* 版本一致）
  #   DSH_ASSISTANT_PIN_VERSION  钉钉插件版本（默认 2.1.0；2.x 插件依赖 dsh 0.2.x
- #                              API 代际，与 dsh 0.1.x 不兼容，必须配对钉住）
+ #                              API 代际，其 @deepseek-ai/* 依赖精确钉 0.2.1-alpha.2，必须配对钉住）
  #
  # 上游：
  #   DWS  https://github.com/DingTalk-Real-AI/dingtalk-workspace-cli
@@ -85,7 +87,7 @@ setEnv(){
   # npm/pnpm 子进程统一走这个源（dsh plugin add 内部会调 pnpm/npm）
   export NPM_CONFIG_REGISTRY="${NPM_REGISTRY}"
   export DWS_PIN_VERSION="${DWS_PIN_VERSION:-}"
-  export DSH_PIN_VERSION="${DSH_PIN_VERSION:-0.2.1-rc.2}"
+  export DSH_PIN_VERSION="${DSH_PIN_VERSION:-0.2.1-alpha.2}"
   export DSH_ASSISTANT_PIN_VERSION="${DSH_ASSISTANT_PIN_VERSION:-2.1.0}"
 
   # 种子目录：bake 期所有要进挂卷的初始内容（dsh profile、dws 二进制、技能）
@@ -310,6 +312,33 @@ fi
 
 DWS_PROFILE="$(grep -o '"currentProfile"[^,}]*' "${DWS_CONFIG_DIR}/profiles.json" 2>/dev/null | cut -d'"' -f4 || true)"
 
+# taskSessions（assistant 2.x 必填，缺了 resident 激活失败：
+# TASK_SESSION_CONFIGURATION_REQUIRED:<field>）。语义见 wrapper README
+# 「持久账、通知与恢复」：instanceId / ingressEpoch 须稳定——首次装配时生成并
+# 持久化在 TASK_STATE_DIR，之后重启复用；ingressEpoch 是消息摄入时间下界，
+# 首次取值即装配时刻（bake 时 = 构建时刻，随后 seed 带进卷）。initialize 等价
+# 实现 README 的「确认初始化成功后改回 false」：DB 不存在才 true。
+TASK_STATE_DIR="${DSH_HOME}/storages/dingtalk-dsh-assistant"
+TASK_DB="${TASK_STATE_DIR}/task-sessions.db"
+mkdir -p "${TASK_STATE_DIR}"
+[ -s "${TASK_STATE_DIR}/instance-id" ] || cat /proc/sys/kernel/random/uuid > "${TASK_STATE_DIR}/instance-id"
+[ -s "${TASK_STATE_DIR}/ingress-epoch" ] || date -u +%Y-%m-%dT%H:%M:%SZ > "${TASK_STATE_DIR}/ingress-epoch"
+TASK_INSTANCE_ID="$(cat "${TASK_STATE_DIR}/instance-id")"
+TASK_INGRESS_EPOCH="$(cat "${TASK_STATE_DIR}/ingress-epoch")"
+[ -f "${TASK_DB}" ] && TASK_INIT=false || TASK_INIT=true
+# ownerActorId：钉钉侧 senderOpenDingTalkId，静态特权身份（可取消任意任务、
+# requester 回路由它匹配）；webActorId：Web 控制台消息挂的身份。两者都只需
+# 稳定非空字符串。owner 与 instanceId 同样须稳定——优先级：-e 覆盖 > 持久化 >
+# 默认 owner；解析结果写回状态目录，容器重建丢环境变量后仍保持原身份。
+[ -s "${TASK_STATE_DIR}/owner-actor-id" ] || echo "${DINGTALK_OWNER_ACTOR_ID:-owner}" > "${TASK_STATE_DIR}/owner-actor-id"
+TASK_OWNER="${DINGTALK_OWNER_ACTOR_ID:-$(cat "${TASK_STATE_DIR}/owner-actor-id")}"
+TASK_WEB_ACTOR="${DINGTALK_WEB_ACTOR_ID:-web-console}"
+# agentWorkspaceDir：任务工作区根（每个任务的 materials/work/tmp/outputs 父级）。
+# 不配置时 resident 回退 process.cwd()——s6 longrun 的 cwd 是只读 servicedir，
+# task-session-persistence 建 tasks/ 直接 EACCES 导致 resident 激活失败。放 .dsh 卷内持久。
+AGENT_WORKSPACE="${DSH_HOME}/workspace"
+mkdir -p "${AGENT_WORKSPACE}"
+
 {
   echo "# >>> dingtalk-dsh-assistant resident (managed, do not edit between markers) >>>"
   echo "- insert:"
@@ -317,6 +346,7 @@ DWS_PROFILE="$(grep -o '"currentProfile"[^,}]*' "${DWS_CONFIG_DIR}/profiles.json
   echo "      name: \"@zzusp/dingtalk-dsh-assistant/resident\""
   echo "      config:"
   echo "        groups: []"
+  echo "        agentWorkspaceDir: ${AGENT_WORKSPACE}"
   echo "        dws:"
   # 默认启用：群消息接收（enabled，inbound bridge）+ 自动回复（writesAuthorized，
   # outbound）。quoted heredoc 不展开——assemble 在容器启动时执行，可用
@@ -324,6 +354,13 @@ DWS_PROFILE="$(grep -o '"currentProfile"[^,}]*' "${DWS_CONFIG_DIR}/profiles.json
   echo "          enabled: ${DWS_BRIDGE_ENABLED:-true}"
   echo "          writesAuthorized: ${DWS_WRITES_AUTHORIZED:-true}"
   [ -n "${DWS_PROFILE}" ] && echo "          profile: ${DWS_PROFILE}"
+  echo "        taskSessions:"
+  echo "          dbPath: ${TASK_DB}"
+  echo "          instanceId: ${TASK_INSTANCE_ID}"
+  echo "          ownerActorId: ${TASK_OWNER}"
+  echo "          webActorId: ${TASK_WEB_ACTOR}"
+  echo "          ingressEpoch: ${TASK_INGRESS_EPOCH}"
+  echo "          initialize: ${TASK_INIT}"
   echo "# <<< dingtalk-dsh-assistant resident <<<"
 } >> "${PATCH_FILE}"
 EOF
@@ -529,7 +566,9 @@ fi
 # no-op，状态来自 resident 的 127.0.0.1:18998 服务。此进程还是 root，assemble
 # 按 \$HOME 解析默认路径，必须显式给 HOME。
 HOME="\${HOME_DIR}" /deployment/bin/dingtalk-dsh-assemble-resident.sh || true
-chown -R "\${RUN_USER}:\${RUN_USER}" "\${HOME_DIR}/.dsh/profiles" 2>/dev/null || true
+# assemble 以 root 执行：patch（profiles 下）与 taskSessions 状态目录都要归还给
+# 运行用户，否则 sarmn 身份的 dsh 写不动 task-sessions.db
+chown -R "\${RUN_USER}:\${RUN_USER}" "\${HOME_DIR}/.dsh" 2>/dev/null || true
 
 # s6-setuidgid 不改 HOME（仍是 root 的）；dws 凭证走 XDG（\$HOME/.local/share/dws-cli），
 # 不把 HOME 归位到运行用户，服务及插件子进程永远读不到登录态

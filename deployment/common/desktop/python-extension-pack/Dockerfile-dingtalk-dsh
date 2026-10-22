@@ -16,7 +16,8 @@ LABEL authors="sarmn"
 
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 ARG DWS_PIN_VERSION
-ARG DSH_PIN_VERSION=0.2.1-rc.2
+# 配对规则：assistant 2.x 把 @deepseek-ai/* 依赖精确钉在 0.2.1-alpha.2，DSH 必须同钉。
+ARG DSH_PIN_VERSION=0.2.1-alpha.2
 ARG DSH_ASSISTANT_PIN_VERSION=2.1.0
 
 # 复用 backend 的安装脚本（自举 Node 24 + DWS + DSH + 钉钉插件 + s6 longrun）

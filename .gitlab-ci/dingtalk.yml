@@ -5,7 +5,8 @@
 # 仅手动；job 级 needs: [] 打断 stage 顺序
 
 variables:
-  DSH_VERSION: "0.2.1-rc.2"
+  # 配对规则：assistant 2.x 把 @deepseek-ai/* 依赖精确钉在 0.2.1-alpha.2，DSH 必须同钉。
+  DSH_VERSION: "0.2.1-alpha.2"
 
 dingtalk-dsh-backend:
   extends: .manual_only
