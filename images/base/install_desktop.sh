@@ -46,7 +46,7 @@ installDesktop() {
 autocutsel -selection PRIMARY -fork'
     im_env='export GTK_IM_MODULE=fcitx
 export QT_IM_MODULE=fcitx'
-    fcitx_daemon='fcitx5 -d --verbose 2>/dev/null || true'
+    fcitx_daemon='fcitx5 -d 2>/dev/null || true'
   else
     clipboard_daemons='# 剪贴板同步由 xfce4-clipman（面板插件）负责'
     im_env='export GTK_IM_MODULE=xim
@@ -254,7 +254,9 @@ initInputMethodConfig(){
   if [ "$DISTRO_FAMILY" = "debian" ]; then
     # ── fcitx5 默认配置：英文键盘 + 中文拼音，Ctrl+Space 切换 ──
     local fcitx5_conf="${cfg_root}/fcitx5"
-    mkdir -p "${fcitx5_conf}/conf" "${fcitx5_conf}/profile"
+    # 注意：profile 是「文件」（下面 heredoc 写入），不是目录——mkdir 只建 conf/。
+    # 若误把 profile 建成目录，cat > 会因 Is a directory 静默失败，拼音配置丢失。
+    mkdir -p "${fcitx5_conf}/conf"
 
     # profile：输入法列表（keyboard-us + pinyin）
     cat > "${fcitx5_conf}/profile" <<'FCITX5_PROFILE'
