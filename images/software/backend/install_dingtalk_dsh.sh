@@ -233,18 +233,27 @@ installDws(){
   fi
   echo "DWS version: ${version:-latest (resolved by install.sh)}"
 
-  # 安装脚本按 tag 拉取（与二进制同版本，保证可复现）；tag 上没有时回退 main
-  local script=/tmp/dws-install.sh
+  # 安装脚本按 tag 拉取（与二进制同版本，保证可复现）；tag 上没有时回退 main。
+  # raw.githubusercontent.com 在部分网络会超时甚至截断传输（curl 报错但留下非空
+  # 残文件），因此每次下载后用 sh -n 校验语法完整性，不完整即换源重试；
+  # api.github.com 的 raw media type 与 raw.githubusercontent.com 是同一份字节。
+  local script=/tmp/dws-install.sh fetched=""
   rm -f "${script}"
-  if [ -n "${version}" ]; then
-    curl -fsSL --connect-timeout 20 --max-time 90 -o "${script}" \
-      "https://raw.githubusercontent.com/DingTalk-Real-AI/dingtalk-workspace-cli/${version}/scripts/install.sh" || true
-  fi
-  if [ ! -s "${script}" ]; then
-    curl -fsSL --connect-timeout 20 --max-time 90 -o "${script}" \
-      "https://raw.githubusercontent.com/DingTalk-Real-AI/dingtalk-workspace-cli/main/scripts/install.sh" || {
-      echo "Failed to download DWS install.sh" >&2; return 1; }
-  fi
+  local ref url headers
+  for ref in ${version:+"${version}"} main; do
+    for url in \
+      "https://raw.githubusercontent.com/DingTalk-Real-AI/dingtalk-workspace-cli/${ref}/scripts/install.sh" \
+      "https://api.github.com/repos/DingTalk-Real-AI/dingtalk-workspace-cli/contents/scripts/install.sh?ref=${ref}"; do
+      headers=()
+      [[ "${url}" == https://api.github.com/* ]] && headers=(-H "Accept: application/vnd.github.raw")
+      if curl -fsSL --connect-timeout 20 --max-time 90 "${headers[@]}" -o "${script}" "${url}" \
+        && [ -s "${script}" ] && sh -n "${script}" 2>/dev/null; then
+        fetched=1; break 2
+      fi
+      echo "DWS install.sh download incomplete/failed (${url}), trying next source" >&2
+    done
+  done
+  [ -n "${fetched}" ] || { echo "Failed to download DWS install.sh" >&2; return 1; }
 
   local install_env=(HOME="${SEED_HOME}" DWS_INSTALL_DIR="${SEED_HOME}/.local/bin" DWS_SKILL_MODE=multi)
   [ -n "${version}" ] && install_env+=(DWS_VERSION="${version}")

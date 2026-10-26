@@ -1,0 +1,39 @@
+# 钉钉数字同事 hermes 版 —— backend 软件镜像
+#
+# FROM base:<os_tag>（s6-overlay），安装脚本自举 DWS + Hermes + dingtalk-bridge
+# 群桥守护进程（架构与本机已验证的 dingtalk-bridge.service 方案一致）。
+# 运行期两个 s6 常驻服务：dingtalk-hermes（hermes gateway，原生 dingtalk 平台
+# 承载私聊）+ dingtalk-bridge（群聊监控桥）；登录态 / 数据域走卷挂载，
+# 见 install 脚本 README。与 dingtalk-dsh 镜像并存，回退 = 不使用本 tag。
+
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+ARG OS_TAG=noble
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+ARG DWS_PIN_VERSION
+ARG HERMES_PIN_VERSION=v0.22.4
+# hermes-agent 的 git 远端：默认官方 GitHub；GitHub 不可达的网络下可在构建期传
+# --build-arg HERMES_REPO_URL=https://gh-proxy.com/https://github.com/NousResearch/hermes-agent.git
+# 之类的镜像覆盖（官方 install.sh 原生读取 HERMES_REPO_URL，经 ARG→RUN 环境透传；
+# --commit 按 SHA 检出，对象内容寻址，镜像源无法篡改已通过校验的提交）。
+ARG HERMES_REPO_URL=""
+
+COPY ./images/common.sh /deployment/scripts/common.sh
+COPY ./images/software/backend/install_dingtalk_hermes.sh /tmp/install_dingtalk_hermes.sh
+COPY ./images/software/backend/dingtalk-hermes-plugin /tmp/dingtalk-hermes-plugin
+# 固化的上游安装脚本（供应链 pin；install 脚本 pin=v0.22.4 时优先使用并校验 sha256）
+COPY ./images/software/backend/vendor /tmp/vendor
+
+RUN set -eux; \
+    /bin/bash /tmp/install_dingtalk_hermes.sh; \
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+# 不设 HERMES_HOME / DWS_CONFIG_DIR：全部走运行用户 home 默认路径
+# （~/.hermes、~/.dws、~/.agents、~/.local/...），持久化由 compose 按目录挂卷。
+ENV PATH=/deployment/bin:$PATH
+
+ENTRYPOINT ["/init"]

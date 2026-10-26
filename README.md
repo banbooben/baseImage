@@ -130,6 +130,15 @@
 | `${REGISTRY}/${NAMESPACE}/software:<os>-claude` | Claude Code CLI（基于 Node.js 22） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-openresty` | OpenResty（Nginx + LuaJIT，源码编译，s6 自启动，端口 80） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-dsh` | 钉钉数字同事 backend（DWS + DSH + 钉钉插件，Node 24） |
+| `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-hermes` | 钉钉数字同事 hermes 版 backend（DWS + Hermes Agent + dingtalk-bridge 群桥守护进程，替换 dsh 层，与 dsh 版并存） |
+
+> 钉钉数字同事另有 desktop 变体：`deployment:<os>-desktop-python3.12/3.14-extension-pack-dingtalk-dsh` 与
+> `...-extension-pack-dingtalk-hermes`（基于桌面 extension-pack，Dockerfile 位于
+> `deployment/common/desktop/python-extension-pack/Dockerfile-dingtalk-{dsh,hermes}`）。
+> 注意：dsh 与 hermes 两套容器不得同时挂同一套 dws 卷运行（双消费者重复应答）。
+> hermes 版另有宿主机文件系统约束：`~/.hermes` 卷必须在 POSIX 文件系统上
+> （gateway 要 bind unix 控制套接字，exFAT 不支持会致命退出），详见镜像内
+> `/deployment/software/dingtalk-hermes/README.md`。
 
 **桌面应用**（基于 `base:<os>-desktop`）
 

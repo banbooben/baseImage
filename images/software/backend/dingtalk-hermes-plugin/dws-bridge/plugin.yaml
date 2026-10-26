@@ -1,0 +1,55 @@
+name: dws-bridge
+label: DingTalk (dws bridge)
+kind: platform
+version: 1.0.0
+description: >
+  DingTalk gateway adapter for Hermes Agent, driven by the dws CLI.
+  Sends and receives DingTalk messages under a personal-account identity
+  (not a bot) by spawning ``dws event +listen-im`` subscription processes
+  and driving ``dws chat`` commands for outbound traffic. Requires a
+  device-authorized dws profile (``dws auth login --device``).
+author: sarmn
+# ``requires_env`` entries are surfaced in ``hermes config`` UI via the
+# platform-plugin env var injector in ``hermes_cli/config.py``.
+requires_env:
+  - name: DWS_PROFILE
+    description: "dws auth profile (corpId:userId, from `dws auth status`)"
+    prompt: "dws profile (corpId:userId)"
+    password: false
+optional_env:
+  - name: DWS_BIN
+    description: "Path to the dws binary (default: dws on PATH)"
+    prompt: "dws binary path"
+    password: false
+  - name: DWS_BRIDGE_GROUPS
+    description: "Comma-separated group openConversationIds to subscribe"
+    prompt: "Group chat IDs (comma-separated)"
+    password: false
+  - name: DWS_BRIDGE_DM_ENABLED
+    description: "Subscribe direct messages (1/true/yes, default: true)"
+    prompt: "Enable DMs? (true/false)"
+    password: false
+  - name: DWS_BRIDGE_REQUIRE_MENTION
+    description: "In groups, only answer the trigger prefix or replies to own messages (default: true)"
+    prompt: "Require trigger in groups? (true/false)"
+    password: false
+  - name: DWS_BRIDGE_TRIGGER_PREFIX
+    description: "Group trigger prefix (default: /ai )"
+    prompt: "Trigger prefix"
+    password: false
+  - name: DWS_BRIDGE_ALLOW_WRITES
+    description: "Master gate for outbound messages (default: false = listen only)"
+    prompt: "Allow sending? (true/false)"
+    password: false
+  - name: DWS_BRIDGE_HOME_CHANNEL
+    description: "Chat ID for cron / notification delivery"
+    prompt: "Home channel chat ID (or empty)"
+    password: false
+  - name: DWS_BRIDGE_ALLOWED_USERS
+    description: "Comma-separated sender staffIds allowed to talk to the agent"
+    prompt: "Allowed user IDs (comma-separated)"
+    password: false
+  - name: DWS_BRIDGE_ALLOW_ALL_USERS
+    description: "Allow anyone to talk to the agent (dev only)"
+    prompt: "Allow all users? (true/false)"
+    password: false
