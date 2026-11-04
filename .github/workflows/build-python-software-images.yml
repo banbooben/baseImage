@@ -117,6 +117,8 @@ jobs:
     # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签。
     # target 矩阵条目：flavor=backend|desktop（Dockerfile 目录），name=镜像名
     # （= Dockerfile 文件名 = tag 后缀）。dingtalk-dsh 不在此列（独立 workflow）
+    # llama-cpp 另有一个独立入口 build-llama-cpp-images.yml（只重建这一个镜像），
+    # 这里保留是为了随每周全量链自动更新版本
     strategy:
       fail-fast: false
       matrix:
@@ -127,6 +129,7 @@ jobs:
           - { flavor: backend, name: code-server }
           - { flavor: backend, name: docker }
           - { flavor: backend, name: claude }
+          - { flavor: backend, name: llama-cpp }
           - { flavor: backend, name: openresty }
           - { flavor: desktop, name: chrome }
           - { flavor: desktop, name: clash-verge }

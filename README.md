@@ -52,6 +52,7 @@
 │   ├── dbeaver/            # DBeaver 数据库管理
 │   ├── wps/                # WPS Office
 │   ├── claude/             # Claude Code CLI
+│   ├── llama.cpp/          # llama.cpp（CPU 推理 / OpenAI 兼容服务）
 │   ├── clash-verge/        # Clash Verge 代理
 │   ├── docker/             # Docker CLI
 │   ├── openjdk/            # OpenJDK 各版本（JAVA_HOME）
@@ -128,6 +129,7 @@
 | `${REGISTRY}/${NAMESPACE}/software:<os>-code-server` | VS Code Server（密码通过 secret 注入） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-docker` | Docker CLI + docker-compose |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-claude` | Claude Code CLI（基于 Node.js 22） |
+| `${REGISTRY}/${NAMESPACE}/software:<os>-llama-cpp` | llama.cpp（CPU 推理，源码构建；x86_64 运行时按 CPU 特性分派，含 llama-cli / llama-server / llama-quantize 等） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-openresty` | OpenResty（Nginx + LuaJIT，源码编译，s6 自启动，端口 80） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-dsh` | 钉钉数字同事 backend（DWS + DSH + 钉钉插件，Node 24） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-hermes` | 钉钉数字同事 hermes 版 backend（DWS + Hermes Agent + dingtalk-bridge 群桥守护进程，替换 dsh 层，与 dsh 版并存） |
@@ -139,6 +141,10 @@
 > hermes 版另有宿主机文件系统约束：`~/.hermes` 卷必须在 POSIX 文件系统上
 > （gateway 要 bind unix 控制套接字，exFAT 不支持会致命退出），详见镜像内
 > `/deployment/software/dingtalk-hermes/README.md`。
+
+> `software:<os>-llama-cpp` 只带 CPU 后端（CUDA/HIP/Vulkan 等由后续独立镜像按需扩展），
+> 模型文件不打进镜像：运行时挂载 `/deployment/data/models` 或自行下载。例：
+> `llama-server -m /deployment/data/models/model.gguf --host 0.0.0.0 --port 8081`。
 
 **桌面应用**（基于 `base:<os>-desktop`）
 
@@ -175,6 +181,8 @@ QEMU、网络波动：一旦某次变慢，后一层拉到的仍是上周推上�
 层与层之间也没有空等。
 
 单层重建：手动触发（`workflow_dispatch`）对应的 `build-<层>-images.yml`；整链重跑：手动触发 `build-all.yml`。
+单个镜像重建：llama.cpp 用 `build-llama-cpp-images.yml`（可指定版本，留空取最新 release），
+钉钉数字同事用 `build-dingtalk-dsh-images.yml`。
 
 **桌面开发环境**（基于 `base:<os>-desktop`，含 Xfce + Chrome + DBeaver + WPS + VS Code + code-server + SSH）
 
