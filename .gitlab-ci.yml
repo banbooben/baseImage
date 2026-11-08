@@ -85,6 +85,8 @@ before_script:
   # 初始化Buildx构建器
   # buildkit 是独立容器，不继承 job 容器的代理变量；network=host 下 127.0.0.1 即宿主机
   # （mihomo 监听 *:7890）。ACR/前端源走直连，其余出网走代理。
+  # NO_PROXY 用 '"..."' 整体加引号是必须的：--driver-opt 按 CSV 解析，裸逗号会被拆成
+  # 多个 Opt（报 expecting k=v），且引号必须包住整个字段，不能只包值。
   - >
     docker buildx create
     --name builder
@@ -93,7 +95,7 @@ before_script:
     --driver-opt image=${REGISTRY}/${COMMON_NAMESPACE}/common:moby-buildkit-latest
     --driver-opt env.HTTP_PROXY=http://127.0.0.1:7890
     --driver-opt env.HTTPS_PROXY=http://127.0.0.1:7890
-    --driver-opt env.NO_PROXY=registry.cn-hangzhou.aliyuncs.com,docker.m.daocloud.io,quay.io,localhost,127.0.0.1
+    --driver-opt '"env.NO_PROXY=registry.cn-hangzhou.aliyuncs.com,docker.m.daocloud.io,quay.io,localhost,127.0.0.1"'
     --use
   - docker buildx inspect builder --bootstrap
 
