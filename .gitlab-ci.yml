@@ -83,11 +83,29 @@ before_script:
   # 注册QEMU模拟ARM架构
   - docker run --rm --privileged ${REGISTRY}/${COMMON_NAMESPACE}/common:multiarch-qemu-user-static-latest --reset -p yes
   # 初始化Buildx构建器
-  - docker buildx create --name builder --driver docker-container --driver-opt network=host --driver-opt image=${REGISTRY}/${COMMON_NAMESPACE}/common:moby-buildkit-latest --use
+  # buildkit 是独立容器，不继承 job 容器的代理变量；network=host 下 127.0.0.1 即宿主机
+  # （mihomo 监听 *:7890）。ACR/前端源走直连，其余出网走代理。
+  - >
+    docker buildx create
+    --name builder
+    --driver docker-container
+    --driver-opt network=host
+    --driver-opt image=${REGISTRY}/${COMMON_NAMESPACE}/common:moby-buildkit-latest
+    --driver-opt env.HTTP_PROXY=http://127.0.0.1:7890
+    --driver-opt env.HTTPS_PROXY=http://127.0.0.1:7890
+    --driver-opt env.NO_PROXY=registry.cn-hangzhou.aliyuncs.com,docker.m.daocloud.io,quay.io,localhost,127.0.0.1
+    --use
   - docker buildx inspect builder --bootstrap
 
   - echo "登录容器镜像仓库"
-  - docker login --username="${ALY_ARC_USERNAME}" --password="${ALY_ARC_PASSWORD}" "${REGISTRY}"
+  # 凭证缺失时 --password="" 会让 CLI 去交互式询问，非 TTY 下报
+  # "Cannot perform an interactive login from a non TTY device"，看不出根因，这里先显式校验
+  - |
+    if [ -z "${ALY_ARC_USERNAME}" ] || [ -z "${ALY_ARC_PASSWORD}" ]; then
+      echo "ERROR: 未配置 ALY_ARC_USERNAME / ALY_ARC_PASSWORD（Settings → CI/CD → Variables）"
+      exit 1
+    fi
+    echo "${ALY_ARC_PASSWORD}" | docker login --username "${ALY_ARC_USERNAME}" --password-stdin "${REGISTRY}"
 
   - echo "克隆项目代码库"
   - export ROOT_PATH=$(pwd)

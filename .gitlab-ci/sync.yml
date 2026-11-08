@@ -6,15 +6,23 @@
 # desktop 变体的 needs 要指向同发行版的 base，矩阵展开后 job 名带 [xxx] 后缀，
 # needs 引用会很脆；四个 job 显式写出更清楚。
 
+variables:
+  # 本机网络下 registry-1.docker.io 被解析到 67.230.169.182（污染）且 443 不通，
+  # 直连 Docker Hub 必失败；改走公共镜像源（实测 manifest digest 与官方一致）。
+  #   imagetools 走 registry 客户端直连，不吃 daemon 的 registry-mirrors 配置，
+  #   所以这里必须显式换源，配置 daemon 加速器无效。
+  # 备选：docker.1ms.run / dockerproxy.net / hub.rat.dev
+  DOCKERHUB_MIRROR: "docker.m.daocloud.io"
+
 ubuntu-noble:
   extends: .schedule_base
   stage: sync
   script:
-    - echo "同步 docker.io/library/ubuntu:noble → ${REGISTRY}/${NAMESPACE}/ubuntu:noble"
+    - echo "同步 ${DOCKERHUB_MIRROR}/library/ubuntu:noble → ${REGISTRY}/${NAMESPACE}/ubuntu:noble"
     - >
       docker buildx imagetools create
       --tag ${REGISTRY}/${NAMESPACE}/ubuntu:noble
-      docker.io/library/ubuntu:noble
+      ${DOCKERHUB_MIRROR}/library/ubuntu:noble
     - docker buildx imagetools inspect ${REGISTRY}/${NAMESPACE}/ubuntu:noble
 
 # openEuler 官方镜像在 Docker Hub 与 quay.io 都有；Docker Hub 在部分网络下不可达，
