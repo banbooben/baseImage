@@ -75,16 +75,23 @@ downloadSource(){
   rm -f "${archive}"
   # latest release 的 tag 形如 v0.8.0（带 v），nightly 的 tag 形如 b12099（不带 v）；
   # pin 进来时用户也可能带或不带 v。两个候选都试，命中即停。
+  #
+  # 每个 tag 试两个主机：github.com（会 302 到 codeload）与 codeload 直连。
+  # 国内网络常见 github.com:443 被阻断而 codeload 可达，内容完全一致；
+  # CI（GitHub Runner）上走第一条即可。
   for ref in "v${LLAMACPP_VERSION}" "${LLAMACPP_VERSION}"; do
-    url="https://github.com/ggml-org/llama.cpp/archive/refs/tags/${ref}.tar.gz"
-    echo "Downloading ${url}"
-    if curl -fL --connect-timeout 30 --max-time 600 -o "${archive}" "${url}"; then
-      SOURCE_ARCHIVE="${archive}"
-      echo "使用源码 tag: ${ref}"
-      export SOURCE_ARCHIVE
-      return 0
-    fi
-    rm -f "${archive}"
+    for url in \
+      "https://github.com/ggml-org/llama.cpp/archive/refs/tags/${ref}.tar.gz" \
+      "https://codeload.github.com/ggml-org/llama.cpp/tar.gz/refs/tags/${ref}"; do
+      echo "Downloading ${url}"
+      if curl -fL --connect-timeout 30 --max-time 600 -o "${archive}" "${url}"; then
+        SOURCE_ARCHIVE="${archive}"
+        echo "使用源码 tag: ${ref}"
+        export SOURCE_ARCHIVE
+        return 0
+      fi
+      rm -f "${archive}"
+    done
   done
 
   echo "Failed to download llama.cpp ${LLAMACPP_VERSION}" >&2
@@ -221,6 +228,12 @@ llama-quantize model-f16.gguf model-q4_k_m.gguf Q4_K_M
 \`\`\`
 
 模型文件不要打进镜像：挂载 \`/deployment/data/models\` 或运行时下载。
+
+层布局是自包含的（RPATH 用 `$ORIGIN`，无构建期绝对路径），整棵树可 COPY 到
+其他镜像的任意路径使用；但必须整棵拷贝（`bin/` 里是入口与 14 个
+\`libggml-cpu-*.so\`，`lib/` 里是共享库，二者通过 \`$ORIGIN\` 相互查找），
+且目标镜像须与本层同一发行版（同代 glibc）并带 OpenSSL 3 / libgomp
+（可用 ldd 提前确认依赖是否齐全）。
 
 COPY-friendly 片段：
 

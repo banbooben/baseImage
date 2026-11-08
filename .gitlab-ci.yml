@@ -17,6 +17,9 @@ variables:
   BUILDX_NO_DEFAULT_ATTESTATIONS: "1"
   GIT_STRATEGY: none
   project_repo_name: baseImage
+  # 构建辅助镜像（qemu-user-static / moby-buildkit）所在命名空间，与产物镜像的
+  # NAMESPACE 无关：它们在 sarmn_public 下且匿名可拉，而这两步在 docker login 之前执行
+  COMMON_NAMESPACE: "sarmn_public"
   # 需在 GitLab / GitHub 配置同名变量（建议 Masked / Protected）：
   #   REGISTRY, NAMESPACE
   #   ALY_ARC_USERNAME, ALY_ARC_PASSWORD
@@ -24,7 +27,7 @@ variables:
   # 可选（不设则构建时随机生成，经 BuildKit secret 注入）：
   #   ROOT_PASSWORD, VNC_PASSWORD, REDIS_PASSWORD,
   #   CODE_SERVER_PASSWORD
-  GIT_CLONE_BASE: "ssh://git@git.sarmn.cn:50518/deployment"
+  GIT_CLONE_BASE: "ssh://git@git.sarmn.cn:30102/deployment"
 
 # ---------------------------------------------------------------------------
 # 定时分组（GitLab 无法按 job 设 cron，用多个 Schedule + BUILD_GROUP 变量）
@@ -76,9 +79,9 @@ before_script:
   # 密码类变量未配置时置空，便于 --secret id=...,env=...（Dockerfile required=false）
   - export ROOT_PASSWORD="${ROOT_PASSWORD:-}" SARMN_PASSWORD="${SARMN_PASSWORD:-}" VNC_PASSWORD="${VNC_PASSWORD:-}" REDIS_PASSWORD="${REDIS_PASSWORD:-}" CODE_SERVER_PASSWORD="${CODE_SERVER_PASSWORD:-}"
   # 注册QEMU模拟ARM架构
-  - docker run --rm --privileged ${REGISTRY}/${NAMESPACE}/common:multiarch-qemu-user-static-latest --reset -p yes
+  - docker run --rm --privileged ${REGISTRY}/${COMMON_NAMESPACE}/common:multiarch-qemu-user-static-latest --reset -p yes
   # 初始化Buildx构建器
-  - docker buildx create --name builder --driver docker-container --driver-opt network=host --driver-opt image=${REGISTRY}/${NAMESPACE}/common:moby-buildkit-latest --use
+  - docker buildx create --name builder --driver docker-container --driver-opt network=host --driver-opt image=${REGISTRY}/${COMMON_NAMESPACE}/common:moby-buildkit-latest --use
   - docker buildx inspect builder --bootstrap
 
   - echo "登录容器镜像仓库"
