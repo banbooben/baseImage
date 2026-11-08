@@ -6,30 +6,6 @@
 # desktop 变体的 needs 要指向同发行版的 base，矩阵展开后 job 名带 [xxx] 后缀，
 # needs 引用会很脆；四个 job 显式写出更清楚。
 
-ubuntu-noble:
-  extends: .schedule_base
-  stage: base
-  script:
-    - echo "同步 docker.io/library/ubuntu:noble → ${REGISTRY}/${NAMESPACE}/ubuntu:noble"
-    - >
-      docker buildx imagetools create
-      --tag ${REGISTRY}/${NAMESPACE}/ubuntu:noble
-      docker.io/library/ubuntu:noble
-    - docker buildx imagetools inspect ${REGISTRY}/${NAMESPACE}/ubuntu:noble
-
-# openEuler 官方镜像在 Docker Hub 与 quay.io 都有；Docker Hub 在部分网络下不可达，
-# 这里用 quay.io。24.03-lts 是原地更新的滚动 tag（amd64 + arm64 多架构 manifest）。
-openeuler-2403:
-  extends: .schedule_base
-  stage: base
-  script:
-    - echo "同步 quay.io/openeuler/openeuler:24.03-lts → ${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts"
-    - >
-      docker buildx imagetools create
-      --tag ${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts
-      quay.io/openeuler/openeuler:24.03-lts
-    - docker buildx imagetools inspect ${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts
-
 noble:
   stage: base
   tags:
