@@ -1,0 +1,117 @@
+name: 构建钉钉数字同事镜像
+
+# 钉钉数字同事（DWS + Hermes + dingtalk-bridge 群桥）独立构建入口 —— 单独重建
+# 这一组镜像，不必跑完整条 base → language → software → deployment 链。
+#
+# 与分层 workflow 的关系：dingtalk-hermes 的两个镜像都不在分层链里 —— backend 的
+# `software:<os>-dingtalk-hermes` 不在 build-python-software-images.yml，desktop 的
+# 两个也不在 build-deployment-images.yml，只在这里构建。单独放这里，是为了迭代
+# 安装脚本（install_dingtalk_hermes.sh）时能一键只重建钉钉相关镜像，且不并入
+# 自动的 base → software → deployment 链。
+#
+# 历史：dsh 方案（software:<os>-dingtalk-dsh，Node 24 + DSH + 钉钉插件）已于
+# 2026-11 移除 —— DSH 与插件版本迭代过快、镜像很快失效。后续 DSH 稳定再评估；
+# 源码/脚本/CI 可从 git 历史（6702243 及之前）恢复。
+#
+# 前置条件（先已推送的产物，本 workflow 不再构建）：
+#   - backend 版 FROM base:<os>            —— 由 build-base-images.yml 产出
+#   - desktop 版 FROM deployment:<os>-desktop-python3.12/3.14-extension-pack
+#                                          —— 由 build-deployment-images.yml 产出
+
+on:
+  workflow_dispatch:
+    inputs:
+      hermes_version:
+        description: 'Hermes 版本（NousResearch/hermes-agent 的 pin tag）'
+        required: false
+        default: 'v0.22.4'
+      dws_version:
+        description: 'DWS 版本（dingtalk-workspace-cli；留空 = latest）'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ${{ secrets.REGISTRY }}
+  NAMESPACE: ${{ secrets.NAMESPACE }}
+
+jobs:
+  # ── backend 版 software:<os>-dingtalk-hermes ──────────────────────────
+  build-dingtalk-hermes-backend:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+      - uses: docker/build-push-action@v5
+        with:
+          provenance: false
+          sbom: false
+          context: .
+          file: ./images/software/backend/dingtalk-hermes
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-dingtalk-hermes
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-dingtalk-hermes
+          cache-to: type=inline
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
+            HERMES_PIN_VERSION=${{ inputs.hermes_version }}
+            DWS_PIN_VERSION=${{ inputs.dws_version }}
+
+  # ── desktop 版（python-extension-pack 矩阵：Python 3.12 / 3.14）─────────
+  build-desktop-ext-dingtalk-hermes:
+    runs-on: ubuntu-latest
+    # python_series 矩阵条目：透传 PYTHON_SERIES build-arg 派生上游
+    # deployment:<os>-desktop-python<series>-extension-pack 与产物 tag
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+          - openeuler-24.03
+        python_series:
+          - "3.12"
+          - "3.14"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+      - uses: docker/build-push-action@v5
+        with:
+          provenance: false
+          sbom: false
+          context: .
+          file: ./deployment/common/desktop/python-extension-pack/Dockerfile-dingtalk-hermes
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python${{ matrix.python_series }}-extension-pack-dingtalk-hermes
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-desktop-python${{ matrix.python_series }}-extension-pack-dingtalk-hermes
+          cache-to: type=inline
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
+            PYTHON_SERIES=${{ matrix.python_series }}
+            HERMES_PIN_VERSION=${{ inputs.hermes_version }}
+            DWS_PIN_VERSION=${{ inputs.dws_version }}

@@ -26,16 +26,15 @@ installDesktop() {
       fcitx5 fcitx5-chinese-addons \
       fcitx5-frontend-gtk3 fcitx5-frontend-gtk2 fcitx5-frontend-qt5 \
       fcitx5-module-cloudpinyin \
+      fonts-wqy-zenhei fonts-wqy-microhei \
       python3-numpy
 
+  # build-essential 等工具链 base 已提供；llvm 已从 base 移除且此处同样无使用方
   pkg_install build-essential libssl-dev zlib1g-dev libbz2-dev \
-          libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev \
+          libreadline-dev libsqlite3-dev wget curl libncurses5-dev \
           xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-  mkdir -p /deployment/accounts/sarmn/.vnc
-  ensure_password VNC_PASSWORD
-  echo "${VNC_PASSWORD}" | vncpasswd -f > /deployment/accounts/sarmn/.vnc/passwd
-  unset VNC_PASSWORD
-  chmod 600 /deployment/accounts/sarmn/.vnc/passwd
+  # 镜像内不写 VNC 密码：运行前由使用者提供 ~/.vnc/passwd（见 vnc/start.sh 的检查）
+  mkdir -p /deployment/accounts/sam/.vnc
   # 剪贴板与输入法的守护进程按发行版区分：
   #   Debian   autocutsel 做 PRIMARY/CLIPBOARD 互通；fcitx5 带 GTK/Qt 模块
   #   openEuler 无 autocutsel（改用 xfce4-clipman，已在 xfce4-goodies 内）；
@@ -92,9 +91,9 @@ fi
 XSTARTUP_TAIL
   printf '%s\n' "$fcitx_daemon"
   printf '\nexec startxfce4\n'
-  } > /deployment/accounts/sarmn/.vnc/xstartup
+  } > /deployment/accounts/sam/.vnc/xstartup
 
-  chmod +x /deployment/accounts/sarmn/.vnc/xstartup
+  chmod +x /deployment/accounts/sam/.vnc/xstartup
 
   git clone https://github.com/novnc/noVNC.git /deployment/software/noVNC
 
@@ -120,12 +119,12 @@ XSTARTUP_TAIL
 </body>
 </html>
 NOVNC_INDEX
-  # 保证登录环境带上 DISPLAY；.vnc 必须属 sarmn（passwd 600，否则 VNC 起不来）
-  su - sarmn -c 'env > /deployment/accounts/sarmn/.env'
-  grep -q '^DISPLAY=' /deployment/accounts/sarmn/.env \
-    || echo 'DISPLAY=:1' >> /deployment/accounts/sarmn/.env
+  # 保证登录环境带上 DISPLAY；.vnc 必须属 sam（passwd 600，否则 VNC 起不来）
+  su - sam -c 'env > /deployment/accounts/sam/.env'
+  grep -q '^DISPLAY=' /deployment/accounts/sam/.env \
+    || echo 'DISPLAY=:1' >> /deployment/accounts/sam/.env
   write_cont_env DISPLAY ":1"
-  chown -R sarmn:sarmn /deployment/accounts/sarmn
+  chown -R sam:sam /deployment/accounts/sam
 
   echo "RDP server installed and configured."
 }
@@ -135,34 +134,42 @@ initVncConfig(){
   # 初始化目录
   mkdir -p /etc/s6-overlay/s6-rc.d/vnc/dependencies.d
 
-  # cont-init：以 root 修正 home 属主（VNC 需要 sarmn 拥有 ~/.vnc/passwd 等文件）
+  # cont-init：以 root 修正 home 属主（VNC 需要 sam 拥有 ~/.vnc/passwd 等文件）
   # s6-overlay v3 的 oneshot up 由 execlineb 解析，不能用 bash，所以 chown 放这里
   mkdir -p /etc/cont-init.d
-  cat > /etc/cont-init.d/10-fix-sarmn-home << 'EOF'
+  cat > /etc/cont-init.d/10-fix-sam-home << 'EOF'
 #!/bin/bash
-chown -R sarmn:sarmn /deployment/accounts/sarmn 2>/dev/null || true
+chown -R sam:sam /deployment/accounts/sam 2>/dev/null || true
 EOF
-  chmod 0755 /etc/cont-init.d/10-fix-sarmn-home
+  chmod 0755 /etc/cont-init.d/10-fix-sam-home
 
   # 启动类型
   cat > /etc/s6-overlay/s6-rc.d/vnc/type <<'EOF'
 oneshot
 EOF
 
-  # 启动：降权给 sarmn 起 VNC（execline 语法，#!/bin/bash 视为注释）
+  # 启动：降权给 sam 起 VNC（execline 语法，#!/bin/bash 视为注释）
   cat > /etc/s6-overlay/s6-rc.d/vnc/up << 'EOF'
 #!/bin/bash
-exec s6-setuidgid sarmn /etc/s6-overlay/s6-rc.d/vnc/start.sh
+exec s6-setuidgid sam /etc/s6-overlay/s6-rc.d/vnc/start.sh
 EOF
 
   # VNC 相关配置
   cat > /etc/s6-overlay/s6-rc.d/vnc/start.sh <<'EOF'
 #!/bin/bash
 set -e
-export HOME=/deployment/accounts/sarmn
-export USER=sarmn
+export HOME=/deployment/accounts/sam
+export USER=sam
 export DISPLAY=:1
 RESOLUTION=${RESOLUTION:-1920x1080}
+# 镜像不内置 VNC 密码；缺少密码文件时 tigervnc 会在非交互环境里挂住或失败，
+# 这里直接给出可操作的错误。生成方式（在宿主机挂载的 home 目录里执行）：
+#   printf '你的密码' | vncpasswd -f > /deployment/accounts/sam/.vnc/passwd
+#   chmod 600 /deployment/accounts/sam/.vnc/passwd
+if [ ! -s "${HOME}/.vnc/passwd" ]; then
+  echo "[vnc] 缺少 ${HOME}/.vnc/passwd：请先提供 VNC 密码文件再重启容器" >&2
+  exit 1
+fi
 # 导出容器环境变量供桌面会话导入（xstartup 不走 PAM）
 cat /proc/1/environ | tr '\0' '\n' > /tmp/container-env
 vncserver :1 -geometry "$RESOLUTION" -depth 24
@@ -208,7 +215,7 @@ EOF
   cat > /etc/s6-overlay/s6-rc.d/desktop/run << 'EOF'
 #!/bin/bash
 
-exec s6-setuidgid sarmn /etc/s6-overlay/s6-rc.d/desktop/start.sh -e
+exec s6-setuidgid sam /etc/s6-overlay/s6-rc.d/desktop/start.sh -e
 
 EOF
 
@@ -249,7 +256,7 @@ EOF
 
 initInputMethodConfig(){
   detect_distro || return 1
-  local cfg_root="/deployment/accounts/sarmn/.config"
+  local cfg_root="/deployment/accounts/sam/.config"
 
   if [ "$DISTRO_FAMILY" = "debian" ]; then
     # ── fcitx5 默认配置：英文键盘 + 中文拼音，Ctrl+Space 切换 ──
@@ -317,7 +324,7 @@ TrayFont="Sans Serif 11"
 FCITX4_UI
   fi
 
-  chown -R sarmn:sarmn "${cfg_root}"
+  chown -R sam:sam "${cfg_root}"
   echo "input method configured (pinyin, Ctrl+Space toggle)"
 }
 

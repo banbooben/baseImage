@@ -4,8 +4,8 @@ Bridges DingTalk into Hermes under a **personal-account identity** (not a bot),
 driven by the [dws CLI](https://www.npmjs.com/package/dws-cli). Inbound traffic
 comes from long-lived `dws event +listen-im` NDJSON subscription processes;
 outbound traffic goes through `dws chat` commands. The credential store lives in
-`~/.dws` (device login via `dws auth login --device`) and is shared with the
-dsh deployment on purpose — the login state carries over.
+`~/.dws` (device login via `dws auth login --device`) and carries over between
+container restarts as long as that volume is mounted.
 
 ## Requirements
 
@@ -40,8 +40,8 @@ plugins:
 
 ## Warnings
 
-- **Never run the dsh stack and this stack at the same time against the same
-  dws volumes** — both consume the same DingTalk stream and would double-answer.
+- **Never run two instances of this stack against the same dws volumes at the
+  same time** — both consume the same DingTalk stream and would double-answer.
 - `DWS_BRIDGE_ALLOW_WRITES=false` means strictly listen-only: the adapter
   answers every `send()` with a `forbidden` error and never invokes a dws send
   command. Verify inbound traffic first, then enable writes.

@@ -1,5 +1,5 @@
 # 钉钉数字同事 hermes 版（desktop）—— 在 desktop python-extension-pack 基础上
-# 叠加 hermes + dws + dingtalk-bridge 群桥守护进程（替换不稳定的 dsh 层）。
+# 叠加 hermes + dws + dingtalk-bridge 群桥守护进程。
 #
 # 与 backend 版 software:<os>-dingtalk-hermes 的区别：本镜像把「数字同事」服务装进
 # 桌面开发环境（Xfce + code-server + Python + Chrome/DBeaver/WPS/VS Code），

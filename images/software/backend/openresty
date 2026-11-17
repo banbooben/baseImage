@@ -5,6 +5,8 @@ ARG NAMESPACE=sarmn
 #            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 installer/common.sh）
 ARG OS_TAG=noble
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
+# 编译需要工具链（builder 用 full 档）；最终产物用 runtime 档
+ARG RUNTIME_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}-runtime
 FROM ${BASE_IMAGE} AS builder
 
 ARG OPENRESTY_PIN_VERSION
@@ -14,7 +16,7 @@ COPY ./images/software/backend/install_openresty.sh /tmp/install_openresty.sh
 RUN set -eux; \
     /bin/bash /tmp/install_openresty.sh
 
-FROM ${BASE_IMAGE}
+FROM ${RUNTIME_IMAGE}
 LABEL authors="sarmn"
 
 COPY --from=builder /deployment/software/openresty /deployment/software/openresty

@@ -88,10 +88,36 @@ _map_debian_to_rpm() {
     locales)                                         echo "glibc-all-langpacks" ;;
     openssh-client)                                  echo "openssh-clients" ;;
     vim)                                             echo "vim-enhanced" ;;
+    # base 用 vim-tiny 控制体积；Debian 原名直装，rpm 侧对应 vim-minimal
+    # （openEuler 没有 vim-tiny 包，不映射会因包不存在而装失败）
+    vim-tiny)                                        echo "vim-minimal" ;;
 
     # ── 中文字体（openEuler 的 wqy 包在 OS 源内，可直接安装）──
     fonts-wqy-zenhei|ttf-wqy-zenhei)                 echo "wqy-zenhei-fonts" ;;
     fonts-wqy-microhei|ttf-wqy-microhei)             echo "wqy-microhei-fonts" ;;
+
+    # ── 语言/中间件运行时库（base runtime 档）──
+    # 供 install_base.sh 的 runtime 档使用：Python（ssl/sqlite/ffi/zlib/bz2/
+    # lzma/readline/ncurses/expat/tk/gdbm/dbm/uuid/crypt）、Redis 与 OpenJDK
+    # （libssl/libstdc++/zlib）在运行期实际 dlopen/链接的共享库。
+    # libssl3|libssl3t64 已在上方桌面运行时库段映射为 openssl-libs，这里不重复。
+    # 注意 openEuler 不拆 -libs 子包：运行时库就在主包 sqlite/bzip2/gdbm 里
+    libsqlite3-0)                                    echo "sqlite" ;;
+    libffi8)                                         echo "libffi" ;;
+    zlib1g)                                          echo "zlib" ;;
+    libbz2-1.0)                                      echo "bzip2" ;;
+    liblzma5)                                        echo "xz-libs" ;;
+    libreadline8t64)                                 echo "readline" ;;
+    libncursesw6)                                    echo "ncurses-libs" ;;
+    tk8.6)                                           echo "tk" ;;
+    libgdbm6|libgdbm6t64)                            echo "gdbm" ;;
+    libgdbm-compat4|libgdbm-compat4t64)              echo "gdbm" ;;
+    libdb5.3|libdb5.3t64)                            echo "libdb" ;;
+    libuuid1)                                        echo "libuuid" ;;
+    libcrypt1)                                       echo "libxcrypt" ;;
+    libstdc++6)                                      echo "libstdc++" ;;
+    # OpenResty（--with-pcre-jit，动态链接系统 pcre2）运行期依赖
+    libpcre2-8-0)                                    echo "pcre2" ;;
 
     # ── 桌面运行时库 ──
     libgtk-3-0)                                      echo "gtk3" ;;
@@ -479,17 +505,6 @@ configure_rpm_mirrors() {
   enable_openeuler_repos
 }
 
-# Ensure a password env var is set; generate a random value if missing.
-# Usage: ensure_password ROOT_PASSWORD
-ensure_password() {
-  local name="$1"
-  if [[ -z "${!name:-}" ]]; then
-    printf -v "$name" '%s' "$(openssl rand -base64 18 | tr -d '=+/')"
-    export "$name"
-    echo -e "${CYAN}提示: ${name} 未提供，已生成随机密码${RESET}" >&2
-  fi
-}
-
 beforeInstall(){
   detect_distro || return 1
 
@@ -803,7 +818,6 @@ autoExecuteFunc(){
 
 create_user() {
     local username=""
-    local password=""
     local use_sudo=false
     local no_passwd_sudo=false
     local generate_sshkey=false
@@ -828,8 +842,6 @@ create_user() {
             *)
                 if [[ -z "$username" ]]; then
                     username="$1"
-                elif [[ -z "$password" ]]; then
-                    password="$1"
                 else
                     echo -e "${YELLOW}警告: 忽略多余参数 '$1'${RESET}"
                 fi
@@ -841,7 +853,7 @@ create_user() {
     # 校验用户名
     if [[ -z "$username" ]]; then
         echo -e "${RED}错误: 未指定用户名${RESET}"
-        echo -e "用法: $0 用户名 [密码] [选项]"
+        echo -e "用法: $0 用户名 [选项]"
         echo -e "选项:"
         echo -e "  --sudo          add user to sudo/wheel group"
         echo -e "  --nopasswd      配置免密 sudo"
@@ -859,11 +871,8 @@ create_user() {
     # 设置默认家目录
     [[ -z "$home_dir" ]] && home_dir="/deployment/accounts/$username"
 
-    # 未提供密码时自动生成随机密码
-    if [[ -z "$password" ]]; then
-        password=$(openssl rand -base64 12 | tr -d '=+/')
-        echo -e "${CYAN}提示: 已为用户 '$username' 生成随机密码${RESET}"
-    fi
+    # 不设置任何密码：账户保持锁定（shadow 为 !），只允许 SSH 密钥登录。
+    # 运行期如需密码登录，由使用者在容器内自行 passwd 设置（镜像不落任何密码）。
 
     # 创建用户
     echo -e "${BLUE}正在创建用户 '$username'...${RESET}"
@@ -880,13 +889,6 @@ create_user() {
         echo -e "${RED}User creation failed${RESET}"
         return 1
     fi
-
-    # 设置密码
-    echo "$username:$password" | as_root chpasswd || {
-        echo -e "${RED}Password setup failed${RESET}"
-        as_root userdel -r "$username" 2>/dev/null
-        return 1
-    }
 
     # 修复目录权限（useradd -m 可能未设置到预期权限）
     as_root chown -R "$username:$username" "$home_dir"
@@ -939,10 +941,10 @@ create_user() {
         echo -e "${GREEN}SSH 私钥路径: $home_dir/.ssh/id_rsa${RESET}"
     fi
 
-    # 输出结果（不打印明文密码，避免进入构建日志）
+    # 输出结果
     echo -e "\n${BOLD}${GREEN}=== 用户创建成功 ===${RESET}"
     echo -e "${YELLOW}用户名:${RESET} $username"
-    echo -e "${YELLOW}密码:${RESET} 已设置（明文不输出）"
+    echo -e "${YELLOW}登录方式:${RESET} SSH 密钥（账户无密码，密码登录不可用）"
     echo -e "${YELLOW}家目录:${RESET} $home_dir"
     [[ "$use_sudo" == true ]] && echo -e "${YELLOW}权限:${RESET} sudo 用户"
     [[ "$no_passwd_sudo" == true ]] && echo -e "${YELLOW}Sudo 策略:${RESET} 免密"

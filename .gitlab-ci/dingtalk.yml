@@ -1,49 +1,23 @@
-# 钉钉数字同事（DWS + DSH/dingtalk-bridge + 钉钉插件）独立构建入口 —— 单独重建
+# 钉钉数字同事（DWS + Hermes + dingtalk-bridge 群桥）独立构建入口 —— 单独重建
 # 这一组镜像，不必跑完整条 base → language → software → deployment 链。
-# 对应 GitHub 侧 build-dingtalk-dsh-images.yml（workflow_dispatch）；
-# GitHub 的 dsh_version / hermes_version / dws_version 输入在这里用同名变量覆盖
-# 实现（手动触发 pipeline 时改值）。
+# 对应 GitHub 侧 build-dingtalk-hermes-images.yml（workflow_dispatch）；
+# GitHub 的 hermes_version / dws_version 输入在这里用同名变量覆盖实现
+# （手动触发 pipeline 时改值）。
 # 仅手动；job 级 needs: [] 打断 stage 顺序
+#
+# 历史：dsh 方案（software:<os>-dingtalk-dsh）已于 2026-11 移除 —— DSH 与插件版本
+# 迭代过快、镜像很快失效；DSH 稳定后再评估。源码/脚本/CI 可从 git 历史
+# （6702243 及之前）恢复。
 
 variables:
-  # 配对规则：assistant 2.x 把 @deepseek-ai/* 依赖精确钉在 0.2.1-alpha.2，DSH 必须同钉。
-  DSH_VERSION: "0.2.1-alpha.2"
-  # hermes 版镜像（dingtalk-hermes）专用：hermes pin tag；DWS 留空 = latest
+  # hermes pin tag；DWS 留空 = latest
   HERMES_VERSION: "v0.22.4"
   DWS_VERSION: ""
 
-dingtalk-dsh-backend:
+dingtalk-hermes-backend:
   extends: .manual_only
   # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
   # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-  stage: software
-  script:
-    - echo "开始构建钉钉数字同事 backend 镜像"
-    - cd $ROOT_PATH/${project_repo_name}
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-dingtalk-dsh
-      -f ./images/software/backend/dingtalk-dsh
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg NPM_REGISTRY=https://registry.npmmirror.com
-      --build-arg DSH_PIN_VERSION=${DSH_VERSION}
-      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-dingtalk-dsh
-      --cache-to type=inline
-      --push
-      .
-
-dingtalk-hermes-backend:
-  extends: .manual_only
-  # hermes 版与 dsh 版并存（回退 = 不使用本 tag）；同样双发行版标签
   parallel:
     matrix:
       - OS_TAG:
@@ -69,44 +43,9 @@ dingtalk-hermes-backend:
       --push
       .
 
-desktop-ext-dingtalk-dsh:
-  extends: .manual_only
-  # 上游 base / software 层都已双发行版化，这里跟着出两套。
-  # PYTHON_SERIES 矩阵条目：透传同名 build-arg 派生上游 deployment 镜像与产物 tag
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-        PYTHON_SERIES: "3.12"
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-        PYTHON_SERIES: "3.14"
-  stage: deployment
-  script:
-    - echo "开始构建钉钉数字同事桌面镜像（Python ${PYTHON_SERIES} extension-pack）"
-    - cd $ROOT_PATH/${project_repo_name}
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-desktop-python${PYTHON_SERIES}-extension-pack-dingtalk-dsh
-      -f ./deployment/common/desktop/python-extension-pack/Dockerfile-dingtalk-dsh
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_SERIES=${PYTHON_SERIES}
-      --build-arg NPM_REGISTRY=https://registry.npmmirror.com
-      --build-arg DSH_PIN_VERSION=${DSH_VERSION}
-      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-desktop-python${PYTHON_SERIES}-extension-pack-dingtalk-dsh
-      --cache-to type=inline
-      --push
-      .
-
 desktop-ext-dingtalk-hermes:
   extends: .manual_only
-  # hermes 版 desktop 与 dsh desktop 并存（回退 = 不使用本 tag）
+  # PYTHON_SERIES 矩阵条目：透传同名 build-arg 派生上游 deployment 镜像与产物 tag
   parallel:
     matrix:
       - OS_TAG:

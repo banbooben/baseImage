@@ -5,6 +5,8 @@ ARG NAMESPACE=sarmn
 #            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 installer/common.sh）
 ARG OS_TAG=noble
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
+# 构建只需下载解包（builder 用 full 档即可）；最终产物用 runtime 档
+ARG RUNTIME_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}-runtime
 FROM ${BASE_IMAGE} AS builder
 
 ARG CODE_SERVER_PIN_VERSION
@@ -12,16 +14,13 @@ ARG CODE_SERVER_PIN_VERSION
 COPY ./images/common.sh /deployment/scripts/common.sh
 COPY ./images/software/backend/install_code_server.sh /tmp/install_code_server.sh
 
-# --secret id=CODE_SERVER_PASSWORD,env=CODE_SERVER_PASSWORD
-RUN --mount=type=secret,id=CODE_SERVER_PASSWORD,required=false \
-    set -eux; \
-    [ -s /run/secrets/CODE_SERVER_PASSWORD ] && export CODE_SERVER_PASSWORD="$(cat /run/secrets/CODE_SERVER_PASSWORD)"; \
+# 构建期不写密码；运行期通过 -e PASSWORD=... 提供 code-server 登录密码
+RUN set -eux; \
     /bin/bash /tmp/install_code_server.sh; \
-    sed -i '/^CODE_SERVER_PASSWORD=/d' /etc/environment 2>/dev/null; \
     echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
 
 
-FROM ${BASE_IMAGE}
+FROM ${RUNTIME_IMAGE}
 LABEL authors="sarmn"
 
 COPY --from=builder /deployment/software/code-server /deployment/software/code-server

@@ -5,6 +5,9 @@ ARG NAMESPACE=sarmn
 #            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 images/common.sh）
 ARG OS_TAG=noble
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
+# 编译需要工具链（builder 用 full 档）；最终产物只用 runtime 档，
+# 不再携带 gcc / -dev 头文件（约 300MB）。需要现场源码编译请基于 BASE_IMAGE 自行装。
+ARG RUNTIME_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}-runtime
 FROM ${BASE_IMAGE} AS builder
 
 # PYTHON_SERIES 必填（如 3.12）；free-threaded 构建（tag 后缀 -ft）加 PYTHON_DISABLE_GIL=true
@@ -21,7 +24,7 @@ RUN set -eux ;\
     /bin/bash /tmp/install_python.sh ;\
     echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
 
-FROM ${BASE_IMAGE}
+FROM ${RUNTIME_IMAGE}
 LABEL authors="sarmn"
 
 ARG PYTHON_SERIES

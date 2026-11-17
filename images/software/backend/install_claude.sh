@@ -225,7 +225,7 @@ Launch: \`/deployment/bin/claude\`
 Usage:  \`claude\` / \`claude -p "your prompt"\` / \`claude --interactive\`
 EOF
 
-  chown -R sarmn:sarmn "${INSTALL_PATH}"
+  chown -R sam:sam "${INSTALL_PATH}"
 }
 
 autoExecuteFunc setEnv installDeps installClaude initConfig

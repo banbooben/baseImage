@@ -68,9 +68,6 @@ jobs:
             base_os_image: ubuntu:noble
           - os_tag: openeuler-24.03
             base_os_image: openeuler:24.03-lts
-    env:
-      ROOT_PASSWORD: ${{ secrets.ROOT_PASSWORD }}
-      SARMN_PASSWORD: ${{ secrets.SARMN_PASSWORD }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -98,9 +95,26 @@ jobs:
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
             --build-arg OS_TAG=${{ matrix.os_tag }} \
             --build-arg BASE_OS_IMAGE=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ matrix.base_os_image }} \
-            --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
-            --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD \
             --cache-from type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }} \
+            --cache-to type=inline \
+            --provenance=false \
+            --sbom=false \
+            --push \
+            .
+
+      # 语言/中间件镜像的 final 阶段 FROM 这一层：只有运行时依赖，不含编译工具链
+      - name: 构建 base:${{ matrix.os_tag }}-runtime
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-runtime \
+            -f ./images/base/Dockerfile \
+            --build-arg REGISTRY=${{ env.REGISTRY }} \
+            --build-arg NAMESPACE=${{ env.NAMESPACE }} \
+            --build-arg OS_TAG=${{ matrix.os_tag }} \
+            --build-arg BASE_OS_IMAGE=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ matrix.base_os_image }} \
+            --build-arg BASE_PROFILE=runtime \
+            --cache-from type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-runtime \
             --cache-to type=inline \
             --provenance=false \
             --sbom=false \
@@ -115,8 +129,6 @@ jobs:
       fail-fast: false
       matrix:
         os_tag: [noble, openeuler-24.03]
-    env:
-      VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
@@ -143,7 +155,6 @@ jobs:
             --build-arg REGISTRY=${{ env.REGISTRY }} \
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
             --build-arg OS_TAG=${{ matrix.os_tag }} \
-            --secret id=VNC_PASSWORD,env=VNC_PASSWORD \
             --cache-from type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-desktop \
             --cache-to type=inline \
             --provenance=false \

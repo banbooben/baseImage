@@ -5,6 +5,9 @@ ARG NAMESPACE=sarmn
 #            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 images/common.sh）
 ARG OS_TAG=noble
 ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
+# 编译需要 gcc/make（builder 用 full 档）；最终产物用 runtime 档，
+# redis-server 运行期只需要 libssl / libstdc++ / libc
+ARG RUNTIME_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}-runtime
 FROM ${BASE_IMAGE} AS builder
 
 # REDIS_SERIES 必填（如 7.4）；REDIS_PIN_VERSION 可钉住具体版本
@@ -13,13 +16,11 @@ ARG REDIS_PIN_VERSION
 
 COPY ./images/common.sh /deployment/scripts/common.sh
 COPY ./images/middleware/redis/install_redis.sh /tmp/install_redis.sh
-# --secret id=REDIS_PASSWORD,env=REDIS_PASSWORD
-RUN --mount=type=secret,id=REDIS_PASSWORD,required=false \
-    set -eux; \
-    [ -s /run/secrets/REDIS_PASSWORD ] && export REDIS_PASSWORD="$(cat /run/secrets/REDIS_PASSWORD)"; \
+# 构建期不写密码；认证配置由运行期挂载的 redis.conf 提供
+RUN set -eux; \
     /bin/bash /tmp/install_redis.sh
 
-FROM ${BASE_IMAGE}
+FROM ${RUNTIME_IMAGE}
 ARG REDIS_SERIES
 COPY --from=builder /deployment/software/redis /deployment/software/redis
 COPY --from=builder /deployment/bin/redis-start.sh /deployment/bin/redis-start.sh

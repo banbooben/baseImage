@@ -275,7 +275,7 @@ Supports amd64 + arm64.
   arm64 / aarch64: wdl1.cache.wps.cn（11.1.0.9719）
 EOF
 
-  chown -R sarmn:sarmn "${INSTALL_PATH}"
+  chown -R sam:sam "${INSTALL_PATH}"
 }
 
 autoExecuteFunc setEnv installDeps installWps initConfig

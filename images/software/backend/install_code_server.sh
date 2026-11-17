@@ -29,16 +29,16 @@ check_target_arch(){
 initConfigFile(){
   mkdir -p /etc/s6-overlay/s6-rc.d/code-server/dependencies.d
 
-  ensure_password CODE_SERVER_PASSWORD
-  # 配置文件（变量需展开，故不用引号 EOF）
+  # 镜像不写密码：code-server 原生支持运行期环境变量 PASSWORD / HASHED_PASSWORD。
+  # 启动时若不提供，code-server 会报错退出（不会生成默认密码），避免无意中
+  # 以弱口令或无认证对外暴露。运行示例：
+  #   docker run -e PASSWORD='...' ...
   cat > /deployment/software/code-server/config.yaml <<EOF
 bind-addr: 0.0.0.0:8080
 auth: password
-password: ${CODE_SERVER_PASSWORD}
 cert: false
 extensions-dir: /deployment/software/code-server/extensions
 EOF
-  unset CODE_SERVER_PASSWORD
 
   # 启动脚本
   cat > /etc/s6-overlay/s6-rc.d/code-server/run <<'EOF'
@@ -100,4 +100,3 @@ installCodeServer(){
 
 
 autoExecuteFunc installCodeServer initConfigFile
-unset CODE_SERVER_PASSWORD

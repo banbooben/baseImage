@@ -17,8 +17,8 @@
 | --- | --- | --- |
 | `deployment:<os>-desktop-python3.12-extension-pack` | [desktop/python-extension-pack/Dockerfile](common/desktop/python-extension-pack/Dockerfile)（`PYTHON_SERIES=3.12`） | Python 3.12 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
 | `deployment:<os>-desktop-python3.14-extension-pack` | 同上（`PYTHON_SERIES=3.14`） | Python 3.14 + code-server + SSH + Chrome + DBeaver + WPS + VS Code |
-| `deployment:<os>-desktop-python3.12-extension-pack-dingtalk-dsh` | [desktop/python-extension-pack/Dockerfile-dingtalk-dsh](common/desktop/python-extension-pack/Dockerfile-dingtalk-dsh)（`PYTHON_SERIES=3.12`） | 上述 Python 3.12 桌面环境 + 钉钉数字同事（DWS + DSH + 钉钉插件） |
-| `deployment:<os>-desktop-python3.14-extension-pack-dingtalk-dsh` | 同上（`PYTHON_SERIES=3.14`） | 上述 Python 3.14 桌面环境 + 钉钉数字同事（DWS + DSH + 钉钉插件） |
+| `deployment:<os>-desktop-python3.12-extension-pack-dingtalk-hermes` | [desktop/python-extension-pack/Dockerfile-dingtalk-hermes](common/desktop/python-extension-pack/Dockerfile-dingtalk-hermes)（`PYTHON_SERIES=3.12`） | 上述 Python 3.12 桌面环境 + 钉钉数字同事（DWS + Hermes + dingtalk-bridge） |
+| `deployment:<os>-desktop-python3.14-extension-pack-dingtalk-hermes` | 同上（`PYTHON_SERIES=3.14`） | 上述 Python 3.14 桌面环境 + 钉钉数字同事（DWS + Hermes + dingtalk-bridge） |
 
 ### 服务器开发环境
 
@@ -62,11 +62,16 @@ docker build \
 docker run -d --name dev-desktop \
   -p 6080:6080 -p 8080:8080 -p 2222:22 \
   -v $(pwd)/workspace:/deployment/workspace \
-  -e VNC_PASSWORD="your-vnc-password" \
+  -v $(pwd)/sam-home:/deployment/accounts/sam \
   $REGISTRY/$NAMESPACE/deployment:<os>-desktop-python3.12-extension-pack
 # → http://localhost:6080 noVNC 桌面
-# → http://localhost:8080 code-server
-# → ssh sarmn@localhost -p 2222
+# → http://localhost:8080 code-server（需 -e PASSWORD=...）
+# → ssh sam@localhost -p 2222（仅密钥登录）
+#
+# 首次启动前在挂载的 sam-home 里提供 VNC 密码文件，否则 vnc 服务会报错退出：
+#   mkdir -p sam-home/.vnc
+#   printf '你的密码' | vncpasswd -f > sam-home/.vnc/passwd
+#   chmod 600 sam-home/.vnc/passwd
 ```
 
 ### 服务器环境
@@ -76,8 +81,8 @@ docker run -d --name dev-server \
   -p 8080:8080 -p 2222:22 \
   -v $(pwd)/workspace:/deployment/workspace \
   $REGISTRY/$NAMESPACE/deployment:<os>-server-python3.14-extension-pack
-# → http://localhost:8080 code-server
-# → ssh sarmn@localhost -p 2222
+# → http://localhost:8080 code-server（需 -e PASSWORD=...）
+# → ssh sam@localhost -p 2222（仅密钥登录）
 ```
 
 ### OpenResty + code-server
@@ -97,7 +102,7 @@ deployment/common/
 ├── desktop/
 │   └── python-extension-pack/
 │       ├── Dockerfile                # PYTHON_SERIES 必填（3.12 / 3.14）
-│       └── Dockerfile-dingtalk-dsh   # 同上，叠加钉钉数字同事
+│       └── Dockerfile-dingtalk-hermes # 同上，叠加钉钉数字同事
 └── server/
     ├── nginx-code/
     │   └── openresty-nginx
@@ -123,9 +128,9 @@ deployment/common/
                 deployment ── (COPY --from 各层)
 ```
 
-> **二级依赖**：桌面版的 `-dingtalk-dsh` 两个镜像不直接 FROM 分层产物，而是在
+> **二级依赖**：桌面版的 `-dingtalk-hermes` 两个镜像不直接 FROM 分层产物，而是在
 > `deployment:<os>-desktop-python3.12/3.14-extension-pack` **之上**再叠加
-> `install_dingtalk_dsh.sh`（复用 backend 的安装脚本），即 deployment 层内的第二次
-> 构建。dingtalk-dsh 的三个镜像（backend + 桌面两个）已移出分层链，改由独立的
-> `build-dingtalk-dsh-images.yml` 单独构建（需先推送 extension-pack 作为上游）。
+> `install_dingtalk_hermes.sh`（复用 backend 的安装脚本），即 deployment 层内的第二次
+> 构建。dingtalk-hermes 的三个镜像（backend + 桌面两个）已移出分层链，改由独立的
+> `build-dingtalk-hermes-images.yml` 单独构建（需先推送 extension-pack 作为上游）。
 

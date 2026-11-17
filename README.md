@@ -11,7 +11,7 @@
 - [deployment 镜像](#deployment-镜像)
 - [openEuler 支持](#openeuler-支持)
 - [CI 变量](#ci-变量)
-- [默认密码](#默认密码)
+- [认证与密码](#认证与密码)
 - [使用说明](#使用说明)
 
 ### 使用说明
@@ -21,7 +21,7 @@
 - 基础工具
   - vim、curl、wget、git、unzip、passwd
 - 编译工具链
-  - build-essential、pkg-config、llvm
+  - build-essential、pkg-config
   - libssl-dev、libffi-dev、libsqlite3-dev、zlib1g-dev 等
 - 管理工具
   - s6-overlay (v3)
@@ -85,12 +85,17 @@
 |---|---|
 | `${REGISTRY}/${NAMESPACE}/ubuntu:noble` | 官方 ubuntu:noble 同步镜像 |
 | `${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts` | 官方 openEuler 24.03 LTS 同步镜像（源自 quay.io） |
-| `${REGISTRY}/${NAMESPACE}/base:<os>` | 基础镜像（s6、SSH、开发工具、用户） |
+| `${REGISTRY}/${NAMESPACE}/base:<os>` | 基础镜像（s6、SSH、开发工具链、用户） |
+| `${REGISTRY}/${NAMESPACE}/base:<os>-runtime` | 运行时基础镜像（只有运行期依赖，不含 gcc / -dev 头文件；语言与中间件镜像的最终层用它做 FROM） |
 | `${REGISTRY}/${NAMESPACE}/base:<os>-desktop` | 桌面基础镜像（Xfce + VNC + 中文字体） |
 
 ### 语言镜像
 
-**Python**（均基于 `base:<os>`）
+> `base:<os>-runtime` 只含运行期依赖（无 gcc / make / -dev 头文件），语言镜像因此
+> 比原先小约 0.5GB。需要在容器里从源码编译（`pip install` 无 wheel 的包等）时，
+> 请自行 `pkg_install build-essential ...` 或基于 `base:<os>` 构建。
+
+**Python**（编译阶段用 `base:<os>`，最终镜像用 `base:<os>-runtime`）
 
 | 镜像 | 说明 |
 |---|---|
@@ -105,7 +110,7 @@
 | `${REGISTRY}/${NAMESPACE}/language:<os>-python-3.15-ft` | Python 3.15 free-threaded |
 | `${REGISTRY}/${NAMESPACE}/language:<os>-miniconda-3` | Miniconda 3 |
 
-**Java / OpenJDK**（基于 `base:<os>`，多阶段构建）
+**Java / OpenJDK**（多阶段构建：构建阶段用 `base:<os>`，最终镜像用 `base:<os>-runtime`）
 
 | 镜像 | 说明 |
 |---|---|
@@ -122,22 +127,20 @@
 
 ### software 镜像
 
-**后端服务**（基于 `base:<os>`）
+**后端服务**（`code-server` / `openresty` 最终层基于 `base:<os>-runtime`，其余基于 `base:<os>`）
 
 | 镜像 | 说明 |
 |---|---|
-| `${REGISTRY}/${NAMESPACE}/software:<os>-code-server` | VS Code Server（密码通过 secret 注入） |
+| `${REGISTRY}/${NAMESPACE}/software:<os>-code-server` | VS Code Server（运行期用 `-e PASSWORD=...` 提供密码） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-docker` | Docker CLI + docker-compose |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-claude` | Claude Code CLI（基于 Node.js 22） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-llama-cpp` | llama.cpp（CPU 推理，源码构建；x86_64 运行时按 CPU 特性分派，含 llama-cli / llama-server / llama-quantize 等） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-openresty` | OpenResty（Nginx + LuaJIT，源码编译，s6 自启动，端口 80） |
-| `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-dsh` | 钉钉数字同事 backend（DWS + DSH + 钉钉插件，Node 24） |
-| `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-hermes` | 钉钉数字同事 hermes 版 backend（DWS + Hermes Agent + dingtalk-bridge 群桥守护进程，替换 dsh 层，与 dsh 版并存） |
+| `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-hermes` | 钉钉数字同事 backend（DWS + Hermes Agent + dingtalk-bridge 群桥守护进程） |
 
-> 钉钉数字同事另有 desktop 变体：`deployment:<os>-desktop-python3.12/3.14-extension-pack-dingtalk-dsh` 与
-> `...-extension-pack-dingtalk-hermes`（基于桌面 extension-pack，Dockerfile 位于
-> `deployment/common/desktop/python-extension-pack/Dockerfile-dingtalk-{dsh,hermes}`）。
-> 注意：dsh 与 hermes 两套容器不得同时挂同一套 dws 卷运行（双消费者重复应答）。
+> 钉钉数字同事另有 desktop 变体：`deployment:<os>-desktop-python3.12/3.14-extension-pack-dingtalk-hermes`
+> （基于桌面 extension-pack，Dockerfile 位于
+> `deployment/common/desktop/python-extension-pack/Dockerfile-dingtalk-hermes`）。
 > hermes 版另有宿主机文件系统约束：`~/.hermes` 卷必须在 POSIX 文件系统上
 > （gateway 要 bind unix 控制套接字，exFAT 不支持会致命退出），详见镜像内
 > `/deployment/software/dingtalk-hermes/README.md`。
@@ -182,7 +185,7 @@ QEMU、网络波动：一旦某次变慢，后一层拉到的仍是上周推上�
 
 单层重建：手动触发（`workflow_dispatch`）对应的 `build-<层>-images.yml`；整链重跑：手动触发 `build-all.yml`。
 单个镜像重建：llama.cpp 用 `build-llama-cpp-images.yml`（可指定版本，留空取最新 release），
-钉钉数字同事用 `build-dingtalk-dsh-images.yml`。
+钉钉数字同事用 `build-dingtalk-hermes-images.yml`。
 
 **桌面开发环境**（基于 `base:<os>-desktop`，含 Xfce + Chrome + DBeaver + WPS + VS Code + code-server + SSH）
 
@@ -221,11 +224,9 @@ QEMU、网络波动：一旦某次变慢，后一层拉到的仍是上周推上�
 
 ```bash
 export REGISTRY=registry.cn-hangzhou.aliyuncs.com NAMESPACE=sarmn
-export SARMN_PASSWORD='SArMnTop1' ROOT_PASSWORD='Sam.Tech'
 
 # Ubuntu 24.04（不传 OS_TAG 时即为此默认值，行为与旧版一致）
 docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
-  --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
   -f images/base/Dockerfile \
   -t $REGISTRY/$NAMESPACE/base:noble .
 
@@ -233,7 +234,6 @@ docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESP
 docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
   --build-arg OS_TAG=openeuler-24.03 \
   --build-arg BASE_OS_IMAGE=$REGISTRY/$NAMESPACE/openeuler:24.03-lts \
-  --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
   -f images/base/Dockerfile \
   -t $REGISTRY/$NAMESPACE/base:openeuler-24.03 .
 ```
@@ -285,45 +285,40 @@ GitHub Secrets 与 GitLab CI/CD Variables **同名**：
 | `NAMESPACE` | 是 | 命名空间 |
 | `ALY_ARC_USERNAME` | 是 | 仓库登录用户名 |
 | `ALY_ARC_PASSWORD` | 是 | 仓库登录密码 |
-| `SARMN_PASSWORD` | 建议 | 默认业务用户 `sarmn` 密码 |
-| `ROOT_PASSWORD` | 否 | root 密码，未设则构建时随机生成 |
-| `VNC_PASSWORD` | 否 | desktop 镜像 VNC 密码 |
-| `REDIS_PASSWORD` | 否 | Redis `requirepass` |
-| `CODE_SERVER_PASSWORD` | 否 | code-server 登录密码 |
 
-### 默认密码
+### 认证与密码
 
-CI / 本地构建未覆盖对应 secret 时，可按下列默认值配置（建议写入 Secrets，勿依赖镜像内明文）：
+镜像**不写入任何密码**，构建期也不需要密码类 secret：
 
-| 用途 | 变量 | 默认密码 |
-|---|---|---|
-| root | `ROOT_PASSWORD` | `Sam.Tech` |
-| sarmn | `SARMN_PASSWORD` | `SArMnTop1` |
-| VNC | `VNC_PASSWORD` | `Sam.5H8g` |
-| Redis | `REDIS_PASSWORD` | `RdP.8G6h` |
-| code-server | `CODE_SERVER_PASSWORD` | 随机生成 |
-
-密码经 **BuildKit secret** 注入（`--secret`），不进入镜像 layer / `docker history`。
+- **SSH**：root 与默认业务用户 `sam` 均无密码，`PasswordAuthentication no`，仅允许密钥登录；
+  `sam` 的密钥对在构建时生成于 `~/.ssh/id_rsa`（公钥已写入 `authorized_keys`）。
+  需要密码登录时，在容器内自行 `passwd` 设置（不会回写镜像）。
+- **sudo**：`sam` 无密码，无法通过 sudo 的密码校验，因此配置为**免密 sudo**
+  （`/deployment/accounts/sudoers.d/sam`）；`root` 同样免密。
+- **VNC**：桌面镜像启动前必须提供 `~/.vnc/passwd`，否则 vnc 服务直接报错退出。
+  ```bash
+  printf '你的密码' | vncpasswd -f > /deployment/accounts/sam/.vnc/passwd
+  chmod 600 /deployment/accounts/sam/.vnc/passwd
+  ```
+- **code-server**：运行期通过环境变量 `PASSWORD`（或 `HASHED_PASSWORD`）提供；
+  未提供时 code-server 拒绝启动，不会生成默认密码。
+- **Redis**：默认无 `requirepass`；需要认证时在运行期挂载自己的 `redis.conf`。
 
 本地构建示例：
 
 ```bash
 export REGISTRY=registry.cn-hangzhou.aliyuncs.com NAMESPACE=sarmn
-export SARMN_PASSWORD='SArMnTop1'
-export ROOT_PASSWORD='Sam.Tech'
 docker buildx build \
   --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
-  --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD \
-  --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD \
   -f images/base/Dockerfile \
   -t $REGISTRY/$NAMESPACE/base:noble .
 ```
 
 ### 运行用户与 PUID/PGID
 
-镜像内以 `sarmn` 常驻的服务（vnc / desktop / clash-verge / redis / dingtalk-dsh 等）
-默认使用 base 层 `create_user` 分配的 uid/gid（通常 1000）。挂载卷在宿主机上的属主
-若是别的 uid/gid，可在启动时用环境变量 `PUID` / `PGID` 把 `sarmn` 的 uid/gid 对齐过去，
+镜像内以 `sam` 常驻的服务（vnc / desktop / clash-verge / redis / dingtalk-hermes 等）
+默认使用 base 层 `create_user` 分配的 uid/gid（通常 1001，上游 `ubuntu` 用户占用 1000）。挂载卷在宿主机上的属主
+若是别的 uid/gid，可在启动时用环境变量 `PUID` / `PGID` 把 `sam` 的 uid/gid 对齐过去，
 避免读写权限错配：
 
 ```bash
@@ -334,8 +329,8 @@ docker run -d \
 ```
 
 - 对齐在 base 层 `/etc/cont-init.d/05-puid-pgid` 完成，早于**所有** s6 服务启动；
-  镜像内所有以 `sarmn` 常驻的服务一并生效，各服务零改动。
+  镜像内所有以 `sam` 常驻的服务一并生效，各服务零改动。
 - 不设 `PUID` / `PGID` 时保持 bake 默认（1000），行为与未提供该特性时完全一致。
-- 只影响 uid/gid，不改变家目录（始终 `/deployment/accounts/sarmn`）。
+- 只影响 uid/gid，不改变家目录（始终 `/deployment/accounts/sam`）。
 - 非法值（非数字）只告警跳过，不会把容器 init 打挂。
 - `sshd` / `code-server` / `openresty` 等本来就是 root 的服务不受影响。

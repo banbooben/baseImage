@@ -245,7 +245,7 @@ COPY --from=<llama-cpp-image> /etc/profile.d/llama-cpp.sh /etc/profile.d/llama-c
 \`\`\`
 EOF
 
-  chown -R sarmn:sarmn "${INSTALL_PATH}"
+  chown -R sam:sam "${INSTALL_PATH}"
 }
 
 autoExecuteFunc setEnv installDeps installLlamaCpp initConfig

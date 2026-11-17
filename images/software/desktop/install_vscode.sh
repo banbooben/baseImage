@@ -211,7 +211,7 @@ Launch: \`/deployment/bin/vscode\`
 在 \`--in-process-gpu\` 下会因 GL 上下文重建而 SIGTRAP(133) 崩溃，故不可改回。
 EOF
 
-  chown -R sarmn:sarmn "${INSTALL_PATH}"
+  chown -R sam:sam "${INSTALL_PATH}"
 }
 
 autoExecuteFunc setEnv installDeps installVscode initConfig

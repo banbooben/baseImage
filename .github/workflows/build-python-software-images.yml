@@ -116,7 +116,7 @@ jobs:
     # 每个 job 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
     # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签。
     # target 矩阵条目：flavor=backend|desktop（Dockerfile 目录），name=镜像名
-    # （= Dockerfile 文件名 = tag 后缀）。dingtalk-dsh 不在此列（独立 workflow）
+    # （= Dockerfile 文件名 = tag 后缀）。dingtalk-hermes 不在此列（独立 workflow）
     # llama-cpp 另有一个独立入口 build-llama-cpp-images.yml（只重建这一个镜像），
     # 这里保留是为了随每周全量链自动更新版本
     strategy:
@@ -160,7 +160,3 @@ jobs:
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             OS_TAG=${{ matrix.os_tag }}
-          # 只有 code-server 的 Dockerfile 会 mount 这个 secret；
-          # 对其余镜像它只是被忽略的定义，不会进入镜像内容
-          secrets: |
-            CODE_SERVER_PASSWORD=${{ secrets.CODE_SERVER_PASSWORD }}

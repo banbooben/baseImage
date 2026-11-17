@@ -111,5 +111,3 @@ jobs:
             OS_TAG=${{ matrix.os_tag }}
             REDIS_SERIES=${{ matrix.redis.series }}
             REDIS_PIN_VERSION=${{ steps.version.outputs.version }}
-          secrets: |
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}

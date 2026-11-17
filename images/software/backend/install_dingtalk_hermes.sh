@@ -17,10 +17,9 @@
  #
  # 安装顺序：
  #   1. 依赖：ca-certificates/curl/xz-utils/git/procps/file（无需 Node——dws 是独立
- #      二进制，hermes 自带 Python；对比 dingtalk-dsh 方案省掉整个 Node 24 自举）
- #   2. DWS：官方 install.sh 装 standalone 二进制（与 dingtalk-dsh 完全同路径：
- #      ~/.local/bin 挂卷 + upgrade 原地原子替换 → 容器内升级持久；登录态卷与
- #      dsh 方案共享，device 登录一次两边通用——但两套容器不得同时运行）
+ #      二进制，hermes 自带 Python）
+ #   2. DWS：官方 install.sh 装 standalone 二进制（~/.local/bin 挂卷 + upgrade
+ #      原地原子替换 → 容器内升级持久；登录态落在 ~/.local/share/dws-cli）
  #   3. Hermes：官方 scripts/install.sh 非交互安装（--non-interactive --skip-browser
  #      --skip-computer-use --dir <镜像层> --commit <sha>），代码+venv 全部落在镜像层，
  #      数据 home（~/.hermes）走卷；钉版本默认 v0.22.4
@@ -32,15 +31,15 @@
  # 注：仓库里 dingtalk-hermes-plugin/dws-bridge/（hermes 平台插件形态）是早期方案，
  # 本机验证后已被 dingtalk-bridge 独立守护进程方案取代，本脚本不再安装它。
  #
- # Layer layout（同 dsh 方案 C：不设 HERMES_HOME 全局环境变量，运行期 start 脚本
+ # Layer layout（方案 C：不设 HERMES_HOME 全局环境变量，运行期 start 脚本
  # 显式传；需要持久化的目录由 compose 按路径单独挂卷；bake 进这些路径的内容统一
  # 先落到 SEED_HOME，运行期 start 脚本在卷内缺失时拷入，已有内容一律不覆盖）：
- #   /deployment/accounts/sarmn/.hermes              # hermes 数据域：config.yaml/.env/会话/state.db
- #   /deployment/accounts/sarmn/.dws                 # DWS profiles/技能状态/技能（种子含技能）
- #   /deployment/accounts/sarmn/.agents/skills       # 技能（multi 模式，种子含）
- #   /deployment/accounts/sarmn/.local/share/dws-cli # DWS 凭证库（dek + auth-token*.enc）
- #   /deployment/accounts/sarmn/.local/bin/dws       # DWS standalone 二进制（种子含；upgrade 原地替换）
- #   /deployment/accounts/sarmn/.local/state/dingtalk-bridge  # 桥接 config.yaml + history.json + bridge.log
+ #   /deployment/accounts/sam/.hermes              # hermes 数据域：config.yaml/.env/会话/state.db
+ #   /deployment/accounts/sam/.dws                 # DWS profiles/技能状态/技能（种子含技能）
+ #   /deployment/accounts/sam/.agents/skills       # 技能（multi 模式，种子含）
+ #   /deployment/accounts/sam/.local/share/dws-cli # DWS 凭证库（dek + auth-token*.enc）
+ #   /deployment/accounts/sam/.local/bin/dws       # DWS standalone 二进制（种子含；upgrade 原地替换）
+ #   /deployment/accounts/sam/.local/state/dingtalk-bridge  # 桥接 config.yaml + history.json + bridge.log
  #   /deployment/software/dingtalk-hermes/hermes-agent   # hermes 代码 + venv（镜像层，不挂卷）
  #   /deployment/software/dingtalk-hermes/dingtalk-bridge/ # 桥接权威副本（镜像层）
  #   /deployment/software/dingtalk-hermes/seed-home      # SEED_HOME：初始内容种子（镜像内，不挂卷）
@@ -104,8 +103,7 @@ installDeps(){
   pkg_clean
 }
 
-# 与 install_dingtalk_dsh.sh 的 installDws 完全一致（standalone 二进制 + 技能种子；
-# 登录态卷两边共享，device 登录一次通用）。任何修改必须两边同步。
+# DWS 用官方 install.sh 装 standalone 二进制，并把技能种子落到 SEED_HOME
 installDws(){
   mkdir -p /deployment/bin "${SEED_HOME}/.local/bin"
 
@@ -387,7 +385,7 @@ EOF
 # bake 以 HOME=SEED_HOME 跑官方 install.sh，hermes 的安装注册表
 # （installs/<hash>/facts.json、venv pyvenv.cfg、editable finder、direct_url.json、
 # source-checks 等文本文件）会把 SEED_HOME 路径烧进去；运行期 HERMES_HOME 是
-# 挂卷后的 ~/.hermes（/deployment/accounts/sarmn/.hermes），路径不匹配会被
+# 挂卷后的 ~/.hermes（/deployment/accounts/sam/.hermes），路径不匹配会被
 # hermes 判为 "dependency environment is missing or outside this install" 并进入
 # 修复重试循环（本机 soak 实测，改写后消除）。
 # 这里把种子内所有提到 SEED_HOME 的文本文件统一改写为运行期 home：grep -rlI 全量
@@ -404,7 +402,7 @@ EOF
 # 新写带 SEED_HOME 路径的 RECORD 文件，一并扫掉。
 sanitizeHermesSeed(){
   local seed_hermes="${SEED_HOME}/.hermes"
-  local runtime_home="/deployment/accounts/sarmn"
+  local runtime_home="/deployment/accounts/sam"
   [ -d "${seed_hermes}" ] || { echo "hermes seed missing at ${seed_hermes}" >&2; return 1; }
 
   local f count=0
@@ -428,20 +426,20 @@ sanitizeHermesSeed(){
 initS6Config(){
   mkdir -p "${INSTALL_PATH}"
 
-  # 种子整目录收归 sarmn：start 脚本用 cp -r（非 cp -a，原因见 start 脚本注释）拷进
+  # 种子整目录收归 sam：start 脚本用 cp -r（非 cp -a，原因见 start 脚本注释）拷进
   # 卷后由 chown -R 归位属主
-  chown -R sarmn:sarmn "${INSTALL_PATH}" 2>/dev/null || true
+  chown -R sam:sam "${INSTALL_PATH}" 2>/dev/null || true
 
   # ── s6 longrun 的 run body：hermes gateway ─────────────────────────────
   # run body 以 root 启动（register_s6_longrun_cmd 不传 run_user），先在 root 态完成
-  # 种子拷贝 + 属主修正，再 setuidgid 切到 sarmn 前台常驻 hermes gateway；重启语义
+  # 种子拷贝 + 属主修正，再 setuidgid 切到 sam 前台常驻 hermes gateway；重启语义
   # 交给 s6。PUID/PGID 的 uid/gid 对齐由 base 层 /etc/cont-init.d/05-puid-pgid 在
   # 服务启动前统一完成，此处不再重复。
   cat > /deployment/bin/dingtalk-hermes-start.sh <<EOF
 #!/bin/bash
 set -e
 
-RUN_USER="sarmn"
+RUN_USER="sam"
 HOME_DIR="\$(getent passwd "\${RUN_USER}" | cut -d: -f6)"
 [ -n "\${HOME_DIR}" ] || HOME_DIR="/deployment/accounts/\${RUN_USER}"
 SEED_HOME="${INSTALL_PATH}/seed-home"
@@ -483,14 +481,14 @@ fi
 ln -sfn "\${HOME_DIR}/.local/bin/dws" /deployment/bin/dws
 ln -sfn "\${HERMES_LAUNCHER}" /deployment/bin/hermes
 
-# 重 chown 家目录：PUID/PGID 改过 sarmn 的 uid/gid 后，bake/旧卷里的旧属主文件
-# 新 sarmn 读写不了（种子刚拷出来的文件也一并归位）
+# 重 chown 家目录：PUID/PGID 改过 sam 的 uid/gid 后，bake/旧卷里的旧属主文件
+# 新 sam 读写不了（种子刚拷出来的文件也一并归位）
 chown -R "\${RUN_USER}:\${RUN_USER}" "\${HOME_DIR}" 2>/dev/null || true
 [ -f "\${HOME_DIR}/.hermes/.env" ] && chmod 600 "\${HOME_DIR}/.hermes/.env" || true
 
 # DWS 登录态自检：凭证库为空 = 尚未登录，只提醒，不阻断 hermes 起服务。
-# 登录（与 dingtalk-dsh 同一套凭证卷，device 登录一次两边通用）：
-#   docker exec -it -u sarmn <container> dws auth login --device
+# 登录（凭证库在 ~/.local/share/dws-cli，device 登录一次即可）：
+#   docker exec -it -u sam <container> dws auth login --device
 if ! ls "\${HOME_DIR}/.local/share/dws-cli"/auth-token*.enc >/dev/null 2>&1; then
   echo "[dingtalk-hermes] 未检测到 DWS 登录态（dws-cli 凭证库为空）；请先执行: docker exec -it -u \${RUN_USER} <container> dws auth login --device" >&2
 fi
@@ -513,13 +511,13 @@ EOF
   # ── s6 longrun 的 run body：钉钉群桥 ───────────────────────────────────
   # 与 hermes gateway 平行的第二个常驻服务（对应本机 dingtalk-bridge.service）。
   # 桥接进程与 gateway 无进程间依赖（它调的是 hermes chat CLI 一次性会话），
-  # 但同样以 root 起、做完种子/属主修正后 setuidgid 切到 sarmn。两个 start 脚本
+  # 但同样以 root 起、做完种子/属主修正后 setuidgid 切到 sam。两个 start 脚本
   # 都能独立完成 dws 二进制种子拷贝与软链（s6 并行启动，无先后保证）。
   cat > /deployment/bin/dingtalk-bridge-start.sh <<EOF
 #!/bin/bash
 set -e
 
-RUN_USER="sarmn"
+RUN_USER="sam"
 HOME_DIR="\$(getent passwd "\${RUN_USER}" | cut -d: -f6)"
 [ -n "\${HOME_DIR}" ] || HOME_DIR="/deployment/accounts/\${RUN_USER}"
 SEED_HOME="${INSTALL_PATH}/seed-home"
@@ -573,7 +571,7 @@ EOF
 
   echo "export PATH=/deployment/bin:\$PATH" >> /etc/environment
 
-  # 注册常驻服务：run body 以 root 起，属主修正后 setuidgid 切到 sarmn 常驻
+  # 注册常驻服务：run body 以 root 起，属主修正后 setuidgid 切到 sam 常驻
   register_s6_longrun_cmd dingtalk-hermes "exec /bin/bash /deployment/bin/dingtalk-hermes-start.sh"
   register_s6_longrun_cmd dingtalk-bridge "exec /bin/bash /deployment/bin/dingtalk-bridge-start.sh"
 
@@ -582,15 +580,14 @@ EOF
 # 钉钉数字同事（hermes 版）
 
 backend 软件镜像 \`software:<os_tag>-dingtalk-hermes\`：Hermes Agent 运行时 +
-钉钉群桥守护进程，把钉钉消息接入 hermes。与 dingtalk-dsh 镜像**并存**——
-回退 = 换回 dsh tag。架构与本机已验证的 dingtalk-bridge.service 方案一致。
+钉钉群桥守护进程，把钉钉消息接入 hermes。架构与本机已验证的 dingtalk-bridge.service 方案一致。
 
 ## 组件
 
 | 组件 | 作用 | 安装 |
 |------|------|------|
 | Hermes \`NousResearch/hermes-agent\` | Agent 运行时（前台 \`hermes gateway run\`） | 官方 scripts/install.sh（钉版本，commit 锁定） |
-| DWS \`dingtalk-workspace-cli\` | 钉钉工作台 CLI：登录态 + 消息通道（个人账号身份） | 官方 install.sh，standalone 二进制（与 dsh 镜像同源） |
+| DWS \`dingtalk-workspace-cli\` | 钉钉工作台 CLI：登录态 + 消息通道（个人账号身份） | 官方 install.sh，standalone 二进制（与 backend 镜像同源） |
 | \`dingtalk-bridge.py\` | 群聊监控桥：dws event 订阅 → hermes chat → dws 回群 | 镜像层权威副本，s6 常驻 |
 | hermes 原生 dingtalk 平台 | 私聊（企业内部应用 Stream 模式） | 官方内置，运行期 .env 配置 |
 
@@ -598,30 +595,30 @@ backend 软件镜像 \`software:<os_tag>-dingtalk-hermes\`：Hermes Agent 运行
 \`dingtalk-bridge\`（群聊监控桥）。群桥调 \`hermes chat\` 一次性会话处理消息，
 与 gateway 无进程间依赖。
 
-## 持久化（同 dsh 方案 C：默认路径 + 按目录挂卷）
+## 持久化（方案 C：默认路径 + 按目录挂卷）
 
 | 容器路径 | 内容 |
 |----------|------|
 | \`~/.hermes\` | hermes 数据域：config.yaml / .env（LLM key、DINGTALK_CLIENT_SECRET）/ 会话 / state.db |
 | \`~/.dws\` | DWS profiles / 技能状态 / \`skills/\`（首次启动从种子拷入） |
 | \`~/.agents\` | \`skills/\`（multi 模式技能，首次启动从种子拷入） |
-| \`~/.local/share/dws-cli\` | DWS 凭证库（登录态本体，**必须挂**；与 dsh 容器共享同一卷） |
+| \`~/.local/share/dws-cli\` | DWS 凭证库（登录态本体，**必须挂**） |
 | \`~/.local/bin\` | \`dws\` standalone 二进制（首次启动从种子拷入） |
 | \`~/.local/state/dingtalk-bridge\` | 群桥 \`config.yaml\`（群策略）+ \`history.json\`（多轮上下文）+ \`bridge.log\` |
 
 \`\`\`bash
 docker run -d --name dingtalk-hermes \\
-  -v hermes_home:/deployment/accounts/sarmn/.hermes \\
-  -v dws_config:/deployment/accounts/sarmn/.dws \\
-  -v dws_agents:/deployment/accounts/sarmn/.agents \\
-  -v dws_creds:/deployment/accounts/sarmn/.local/share/dws-cli \\
-  -v dws_bin:/deployment/accounts/sarmn/.local/bin \\
-  -v dt_bridge:/deployment/accounts/sarmn/.local/state/dingtalk-bridge \\
+  -v hermes_home:/deployment/accounts/sam/.hermes \\
+  -v dws_config:/deployment/accounts/sam/.dws \\
+  -v dws_agents:/deployment/accounts/sam/.agents \\
+  -v dws_creds:/deployment/accounts/sam/.local/share/dws-cli \\
+  -v dws_bin:/deployment/accounts/sam/.local/bin \\
+  -v dt_bridge:/deployment/accounts/sam/.local/state/dingtalk-bridge \\
   registry.cn-hangzhou.aliyuncs.com/sarmn/software:noble-dingtalk-hermes
 \`\`\`
 
-**警告：dsh 与 hermes 两套容器不得同时挂同一套 dws 卷运行**——两边都是同一
-钉钉消息流的消费者，会重复应答。迁移时先停 dsh 容器再启 hermes 容器。
+**警告：同一套 dws 凭证卷同一时刻只能被一个容器消费**——dws 是同一钉钉消息流
+的消费者，多开会导致重复应答。切换实例时先停旧容器再启新容器。
 
 ## 配置（运行期，全部走卷，不随镜像重建丢失）
 
@@ -654,8 +651,8 @@ groups:
 ## 首次登录与上线步骤
 
 \`\`\`bash
-# 1. dws 登录（与 dsh 共用凭证卷，已登录过则跳过）
-docker exec -it -u sarmn dingtalk-hermes dws auth login --device
+# 1. dws 登录（已登录过则跳过）
+docker exec -it -u sam dingtalk-hermes dws auth login --device
 
 # 2. 写 LLM key（+ 可选 DINGTALK_CLIENT_ID/SECRET）到卷内 .env
 #    （host 上编辑 hermes_home 卷里的 .env）
@@ -668,14 +665,14 @@ docker exec -it -u sarmn dingtalk-hermes dws auth login --device
 ## dws upgrade（容器内升级持久）
 
 \`\`\`bash
-docker exec -it -u sarmn dingtalk-hermes dws upgrade
+docker exec -it -u sam dingtalk-hermes dws upgrade
 \`\`\`
 
 hermes 本体由镜像钉版本管理（本镜像：${HERMES_PIN_VERSION}），升级请重建镜像。
 
 ## 运行用户与 PUID/PGID
 
-服务统一以 \`sarmn\` 用户常驻。\`PUID\`/\`PGID\` 对齐由 base 层
+服务统一以 \`sam\` 用户常驻。\`PUID\`/\`PGID\` 对齐由 base 层
 \`/etc/cont-init.d/05-puid-pgid\` 在所有 s6 服务启动前统一完成。
 
 ## 宿主机文件系统约束（实测）
@@ -688,8 +685,8 @@ hermes 本体由镜像钉版本管理（本镜像：${HERMES_PIN_VERSION}），�
 - 其余卷（\`.dws\` / \`.agents\` / \`.local/...\` / 桥接 state）可以放在 exFAT 上
   （sqlite WAL 实测可用，只有 unix socket 不行）。
 - exFAT 卷不支持 chown/chmod：务必用 \`-e PUID=<host uid> -e PGID=<host gid>\`
-  把容器内 sarmn 的 uid/gid 对齐到挂载属主（exFAT 挂载通常 uid=1000），否则
-  容器内 sarmn(默认 1001) 写不了卷。
+  把容器内 sam 的 uid/gid 对齐到挂载属主（exFAT 挂载通常 uid=1000），否则
+  容器内 sam(默认 1001) 写不了卷。
 - \`.env\` 的 \`chmod 600\` 在 exFAT 上无效（fmask 强制 755），LLM key 对宿主机
   本地用户可读——这是 exFAT 的固有限制；敏感环境把 \`.hermes\` 卷放 POSIX
   文件系统即可恢复 600 生效。

@@ -4,7 +4,7 @@
 # 群桥守护进程（架构与本机已验证的 dingtalk-bridge.service 方案一致）。
 # 运行期两个 s6 常驻服务：dingtalk-hermes（hermes gateway，原生 dingtalk 平台
 # 承载私聊）+ dingtalk-bridge（群聊监控桥）；登录态 / 数据域走卷挂载，
-# 见 install 脚本 README。与 dingtalk-dsh 镜像并存，回退 = 不使用本 tag。
+# 见 install 脚本 README。
 
 ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
 ARG NAMESPACE=sarmn

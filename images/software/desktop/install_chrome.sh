@@ -390,7 +390,7 @@ Chromedriver:
 driver 来自 Chrome for Testing 的同架构构建。
 EOF
 
-  chown -R sarmn:sarmn "${INSTALL_PATH}"
+  chown -R sam:sam "${INSTALL_PATH}"
 
   # chrome-sandbox 必须 root 所有且置 setuid 位；chown 会把它一起改掉。
   # 启动器默认 --no-sandbox 用不到它，但保持规范状态以免有人去掉该参数后困惑。

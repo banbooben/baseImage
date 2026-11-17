@@ -275,8 +275,8 @@ COPY --from=<dbeaver-image> /deployment/bin/dbeaver /deployment/bin/dbeaver
 Drivers: \\\`${DRIVERS_PATH}\\\` (mysql/mariadb/postgresql/oracle/sqlserver/sqlite/dameng)
 EOF
 
-  # sarmn 在桌面会话里启动；workspace/配置必须可写
-  chown -R sarmn:sarmn "${INSTALL_PATH}"
+  # sam 在桌面会话里启动；workspace/配置必须可写
+  chown -R sam:sam "${INSTALL_PATH}"
 }
 
 autoExecuteFunc setEnv installDeps installDBeaver downloadDrivers initConfig

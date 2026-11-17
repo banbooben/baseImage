@@ -12,10 +12,10 @@ setEnv(){
 }
 
 init_config(){
-  ensure_password REDIS_PASSWORD
+# 镜像不写任何密码：默认无 requirepass。需要认证时在运行期挂载自己的 redis.conf
+# （例如追加 `requirepass ...` 或 ACL），或通过 CONFIG SET 临时配置。
 echo "
 daemonize no
-requirepass ${REDIS_PASSWORD}
 bind 0.0.0.0
 appendonly yes
 
@@ -26,7 +26,6 @@ pidfile ${INSTALL_PATH}/redis-server.pid
 dir ${INSTALL_PATH}/data
 
 " > ${INSTALL_PATH}/redis.conf
-  unset REDIS_PASSWORD
 
 }
 
@@ -70,24 +69,24 @@ initS6Config(){
   write_cont_env REDIS_VERSION "${REDIS_VERSION}"
   write_cont_env REDIS_SERIES "${REDIS_SERIES}"
 
-  # 数据域整目录收归 sarmn：bake 时是 root 装的，运行期 redis-server 以 sarmn 跑
-  chown -R sarmn:sarmn "${INSTALL_PATH}" || return 1
+  # 数据域整目录收归 sam：bake 时是 root 装的，运行期 redis-server 以 sam 跑
+  chown -R sam:sam "${INSTALL_PATH}" || return 1
 
   # ── s6 longrun 的 run body ────────────────────────────────────────────
   # run body 以 root 启动（register_s6_longrun_cmd 不传 run_user），先在 root 态完成
-  # 属主修正，再 setuidgid 切到 sarmn 前台常驻 redis-server；重启语义交给 s6。
+  # 属主修正，再 setuidgid 切到 sam 前台常驻 redis-server；重启语义交给 s6。
   # PUID/PGID 的 uid/gid 对齐由 base 层 /etc/cont-init.d/05-puid-pgid 在服务启动前
   # 统一完成，此处不再重复。run body 落在 /deployment/bin（挂载点 INSTALL_PATH
-  # 之外），避免整目录挂卷时被遮蔽（与 dingtalk-dsh 同一范式）。
+  # 之外），避免整目录挂卷时被遮蔽（与 dingtalk-hermes 同一范式）。
   cat > /deployment/bin/redis-start.sh <<'EOF'
 #!/bin/bash
 set -e
 
-RUN_USER="sarmn"
+RUN_USER="sam"
 
 mkdir -p /deployment/software/redis/data
-# 重 chown 数据域：PUID/PGID 改过 sarmn 的 uid/gid 后，bake 进去的旧属主文件
-# 新 sarmn 读写不了；挂卷场景同样覆盖（cont-init 的 05-puid-pgid 只管 home）。
+# 重 chown 数据域：PUID/PGID 改过 sam 的 uid/gid 后，bake 进去的旧属主文件
+# 新 sam 读写不了；挂卷场景同样覆盖（cont-init 的 05-puid-pgid 只管 home）。
 chown -R "${RUN_USER}:${RUN_USER}" /deployment/software/redis 2>/dev/null || true
 
 # 配置文件自检：整目录挂卷会遮蔽 bake 进去的 conf，提前给出明确报错
@@ -102,15 +101,14 @@ if pgrep -x "redis-server" > /dev/null; then
   exit 0
 fi
 
-# 切到运行用户 sarmn 前台常驻 redis-server（daemonize no，s6 直接监管进程）
+# 切到运行用户 sam 前台常驻 redis-server（daemonize no，s6 直接监管进程）
 echo "[redis] 以 ${RUN_USER} 启动 redis-server..."
 exec s6-setuidgid "${RUN_USER}" redis-server /deployment/software/redis/redis.conf
 EOF
   chmod 0755 /deployment/bin/redis-start.sh
 
-  # 注册常驻服务：run body 以 root 起，属主修正后 setuidgid 切到 sarmn 常驻
+  # 注册常驻服务：run body 以 root 起，属主修正后 setuidgid 切到 sam 常驻
   register_s6_longrun_cmd redis "exec /bin/bash /deployment/bin/redis-start.sh"
 }
 
 autoExecuteFunc setEnv download_redis_package clear_folder initS6Config
-unset REDIS_PASSWORD

@@ -2,7 +2,9 @@
 # Schedule：镜像同步 → base → base-desktop（rules 非空 needs 覆盖）
 # 手动：job 级 needs: []，不依赖其它作业/stage
 #
-# 两套发行版各两个 job（base / base-desktop）。这里不用 parallel:matrix：
+# 两套发行版各两个 job（base / base-desktop）；base job 同时产出
+# base:<OS_TAG>（full，含工具链）与 base:<OS_TAG>-runtime（语言/中间件最终层用）。
+# 这里不用 parallel:matrix：
 # desktop 变体的 needs 要指向同发行版的 base，矩阵展开后 job 名带 [xxx] 后缀，
 # needs 引用会很脆；四个 job 显式写出更清楚。
 
@@ -29,9 +31,23 @@ noble:
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=noble
-      --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD
-      --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:noble
+      --cache-to type=inline
+      --push
+      .
+    # 语言/中间件镜像 final 阶段的上游：仅运行时依赖（无编译工具链）
+    - echo "开始构建运行时基础镜像 ubuntu 24.04"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:noble-runtime
+      -f ./images/base/Dockerfile
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=noble
+      --build-arg BASE_PROFILE=runtime
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:noble-runtime
       --cache-to type=inline
       --push
       .
@@ -61,7 +77,6 @@ noble-desktop:
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=noble
-      --secret id=VNC_PASSWORD,env=VNC_PASSWORD
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:noble-desktop
       --cache-to type=inline
       --push
@@ -91,9 +106,24 @@ openeuler:
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=openeuler-24.03
       --build-arg BASE_OS_IMAGE=${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts
-      --secret id=ROOT_PASSWORD,env=ROOT_PASSWORD
-      --secret id=SARMN_PASSWORD,env=SARMN_PASSWORD
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:openeuler-24.03
+      --cache-to type=inline
+      --push
+      .
+    # 语言/中间件镜像 final 阶段的上游：仅运行时依赖（无编译工具链）
+    - echo "开始构建运行时基础镜像 openEuler 24.03 LTS"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:openeuler-24.03-runtime
+      -f ./images/base/Dockerfile
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=openeuler-24.03
+      --build-arg BASE_OS_IMAGE=${REGISTRY}/${NAMESPACE}/openeuler:24.03-lts
+      --build-arg BASE_PROFILE=runtime
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:openeuler-24.03-runtime
       --cache-to type=inline
       --push
       .
@@ -123,7 +153,6 @@ openeuler-desktop:
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=openeuler-24.03
-      --secret id=VNC_PASSWORD,env=VNC_PASSWORD
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:openeuler-24.03-desktop
       --cache-to type=inline
       --push

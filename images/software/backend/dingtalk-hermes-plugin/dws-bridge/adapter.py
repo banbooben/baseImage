@@ -4,8 +4,8 @@ Bridges DingTalk into Hermes under a personal-account identity (NOT a bot) by
 spawning ``dws event +listen-im`` long-lived NDJSON subscription processes for
 inbound traffic and driving ``dws chat`` commands for outbound traffic. A
 device-authorized dws profile (``dws auth login --device``) is required; the
-credential store lives on the host volume (``~/.dws``) shared with the dsh
-deployment — never run both stacks against the same dws volumes at once.
+credential store lives on the host volume (``~/.dws``) and carries over between
+container restarts — never run two instances against the same dws volumes at once.
 
 config.yaml ``gateway.platforms.dws_bridge.extra`` keys: profile, dws_bin (dws),
 groups ([]), dm_enabled (true), require_mention (true), trigger_prefix ("/ai "),

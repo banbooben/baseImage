@@ -8,7 +8,7 @@
 # 下载外网安装包不稳定）。需要加回某个：在下表补一条矩阵条目即可。
 # llama-cpp 另有独立入口 .github/workflows/build-llama-cpp-images.yml，
 # 可只重建该镜像。
-# dingtalk-dsh 不在此列（见 dingtalk.yml）
+# 钉钉数字同事（dingtalk-hermes）不在此列（见 dingtalk.yml）
 #
 # 矩阵条目：FLAVOR=backend|desktop（Dockerfile 目录），NAME=镜像名
 # （= Dockerfile 文件名 = tag 后缀）
@@ -40,7 +40,6 @@ software:
       --build-arg REGISTRY=${REGISTRY}
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
-      --secret id=CODE_SERVER_PASSWORD,env=CODE_SERVER_PASSWORD
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-${NAME}
       --cache-to type=inline
       --push

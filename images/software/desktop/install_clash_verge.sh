@@ -229,7 +229,7 @@ TUN / 系统代理在容器内通常还需 --cap-add=NET_ADMIN --device /dev/net
 关闭：-e CLASH_VERGE_AUTOSTART=0
 EOF
 
-  chown -R sarmn:sarmn "${INSTALL_PATH}"
+  chown -R sam:sam "${INSTALL_PATH}"
 }
 
 initS6Config(){
@@ -257,7 +257,7 @@ while IFS='=' read -r key _; do
   grep -q "^${key}=" /etc/environment 2>/dev/null || \
     grep "^${key}=" /etc/environments/proxy-clash >> /etc/environment
 done < /etc/environments/proxy-clash
-exec s6-setuidgid sarmn /etc/s6-overlay/s6-rc.d/clash-verge/start.sh
+exec s6-setuidgid sam /etc/s6-overlay/s6-rc.d/clash-verge/start.sh
 EOF
 
   cat > /etc/s6-overlay/s6-rc.d/clash-verge/start.sh <<'EOF'
@@ -269,8 +269,8 @@ if [ "${CLASH_VERGE_AUTOSTART:-1}" = "0" ] || [ "${CLASH_VERGE_AUTOSTART:-1}" = 
   exec s6-pause
 fi
 
-export HOME=/deployment/accounts/sarmn
-export USER=sarmn
+export HOME=/deployment/accounts/sam
+export USER=sam
 export DISPLAY="${DISPLAY:-:1}"
 
 # 等 X / VNC 就绪（最多约 60s）
@@ -295,7 +295,7 @@ EOF
 
   cat > /etc/s6-overlay/s6-rc.d/clash-verge/finish <<'EOF'
 #!/bin/bash
-pkill -u sarmn -f '[c]lash-verge' 2>/dev/null || true
+pkill -u sam -f '[c]lash-verge' 2>/dev/null || true
 exit 0
 EOF
 
