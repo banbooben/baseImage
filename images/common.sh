@@ -146,6 +146,8 @@ _map_debian_to_rpm() {
     libayatana-appindicator3-1)                      echo "libappindicator-gtk3" ;;
     libwebkit2gtk-4.1-0)                             echo "webkit2gtk4.1" ;;
     libatk1.0-0)                                     echo "atk" ;;
+    libsecret-1-0)                                   echo "libsecret" ;;
+    libnotify4)                                      echo "libnotify" ;;
     libatk-bridge2.0-0)                              echo "at-spi2-atk" ;;
     libatspi2.0-0)                                   echo "at-spi2-core" ;;
     libxss1)                                         echo "libXScrnSaver" ;;

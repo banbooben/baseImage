@@ -48,6 +48,7 @@
 │   ├── python/             # Python 各版本
 │   ├── code-server/        # VS Code Server
 │   ├── vscode/             # VS Code Desktop
+│   ├── apifox/             # Apifox API 工具（AppImage 解包）
 │   ├── chrome/             # Chromium 浏览器
 │   ├── dbeaver/            # DBeaver 数据库管理
 │   ├── wps/                # WPS Office
@@ -157,7 +158,12 @@
 | `${REGISTRY}/${NAMESPACE}/software:<os>-dbeaver` | DBeaver 数据库管理工具（桌面快捷方式） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-wps` | WPS Office 办公套件（桌面快捷方式） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-vscode` | VS Code Desktop（含 Python 扩展） |
+| `${REGISTRY}/${NAMESPACE}/software:<os>-apifox` | Apifox API 工具（官方 AppImage 构建期解包，桌面快捷方式） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-clash-verge` | Clash Verge 代理客户端（s6 自启动） |
+
+> Apifox 使用官方 Linux AppImage，**构建期解包**到 `/deployment/software/apifox`，
+> 运行期不需要 FUSE。官方只提供 `-latest` 包，实际版本记录在 `APIFOX_VERSION`；
+> 需要固定版本时用 `--build-arg APIFOX_DOWNLOAD_URL=<自建 zip>` 覆盖。
 
 ### deployment 镜像
 
@@ -187,7 +193,7 @@ QEMU、网络波动：一旦某次变慢，后一层拉到的仍是上周推上�
 单个镜像重建：llama.cpp 用 `build-llama-cpp-images.yml`（可指定版本，留空取最新 release），
 钉钉数字同事用 `build-dingtalk-hermes-images.yml`。
 
-**桌面开发环境**（基于 `base:<os>-desktop`，含 Xfce + Chrome + DBeaver + WPS + VS Code + code-server + SSH）
+**桌面开发环境**（基于 `base:<os>-desktop`，含 Xfce + Chrome + DBeaver + WPS + VS Code + Apifox + code-server + SSH）
 
 | 镜像 | Python | tag |
 |---|---|---|

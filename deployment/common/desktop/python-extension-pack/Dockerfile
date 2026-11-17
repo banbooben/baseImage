@@ -36,18 +36,24 @@ ARG WPS_DEB_URL
 ARG WPS_RPM_URL
 ARG WPS_PKG_URL
 ARG VSCODE_PIN_VERSION
+# Apifox 官方只提供 -latest 包；需要钉版本时指向自建镜像的 zip。
+# 默认下载源是阿里云 OSS CDN，FALLBACK 为官方站点（部分地区会返回下载验证页）。
+ARG APIFOX_DOWNLOAD_URL
+ARG APIFOX_DOWNLOAD_URL_FALLBACK
 
-# install chrome、 dbeaver、wps、vscode
+# install chrome、 dbeaver、wps、vscode、apifox
 COPY ./images/software/desktop/install_chrome.sh /tmp/install_chrome.sh
 COPY ./images/software/desktop/install_dbeaver.sh /tmp/install_dbeaver.sh
 COPY ./images/software/desktop/install_wps.sh /tmp/install_wps.sh
 COPY ./images/software/desktop/install_vscode.sh /tmp/install_vscode.sh
+COPY ./images/software/desktop/install_apifox.sh /tmp/install_apifox.sh
 
 RUN set -eux; \
     /bin/bash /tmp/install_chrome.sh; \
     /bin/bash /tmp/install_dbeaver.sh; \
     /bin/bash /tmp/install_wps.sh; \
     /bin/bash /tmp/install_vscode.sh; \
+    /bin/bash /tmp/install_apifox.sh; \
     ldconfig;
 
 # 统一 ENV（避免分散定义导致 PATH/DISPLAY 互相覆盖）
@@ -61,6 +67,8 @@ ENV CHROME_HOME=/deployment/software/chrome \
     VSCODE_HOME=/deployment/software/vscode \
     VSCODE_EXTENSIONS=/deployment/software/vscode/extensions \
     VSCODE_DATA=/deployment/software/vscode/data \
+    APIFOX_HOME=/deployment/software/apifox \
+    APIFOX_DATA=/deployment/software/apifox/data \
     DISPLAY=:1 \
     PATH=/deployment/software/dbeaver:/deployment/software/code-server/bin:/deployment/bin:$PATH
 

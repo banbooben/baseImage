@@ -3,7 +3,7 @@
 #
 # ⚠️ GitLab 侧只保留「最小业务闭环」子集：deployment 层实际 FROM 的
 # code-server（ext-pack / nginx-code 消费）与 openresty（nginx-code 消费）。
-# 其余 8 个独立 software 镜像（chrome / clash-verge / dbeaver / wps / vscode /
+# 其余独立 software 镜像（chrome / apifox / clash-verge / dbeaver / wps / vscode /
 # docker / claude / llama-cpp）全部由 GitHub Actions 构建（本地 runner
 # 下载外网安装包不稳定）。需要加回某个：在下表补一条矩阵条目即可。
 # llama-cpp 另有独立入口 .github/workflows/build-llama-cpp-images.yml，

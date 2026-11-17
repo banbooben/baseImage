@@ -132,6 +132,7 @@ jobs:
           - { flavor: backend, name: llama-cpp }
           - { flavor: backend, name: openresty }
           - { flavor: desktop, name: chrome }
+          - { flavor: desktop, name: apifox }
           - { flavor: desktop, name: clash-verge }
           - { flavor: desktop, name: dbeaver }
           - { flavor: desktop, name: wps }

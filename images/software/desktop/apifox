@@ -1,0 +1,28 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+# OS_TAG     产物标签后缀：base:<OS_TAG> / language:<OS_TAG>-python-3.12 …
+# BASE_IMAGE 上游 base 镜像（桌面链为 base:<OS_TAG>-desktop）。Ubuntu 与 openEuler
+#            的差异只在这里，安装脚本靠 /etc/os-release 自行分派（见 installer/common.sh）
+ARG OS_TAG=noble
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}-desktop
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+# 官方只有 -latest 包；需要钉版本时指向自建镜像的 zip。
+# 默认下载源是阿里云 OSS CDN，FALLBACK 为官方站点（部分地区会返回下载验证页）。
+ARG APIFOX_DOWNLOAD_URL
+ARG APIFOX_DOWNLOAD_URL_FALLBACK
+
+COPY ./images/common.sh /deployment/scripts/common.sh
+COPY ./images/software/desktop/install_apifox.sh /tmp/install_apifox.sh
+RUN set -eux; \
+    /bin/bash /tmp/install_apifox.sh; \
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+ENV APIFOX_HOME=/deployment/software/apifox \
+    APIFOX_DATA=/deployment/software/apifox/data \
+    DISPLAY=:1 \
+    PATH=/deployment/bin:$PATH
+
+ENTRYPOINT ["/init"]
