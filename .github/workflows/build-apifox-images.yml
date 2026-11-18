@@ -61,6 +61,16 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.ALY_ARC_USERNAME }}
           password: ${{ secrets.ALY_ARC_PASSWORD }}
+      # 下载源是国内 CDN，runner 在海外；先打印响应头，构建失败时便于区分
+      # 「网络不可达 / 返回验证页」和「解包失败」。不阻断构建。
+      - name: 检查 Apifox 下载源
+        run: |
+          for url in \
+            "https://file-assets-cdn.oss-cn-hangzhou.aliyuncs.com/download/Apifox-linux-latest.zip" \
+            "https://file-assets.apifox.com/download/Apifox-linux-latest.zip"; do
+            echo "== ${url}"
+            curl -sIL --max-time 60 "${url}" | sed -n '1,10p' || echo "curl failed"
+          done
       - uses: docker/build-push-action@v5
         with:
           provenance: false

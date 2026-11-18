@@ -162,7 +162,9 @@
 | `${REGISTRY}/${NAMESPACE}/software:<os>-clash-verge` | Clash Verge 代理客户端（s6 自启动） |
 
 > Apifox 使用官方 Linux AppImage，**构建期解包**到 `/deployment/software/apifox`，
-> 运行期不需要 FUSE。官方只提供 `-latest` 包，实际版本记录在 `APIFOX_VERSION`；
+> 运行期不需要 FUSE。解包用 `unsquashfs` 直接读 AppImage 里的 squashfs，不执行
+> AppImage runtime —— 后者在 qemu-user 下会 `Exec format error`，这样 arm64 变体
+> 也能在 amd64 runner 上构建。官方只提供 `-latest` 包，实际版本记录在 `APIFOX_VERSION`；
 > 需要固定版本时用 `--build-arg APIFOX_DOWNLOAD_URL=<自建 zip>` 覆盖。
 
 ### deployment 镜像

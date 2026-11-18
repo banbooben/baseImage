@@ -14,8 +14,9 @@
  #     amd64: https://file-assets.apifox.com/download/Apifox-linux-latest.zip
  #     arm64: https://file-assets.apifox.com/download/Apifox-linux-arm64-latest.zip
  #
- # 构建期用 AppImage 自带的 --appimage-extract 解包，运行期不需要 FUSE，
- # 也避免每次启动都解压 800MB。
+ # 构建期解包 squashfs（优先 unsquashfs，回退 AppImage runtime），运行期不需要
+ # FUSE，也避免每次启动都解压 800MB。unsquashfs 与架构无关，因此 arm64 镜像
+ # 可以在 amd64 runner 上经 QEMU 构建（AppImage runtime 在 qemu-user 下无法执行）。
 ###
 source /deployment/scripts/common.sh
 
@@ -59,7 +60,7 @@ installDeps(){
   export DEBIAN_FRONTEND=noninteractive
   pkg_update
   pkg_install \
-    ca-certificates wget unzip \
+    ca-certificates wget unzip squashfs-tools \
     libgtk-3-0 libx11-6 libxcb1 libxtst6 \
     libnss3 libnspr4 libgbm1 libasound2t64 \
     libatk-bridge2.0-0 libatspi2.0-0 \
@@ -82,6 +83,35 @@ downloadArchive(){
     rm -f "${dest}"
   done
   return 1
+}
+
+extractAppImage(){
+  local appimage="$1" dest="$2" offset dir
+
+  # 优先用 unsquashfs 直接解开 AppImage 里的 squashfs，而不是执行 AppImage runtime。
+  # 原因：type-2 AppImage 的 ELF 头在 EI_OSABI/EI_ABIVERSION 位置写了 "AI\x02" 标记，
+  # qemu-user 的 ELF 加载器会拒绝这种头（Exec format error）。GitHub Actions 在
+  # amd64 上构建 arm64 时正是在 QEMU 里跑，执行 AppImage 必然失败；而 squashfs
+  # 解包与架构无关，两个平台都能解。
+  if command -v unsquashfs >/dev/null 2>&1; then
+    # 文件里可能出现多个 "hsqs"（runtime 里的巧合 + 压缩数据里的巧合），
+    # 逐个偏移试，直到 unsquashfs 认得 superblock。
+    while IFS= read -r offset; do
+      [ -n "${offset}" ] || continue
+      rm -rf "${dest}"
+      if unsquashfs -q -o "${offset}" -d "${dest}" "${appimage}" >/dev/null 2>&1; then
+        return 0
+      fi
+      echo "unsquashfs 在偏移 ${offset} 处未找到 squashfs superblock，尝试下一个" >&2
+    done < <(grep -abo 'hsqs' "${appimage}" 2>/dev/null | cut -d: -f1)
+  fi
+
+  # 回退：原生架构下让 AppImage runtime 自己解包，输出 <dir>/squashfs-root
+  echo "unsquashfs 不可用或解包失败，回退到 --appimage-extract" >&2
+  rm -rf "${dest}"
+  dir="$(dirname "${dest}")"
+  ( cd "${dir}" && "${appimage}" --appimage-extract >/dev/null ) || return 1
+  [ -d "${dest}" ]
 }
 
 installApifox(){
@@ -111,9 +141,9 @@ installApifox(){
     return 1
   fi
 
-  # --appimage-extract 不需要 FUSE，输出到当前目录的 squashfs-root
+  # 解包到 ${work}/squashfs-root（与 AppImage --appimage-extract 的产物一致）
   chmod +x "${appimage}"
-  ( cd "${work}" && "${appimage}" --appimage-extract >/dev/null ) || {
+  extractAppImage "${appimage}" "${work}/squashfs-root" || {
     echo "AppImage extraction failed" >&2
     return 1
   }
