@@ -119,6 +119,8 @@ jobs:
     # （= Dockerfile 文件名 = tag 后缀）。dingtalk-hermes 不在此列（独立 workflow）
     # llama-cpp 另有一个独立入口 build-llama-cpp-images.yml（只重建这一个镜像），
     # 这里保留是为了随每周全量链自动更新版本
+    # apifox 已移出矩阵：它不在发行版软件源里、构建期要下载解包官方 AppImage，
+    # 单独由 build-apifox-images.yml 手动触发（deployment 链不消费这个镜像）
     strategy:
       fail-fast: false
       matrix:
@@ -132,7 +134,6 @@ jobs:
           - { flavor: backend, name: llama-cpp }
           - { flavor: backend, name: openresty }
           - { flavor: desktop, name: chrome }
-          - { flavor: desktop, name: apifox }
           - { flavor: desktop, name: clash-verge }
           - { flavor: desktop, name: dbeaver }
           - { flavor: desktop, name: wps }

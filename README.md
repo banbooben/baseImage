@@ -191,7 +191,8 @@ QEMU、网络波动：一旦某次变慢，后一层拉到的仍是上周推上�
 
 单层重建：手动触发（`workflow_dispatch`）对应的 `build-<层>-images.yml`；整链重跑：手动触发 `build-all.yml`。
 单个镜像重建：llama.cpp 用 `build-llama-cpp-images.yml`（可指定版本，留空取最新 release），
-钉钉数字同事用 `build-dingtalk-hermes-images.yml`。
+钉钉数字同事用 `build-dingtalk-hermes-images.yml`，Apifox 用 `build-apifox-images.yml`
+（可覆盖下载地址；不进入每周链，需要时手动触发）。
 
 **桌面开发环境**（基于 `base:<os>-desktop`，含 Xfce + Chrome + DBeaver + WPS + VS Code + Apifox + code-server + SSH）
 
