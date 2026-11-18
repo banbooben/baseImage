@@ -33,7 +33,8 @@ installDesktop() {
   pkg_install build-essential libssl-dev zlib1g-dev libbz2-dev \
           libreadline-dev libsqlite3-dev wget curl libncurses5-dev \
           xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-  # 镜像内不写 VNC 密码：运行前由使用者提供 ~/.vnc/passwd（见 vnc/start.sh 的检查）
+  # 镜像内不写 VNC 密码：运行期用 -e VNC_PASSWORD=... 注入，或直接挂载
+  # ~/.vnc/passwd（挂载文件优先，见下面的 15-vnc-password）
   mkdir -p /deployment/accounts/sam/.vnc
   # 剪贴板与输入法的守护进程按发行版区分：
   #   Debian   autocutsel 做 PRIMARY/CLIPBOARD 互通；fcitx5 带 GTK/Qt 模块
@@ -143,6 +144,40 @@ chown -R sam:sam /deployment/accounts/sam 2>/dev/null || true
 EOF
   chmod 0755 /etc/cont-init.d/10-fix-sam-home
 
+  # 运行期 VNC 密码：VNC_PASSWORD 非空且 ~/.vnc/passwd 不存在时生成。
+  # 放 cont-init 而不是 vnc/start.sh：start.sh 直接以 sam 运行，无法 chown、
+  # 也无法可靠地拿到容器 -e 变量；cont-init 以 root 跑且能用 with-contenv。
+  cat > /etc/cont-init.d/15-vnc-password << 'EOF'
+#!/command/with-contenv bash
+RUN_USER="sam"
+HOME_DIR="/deployment/accounts/${RUN_USER}"
+PASSWD_FILE="${HOME_DIR}/.vnc/passwd"
+
+# 未提供环境变量：交给 vnc/start.sh 的检查给出缺文件的明确报错
+[ -n "${VNC_PASSWORD}" ] || exit 0
+
+# 已存在的密码文件优先：通常来自 -v 挂载，是比环境变量更明确的来源
+if [ -s "${PASSWD_FILE}" ]; then
+  echo "[vnc] 使用已存在的 ${PASSWD_FILE}（忽略 VNC_PASSWORD）"
+  exit 0
+fi
+
+umask 077
+mkdir -p "$(dirname "${PASSWD_FILE}")"
+# TigerVNC 的 VNC 认证口令只使用前 8 个字符，更长部分会被静默截断
+# 用绝对路径：cont-init 的 PATH 不一定包含 /command
+if printf '%s\n' "${VNC_PASSWORD}" | /command/s6-setuidgid "${RUN_USER}" vncpasswd -f > "${PASSWD_FILE}"; then
+  chown "${RUN_USER}:${RUN_USER}" "$(dirname "${PASSWD_FILE}")" "${PASSWD_FILE}" 2>/dev/null || true
+  chmod 600 "${PASSWD_FILE}"
+  echo "[vnc] 已根据 VNC_PASSWORD 生成 ${PASSWD_FILE}"
+else
+  rm -f "${PASSWD_FILE}"
+  echo "[vnc] 根据 VNC_PASSWORD 生成密码文件失败" >&2
+  exit 1
+fi
+EOF
+  chmod 0755 /etc/cont-init.d/15-vnc-password
+
   # 启动类型
   cat > /etc/s6-overlay/s6-rc.d/vnc/type <<'EOF'
 oneshot
@@ -163,15 +198,20 @@ export USER=sam
 export DISPLAY=:1
 RESOLUTION=${RESOLUTION:-1920x1080}
 # 镜像不内置 VNC 密码；缺少密码文件时 tigervnc 会在非交互环境里挂住或失败，
-# 这里直接给出可操作的错误。生成方式（在宿主机挂载的 home 目录里执行）：
-#   printf '你的密码' | vncpasswd -f > /deployment/accounts/sam/.vnc/passwd
-#   chmod 600 /deployment/accounts/sam/.vnc/passwd
+# 这里直接给出可操作的错误。两种提供方式：
+#   1) docker run -e VNC_PASSWORD=...（启动时由 15-vnc-password 生成）
+#   2) 挂载密码文件（优先，覆盖方式 1）：
+#      printf '你的密码' | vncpasswd -f > /deployment/accounts/sam/.vnc/passwd
+#      chmod 600 /deployment/accounts/sam/.vnc/passwd
 if [ ! -s "${HOME}/.vnc/passwd" ]; then
-  echo "[vnc] 缺少 ${HOME}/.vnc/passwd：请先提供 VNC 密码文件再重启容器" >&2
+  echo "[vnc] 缺少 ${HOME}/.vnc/passwd：请设置 VNC_PASSWORD 或挂载密码文件后重启容器" >&2
   exit 1
 fi
 # 导出容器环境变量供桌面会话导入（xstartup 不走 PAM）
-cat /proc/1/environ | tr '\0' '\n' > /tmp/container-env
+# 密码类变量不落盘：/tmp/container-env 桌面会话内任何程序都可读
+( umask 077
+  cat /proc/1/environ | tr '\0' '\n' \
+    | grep -vE '^(SAM_PASSWORD|VNC_PASSWORD|REDIS_PASSWORD)=' > /tmp/container-env )
 vncserver :1 -geometry "$RESOLUTION" -depth 24
 EOF
 

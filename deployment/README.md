@@ -72,6 +72,8 @@ docker run -d --name dev-desktop \
 #   mkdir -p sam-home/.vnc
 #   printf '你的密码' | vncpasswd -f > sam-home/.vnc/passwd
 #   chmod 600 sam-home/.vnc/passwd
+# 也可以改用 -e VNC_PASSWORD=...（启动时自动生成；已存在的密码文件优先）。
+# 需要 sam 密码登录时加 -e SAM_PASSWORD=...（同时开启 SSH 密码登录、sudo 需密码）。
 ```
 
 ### 服务器环境

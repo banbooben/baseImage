@@ -297,21 +297,42 @@ GitHub Secrets 与 GitLab CI/CD Variables **同名**：
 
 ### 认证与密码
 
-镜像**不写入任何密码**，构建期也不需要密码类 secret：
+镜像**不写入任何密码**，构建期也不接收密码类 secret。需要密码时在**容器启动时**
+通过环境变量注入 —— 按实例生效，改密码只需重启容器，且不会进入镜像层：
 
-- **SSH**：root 与默认业务用户 `sam` 均无密码，`PasswordAuthentication no`，仅允许密钥登录；
+| 变量 | 作用 | 不设置时 |
+|---|---|---|
+| `SAM_PASSWORD` | 设置业务用户 `sam` 的密码；同时开启 SSH 密码登录，并把 `sam` 的 sudo 切回**需要密码** | 账户锁定，仅密钥登录，免密 sudo |
+| `VNC_PASSWORD` | 桌面镜像启动时生成 `~/.vnc/passwd`（TigerVNC 只取前 8 个字符） | 必须自行挂载 `~/.vnc/passwd`，否则 vnc 服务报错退出 |
+| `REDIS_PASSWORD` | Redis 启动时生成追加 `requirepass` 的运行期配置（覆盖 conf 里的同名指令） | 无 `requirepass` |
+
+```bash
+docker run -d \
+  -e SAM_PASSWORD='你的密码' \
+  -e VNC_PASSWORD='你的密码' \
+  -e REDIS_PASSWORD='你的密码' \
+  ...
+```
+
+注意：
+
+- 环境变量对能执行 `docker inspect` 的人可见。更严格的环境优先用挂载文件：
+  VNC 挂 `~/.vnc/passwd`（优先于 `VNC_PASSWORD`），Redis 挂自己的 `redis.conf`。
+- `SAM_PASSWORD` 是声明式的：每次启动都会重新设置；去掉变量重启会把 `sam` 重新锁定。
+  去掉变量时 SSH 密码登录也会被关回 `no`。
+- **SSH**：默认 root 与 `sam` 均无密码，`PasswordAuthentication no`，仅允许密钥登录；
   `sam` 的密钥对在构建时生成于 `~/.ssh/id_rsa`（公钥已写入 `authorized_keys`）。
-  需要密码登录时，在容器内自行 `passwd` 设置（不会回写镜像）。
-- **sudo**：`sam` 无密码，无法通过 sudo 的密码校验，因此配置为**免密 sudo**
-  （`/deployment/accounts/sudoers.d/sam`）；`root` 同样免密。
-- **VNC**：桌面镜像启动前必须提供 `~/.vnc/passwd`，否则 vnc 服务直接报错退出。
+- **sudo**：默认免密（`/deployment/accounts/sudoers.d/sam`）；设置了 `SAM_PASSWORD`
+  时改为常规的密码校验。`root` 始终免密。
+- **VNC**：不设 `VNC_PASSWORD` 时必须提供 `~/.vnc/passwd`，否则 vnc 服务直接退出。
   ```bash
   printf '你的密码' | vncpasswd -f > /deployment/accounts/sam/.vnc/passwd
   chmod 600 /deployment/accounts/sam/.vnc/passwd
   ```
 - **code-server**：运行期通过环境变量 `PASSWORD`（或 `HASHED_PASSWORD`）提供；
   未提供时 code-server 拒绝启动，不会生成默认密码。
-- **Redis**：默认无 `requirepass`；需要认证时在运行期挂载自己的 `redis.conf`。
+- **Redis**：默认无 `requirepass`；`REDIS_PASSWORD` 生成的运行期配置在
+  `/run/redis/redis.conf`（权限 600、属主 `sam`），不会改写镜像内的 `redis.conf`。
 
 本地构建示例：
 

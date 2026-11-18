@@ -874,7 +874,8 @@ create_user() {
     [[ -z "$home_dir" ]] && home_dir="/deployment/accounts/$username"
 
     # 不设置任何密码：账户保持锁定（shadow 为 !），只允许 SSH 密钥登录。
-    # 运行期如需密码登录，由使用者在容器内自行 passwd 设置（镜像不落任何密码）。
+    # 运行期可用 -e SAM_PASSWORD=... 注入密码（base 的 15-runtime-password
+    # 会设置密码、开启 SSH 密码登录并切回需要密码的 sudo）。
 
     # 创建用户
     echo -e "${BLUE}正在创建用户 '$username'...${RESET}"

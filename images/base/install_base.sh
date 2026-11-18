@@ -277,9 +277,12 @@ addUser(){
   cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys || return 1
   chmod 600 /root/.ssh/authorized_keys
 
-  # 默认业务用户；不设密码，仅通过 SSH 密钥登录（--sshkey 生成密钥对并写入 authorized_keys）。
-  # 无密码账户无法通过 sudo 的密码校验，故用 --nopasswd：否则 sam 虽在 sudo 组
-  # 却永远 sudo 不了（报 "a password is required"）。
+  # 默认业务用户；构建期不设密码，仅通过 SSH 密钥登录（--sshkey 生成密钥对并写入
+  # authorized_keys）。运行期可用 -e SAM_PASSWORD=... 设置密码，届时
+  # /etc/cont-init.d/15-runtime-password 会同时开启 SSH 密码登录并把 sudo
+  # 切回需要密码（见 initRuntimePassword）。
+  # 无密码账户无法通过 sudo 的密码校验，故 bake 时用 --nopasswd：否则 sam 虽在
+  # sudo 组却永远 sudo 不了（报 "a password is required"）。
   # 必须把失败抛出去：否则用户没建成也照样往下走，
   # 最后打出一个没有 sam 的镜像，问题要等到运行时才暴露
   create_user sam --sudo --nopasswd --sshkey || return 1
@@ -342,7 +345,79 @@ EOF
 
 }
 
-autoExecuteFunc setEnv initFolder installBase initSudoers installS6 initSshd addUser initChineseEnv initConfigFile initPuidPgid
+# 运行期账户密码：镜像里仍然不写任何密码，但容器启动时可以用环境变量注入。
+# 为什么放运行期而不是构建期：构建期 secret 只是不进构建日志，密码最终仍要写进
+# /etc/shadow（或 redis.conf / vnc passwd），随镜像层被 pull/save 取出，而且所有
+# 部署实例共用同一个密码、改密码必须重建镜像。运行期注入按实例生效，重启即可换。
+#
+# 约定：SAM_PASSWORD 是 sam 账户密码的唯一来源。
+#   - 非空：设置密码，并开启 SSH 密码登录、把 sudo 切回“需要密码”（与旧逻辑一致）
+#   - 空：账户保持锁定，SSH 仅密钥，sudo 免密（镜像默认行为）
+# 同一容器先带密码启动、之后去掉该变量重启时，也会被重新锁回去。
+initRuntimePassword(){
+
+  mkdir -p /etc/cont-init.d
+  cat > /etc/cont-init.d/15-runtime-password << 'EOF'
+#!/command/with-contenv bash
+# with-contenv 必需：cont-init.d 经 s6rc-oneshot-runner 以纯净环境执行，
+# 普通 #!/bin/bash 读不到容器 -e 变量（同 05-puid-pgid）。
+RUN_USER="sam"
+SUDOERS_FILE="/deployment/accounts/sudoers.d/${RUN_USER}"
+
+write_sudoers(){
+  # sudoers.d 可能被挂载为只读；写不进去只告警，不让容器起不来
+  if ! printf '%s\n' "$1" > "${SUDOERS_FILE}" 2>/dev/null; then
+    echo "[password] 无法写入 ${SUDOERS_FILE}（可能只读挂载），sudo 策略未更新" >&2
+    return 0
+  fi
+  chmod 440 "${SUDOERS_FILE}" 2>/dev/null || true
+  visudo -cf "${SUDOERS_FILE}" >/dev/null 2>&1 || {
+    echo "[password] ${SUDOERS_FILE} 语法校验失败" >&2
+    return 1
+  }
+}
+
+set_ssh_password_auth(){
+  # 镜像未装 sshd 时静默跳过
+  [ -f /etc/ssh/sshd_config ] || return 0
+  # sshd 取“第一个出现的值”，主配置改了就生效；缺失该行时追加
+  if grep -qE '^#?PasswordAuthentication' /etc/ssh/sshd_config 2>/dev/null; then
+    sed -i "s/^#\?PasswordAuthentication .*/PasswordAuthentication $1/" /etc/ssh/sshd_config
+  else
+    echo "PasswordAuthentication $1" >> /etc/ssh/sshd_config
+  fi
+}
+
+if [ -n "${SAM_PASSWORD}" ]; then
+  # chpasswd 的 user:password 只按第一个冒号切分，密码含冒号也没问题
+  if ! printf '%s:%s\n' "${RUN_USER}" "${SAM_PASSWORD}" | chpasswd; then
+    echo "[password] 设置 ${RUN_USER} 密码失败" >&2
+    exit 1
+  fi
+  echo "[password] 已根据 SAM_PASSWORD 为 ${RUN_USER} 设置密码"
+
+  # 给了密码就让密码登录可用，否则该密码只能用于 su / 本地控制台
+  set_ssh_password_auth yes
+
+  # 有密码的账户按常规方式 sudo（提示输入密码），与旧的构建期逻辑一致
+  write_sudoers "${RUN_USER} ALL=(ALL:ALL) ALL" || exit 1
+else
+  # 确保账户保持锁定：新建容器本来就是锁定态；这里覆盖“带密码启动过、
+  # 之后去掉变量重启”的情况
+  case "$(passwd -S "${RUN_USER}" 2>/dev/null | awk '{print $2}')" in
+    L|LK) : ;;
+    *) passwd -l "${RUN_USER}" >/dev/null 2>&1 || true ;;
+  esac
+
+  set_ssh_password_auth no
+
+  write_sudoers "${RUN_USER} ALL=(ALL) NOPASSWD:ALL" || exit 1
+fi
+EOF
+  chmod 0755 /etc/cont-init.d/15-runtime-password
+}
+
+autoExecuteFunc setEnv initFolder installBase initSudoers installS6 initSshd addUser initChineseEnv initConfigFile initPuidPgid initRuntimePassword
 
 # 兜底断言：autoExecuteFunc 在某个步骤重试 5 次后仍失败时只告警不中断，
 # 曾导致 runtime 档缺 xz-utils → s6 解包失败 → 产物没有 /init 却构建成功。

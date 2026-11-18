@@ -12,8 +12,8 @@ setEnv(){
 }
 
 init_config(){
-# 镜像不写任何密码：默认无 requirepass。需要认证时在运行期挂载自己的 redis.conf
-# （例如追加 `requirepass ...` 或 ACL），或通过 CONFIG SET 临时配置。
+# 镜像不写任何密码：默认无 requirepass。需要认证时用运行期环境变量
+# REDIS_PASSWORD（启动脚本生成 requirepass 运行期配置），或挂载自己的 redis.conf。
 echo "
 daemonize no
 bind 0.0.0.0
@@ -90,9 +90,31 @@ mkdir -p /deployment/software/redis/data
 chown -R "${RUN_USER}:${RUN_USER}" /deployment/software/redis 2>/dev/null || true
 
 # 配置文件自检：整目录挂卷会遮蔽 bake 进去的 conf，提前给出明确报错
-if [ ! -f /deployment/software/redis/redis.conf ]; then
-  echo "[redis] 配置文件不存在: /deployment/software/redis/redis.conf" >&2
+CONF=/deployment/software/redis/redis.conf
+if [ ! -f "${CONF}" ]; then
+  echo "[redis] 配置文件不存在: ${CONF}" >&2
   exit 1
+fi
+
+# 运行期密码：REDIS_PASSWORD 非空时，基于 redis.conf 生成一份追加了 requirepass
+# 的运行期配置。不用 --requirepass 命令行参数：那会出现在 ps 里，容器内任何
+# 用户都能看到。运行期配置放 /run，权限 600、属主 sam；挂载的 redis.conf 中
+# 若已有 requirepass，这里追加在文件末尾，按 redis 的“后者覆盖”语义以本变量为准。
+if [ -n "${REDIS_PASSWORD}" ]; then
+  runtime_conf=/run/redis/redis.conf
+  mkdir -p /run/redis
+  # redis.conf 的双引号字符串支持 \" 与 \\ 转义
+  escaped="${REDIS_PASSWORD//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  {
+    cat "${CONF}"
+    printf '\nrequirepass "%s"\n' "${escaped}"
+  } > "${runtime_conf}"
+  chown "${RUN_USER}:${RUN_USER}" /run/redis "${runtime_conf}" 2>/dev/null || true
+  chmod 700 /run/redis
+  chmod 600 "${runtime_conf}"
+  CONF="${runtime_conf}"
+  echo "[redis] 已根据 REDIS_PASSWORD 生成运行期配置 ${runtime_conf}"
 fi
 
 # 已有 redis-server 在跑（如手动起过）则不重复启动，避免抢占端口/pidfile
@@ -103,7 +125,7 @@ fi
 
 # 切到运行用户 sam 前台常驻 redis-server（daemonize no，s6 直接监管进程）
 echo "[redis] 以 ${RUN_USER} 启动 redis-server..."
-exec s6-setuidgid "${RUN_USER}" redis-server /deployment/software/redis/redis.conf
+exec s6-setuidgid "${RUN_USER}" redis-server "${CONF}"
 EOF
   chmod 0755 /deployment/bin/redis-start.sh
 
