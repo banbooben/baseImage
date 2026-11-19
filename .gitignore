@@ -4,3 +4,5 @@
 deployment/.env
 deployment/workspace/
 deployment/clash-config/
+deployment/apifox-data/
+deployment/vncpasswd

@@ -1,0 +1,53 @@
+# Apifox 桌面镜像（Xfce + VNC + noVNC 网页访问）
+#
+# 首次使用（在 deployment/ 目录下）：
+#   1) 建工作区与数据目录，并把属主改成 PUID/PGID（否则容器内 sam 写不进去）
+#      mkdir -p workspace apifox-data
+#      sudo chown -R "$(id -u):$(id -g)" workspace apifox-data
+#   2) 准备环境变量
+#      cp .env.example .env && chmod 600 .env
+#   3) 启动
+#      docker compose -f docker-compose.apifox.yml up -d
+#      浏览器打开 http://127.0.0.1:6080
+#
+# 密码：
+#   - 未设置 VNC_PASSWORD 时使用镜像默认密码 Sam.5H8g，开箱可用。
+#     默认密码是公开值，生产环境务必在 .env 里设置 VNC_PASSWORD。
+#   - 也可以挂载 ~/.vnc/passwd 文件（优先级更高，文件需 0600、属主与 PUID 一致）。
+#
+# 说明：
+#   - 只挂载 apifox/data，不要挂整个 /deployment/software/apifox（会遮蔽程序本体）
+#   - 独立 Apifox 镜像没有启用 sshd，环境变量只影响 VNC / sudo / 本地 su
+
+name: apifox
+
+services:
+  apifox:
+    image: ${APIFOX_IMAGE:-registry.cn-hangzhou.aliyuncs.com/sarmn/software:noble-apifox}
+    container_name: apifox
+    restart: unless-stopped
+
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:6080:6080"   # noVNC（网页）
+      - "${BIND_ADDR:-127.0.0.1}:5901:5901"   # 原生 VNC 客户端才需要
+
+    environment:
+      PUID: "${PUID:-1000}"
+      PGID: "${PGID:-1000}"
+      RESOLUTION: "${RESOLUTION:-1920x1080}"
+      TZ: "${TZ:-Asia/Shanghai}"
+      # 不设置时使用镜像默认密码 Sam.5H8g；生产环境请在这里覆盖
+      # VNC_PASSWORD: "${VNC_PASSWORD:-}"
+
+    volumes:
+      - ./workspace:/deployment/workspace
+      - ./apifox-data:/deployment/software/apifox/data
+      # 可选：用密码文件替代 VNC_PASSWORD（优先级更高）
+      # - ./vncpasswd:/deployment/accounts/sam/.vnc/passwd:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:6080/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

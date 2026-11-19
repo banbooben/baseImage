@@ -33,8 +33,8 @@ installDesktop() {
   pkg_install build-essential libssl-dev zlib1g-dev libbz2-dev \
           libreadline-dev libsqlite3-dev wget curl libncurses5-dev \
           xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-  # 镜像内不写 VNC 密码：运行期用 -e VNC_PASSWORD=... 注入，或直接挂载
-  # ~/.vnc/passwd（挂载文件优先，见下面的 15-vnc-password）
+  # 镜像里不落密码文件：运行期由 15-vnc-password 用 VNC_PASSWORD 生成
+  # （未设置时用默认密码），也可挂载 ~/.vnc/passwd（挂载文件优先）
   mkdir -p /deployment/accounts/sam/.vnc
   # 剪贴板与输入法的守护进程按发行版区分：
   #   Debian   autocutsel 做 PRIMARY/CLIPBOARD 互通；fcitx5 带 GTK/Qt 模块
@@ -81,7 +81,8 @@ export SDL_IM_MODULE=fcitx
 
 # ── 导入容器环境变量到桌面会话 ──────────────────────────────
 # VNC xstartup 不走 PAM，GUI 应用不会自动读取容器 ENV。
-# VNC start.sh 已将 PID 1 环境 dump 到 /tmp/container-env
+# cont-init 15-vnc-password 以 root 将容器环境（s6 container_environment）
+# dump 到 /tmp/container-env，这里逐行导入
 if [ -r /tmp/container-env ]; then
   while IFS='=' read -r k v; do
     [ -n "${k}" ] && export "${k}=${v}"
@@ -144,22 +145,50 @@ chown -R sam:sam /deployment/accounts/sam 2>/dev/null || true
 EOF
   chmod 0755 /etc/cont-init.d/10-fix-sam-home
 
-  # 运行期 VNC 密码：VNC_PASSWORD 非空且 ~/.vnc/passwd 不存在时生成。
-  # 放 cont-init 而不是 vnc/start.sh：start.sh 直接以 sam 运行，无法 chown、
+  # 运行期 VNC 密码：~/.vnc/passwd 不存在时，用 VNC_PASSWORD（未设置则用默认值）
+  # 生成。放 cont-init 而不是 vnc/start.sh：start.sh 直接以 sam 运行，无法 chown、
   # 也无法可靠地拿到容器 -e 变量；cont-init 以 root 跑且能用 with-contenv。
+  # 这里还负责把容器环境（s6 container_environment）导出给桌面会话，
+  # start.sh 以 sam 运行拿不到这些变量。
   cat > /etc/cont-init.d/15-vnc-password << 'EOF'
 #!/command/with-contenv bash
 RUN_USER="sam"
 HOME_DIR="/deployment/accounts/${RUN_USER}"
 PASSWD_FILE="${HOME_DIR}/.vnc/passwd"
+ENV_FILE="/tmp/container-env"
+ENV_DIR="/run/s6/container_environment"
+# 默认密码：不设 VNC_PASSWORD 时使用，保证桌面镜像开箱即用。
+# 这是写在镜像里的公开默认值，生产环境务必用 -e VNC_PASSWORD=... 覆盖。
+DEFAULT_VNC_PASSWORD="Sam.5H8g"
 
-# 未提供环境变量：交给 vnc/start.sh 的检查给出缺文件的明确报错
-[ -n "${VNC_PASSWORD}" ] || exit 0
+# 导出容器环境变量供桌面会话导入（xstartup 不走 PAM）。
+# 数据源必须是 s6 的 container_environment 目录：s6-svscan 会 re-exec，
+# /proc/1/environ 里只剩 PATH，拿不到容器 -e 变量。
+# HOME/USER/PWD 等由 VNC 会话自己设定，导进去会被容器默认值（HOME=/root）
+# 覆盖，桌面直接坏掉；密码类变量不落盘。文件 600 且属主 sam。
+( umask 077
+  for f in "${ENV_DIR}"/*; do
+    [ -f "${f}" ] || continue
+    name="${f##*/}"
+    case "${name}" in
+      SAM_PASSWORD|VNC_PASSWORD|REDIS_PASSWORD|HOME|USER|LOGNAME|PWD|OLDPWD|SHLVL|_) continue ;;
+    esac
+    # 值里的换行会破坏 xstartup 的逐行导入，压成空格
+    printf '%s=%s\n' "${name}" "$(tr '\n' ' ' < "${f}")"
+  done > "${ENV_FILE}" ) || true
+chown "${RUN_USER}:${RUN_USER}" "${ENV_FILE}" 2>/dev/null || true
+chmod 600 "${ENV_FILE}" 2>/dev/null || true
 
 # 已存在的密码文件优先：通常来自 -v 挂载，是比环境变量更明确的来源
 if [ -s "${PASSWD_FILE}" ]; then
   echo "[vnc] 使用已存在的 ${PASSWD_FILE}（忽略 VNC_PASSWORD）"
   exit 0
+fi
+
+# 未设置或为空：回落到默认密码，否则桌面起不来
+if [ -z "${VNC_PASSWORD}" ]; then
+  VNC_PASSWORD="${DEFAULT_VNC_PASSWORD}"
+  echo "[vnc] 未设置 VNC_PASSWORD，使用默认密码（生产环境请用 -e VNC_PASSWORD=... 覆盖）"
 fi
 
 umask 077
@@ -197,21 +226,16 @@ export HOME=/deployment/accounts/sam
 export USER=sam
 export DISPLAY=:1
 RESOLUTION=${RESOLUTION:-1920x1080}
-# 镜像不内置 VNC 密码；缺少密码文件时 tigervnc 会在非交互环境里挂住或失败，
-# 这里直接给出可操作的错误。两种提供方式：
-#   1) docker run -e VNC_PASSWORD=...（启动时由 15-vnc-password 生成）
-#   2) 挂载密码文件（优先，覆盖方式 1）：
-#      printf '你的密码' | vncpasswd -f > /deployment/accounts/sam/.vnc/passwd
-#      chmod 600 /deployment/accounts/sam/.vnc/passwd
+# 密码文件由 cont-init 15-vnc-password 生成（默认密码，或 -e VNC_PASSWORD
+# 覆盖，或挂载 ~/.vnc/passwd 优先）。缺失说明生成失败，tigervnc 在非交互
+# 环境里会挂住或失败，这里直接给出可操作的错误。
 if [ ! -s "${HOME}/.vnc/passwd" ]; then
-  echo "[vnc] 缺少 ${HOME}/.vnc/passwd：请设置 VNC_PASSWORD 或挂载密码文件后重启容器" >&2
+  echo "[vnc] 缺少 ${HOME}/.vnc/passwd：请查看 15-vnc-password 的日志，或用 -e VNC_PASSWORD=... 指定密码" >&2
   exit 1
 fi
-# 导出容器环境变量供桌面会话导入（xstartup 不走 PAM）
-# 密码类变量不落盘：/tmp/container-env 桌面会话内任何程序都可读
-( umask 077
-  cat /proc/1/environ | tr '\0' '\n' \
-    | grep -vE '^(SAM_PASSWORD|VNC_PASSWORD|REDIS_PASSWORD)=' > /tmp/container-env )
+# 容器环境变量由 cont-init 15-vnc-password 以 root 从 s6 container_environment
+# 导出到 /tmp/container-env。缺失时补个空文件，别让 VNC 起不来。
+[ -e /tmp/container-env ] || : > /tmp/container-env || true
 vncserver :1 -geometry "$RESOLUTION" -depth 24
 EOF
 

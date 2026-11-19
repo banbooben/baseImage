@@ -297,13 +297,14 @@ GitHub Secrets 与 GitLab CI/CD Variables **同名**：
 
 ### 认证与密码
 
-镜像**不写入任何密码**，构建期也不接收密码类 secret。需要密码时在**容器启动时**
-通过环境变量注入 —— 按实例生效，改密码只需重启容器，且不会进入镜像层：
+镜像**不写入任何密码文件**，构建期也不接收密码类 secret。需要密码时在**容器启动时**
+通过环境变量注入 —— 按实例生效，改密码只需重启容器，且不会进入镜像层。
+唯一的例外是 VNC 的**默认密码**（见下表），用于保证桌面镜像开箱可用：
 
 | 变量 | 作用 | 不设置时 |
 |---|---|---|
 | `SAM_PASSWORD` | 设置业务用户 `sam` 的密码；同时开启 SSH 密码登录，并把 `sam` 的 sudo 切回**需要密码** | 账户锁定，仅密钥登录，免密 sudo |
-| `VNC_PASSWORD` | 桌面镜像启动时生成 `~/.vnc/passwd`（TigerVNC 只取前 8 个字符） | 必须自行挂载 `~/.vnc/passwd`，否则 vnc 服务报错退出 |
+| `VNC_PASSWORD` | 桌面镜像启动时生成 `~/.vnc/passwd`（TigerVNC 只取前 8 个字符） | 使用默认密码 `Sam.5H8g` |
 | `REDIS_PASSWORD` | Redis 启动时生成追加 `requirepass` 的运行期配置（覆盖 conf 里的同名指令） | 无 `requirepass` |
 
 ```bash
@@ -324,7 +325,10 @@ docker run -d \
   `sam` 的密钥对在构建时生成于 `~/.ssh/id_rsa`（公钥已写入 `authorized_keys`）。
 - **sudo**：默认免密（`/deployment/accounts/sudoers.d/sam`）；设置了 `SAM_PASSWORD`
   时改为常规的密码校验。`root` 始终免密。
-- **VNC**：不设 `VNC_PASSWORD` 时必须提供 `~/.vnc/passwd`，否则 vnc 服务直接退出。
+- **VNC**：未设置 `VNC_PASSWORD` 时使用默认密码 **`Sam.5H8g`**（写在镜像的
+  `15-vnc-password` 里），桌面开箱即用。默认密码是公开值，**对任何能访问 VNC/noVNC
+  端口的人有效，生产环境务必覆盖**：`-e VNC_PASSWORD='你的密码'`。
+  也可以挂载密码文件（优先级高于环境变量；文件必须 `0600`）：
   ```bash
   printf '你的密码' | vncpasswd -f > /deployment/accounts/sam/.vnc/passwd
   chmod 600 /deployment/accounts/sam/.vnc/passwd
