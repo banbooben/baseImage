@@ -98,6 +98,28 @@ downloadSource(){
   return 1
 }
 
+patchUiAssetValidation(){
+  # v1.0.0 的 scripts/ui-assets.cmake 仍按旧 webui 产物名校验预构建资产
+  # （bundle[hash].js / bundle[hash].css / workbox[hash].js），而上游 HF bucket
+  # 里的资产已换成 SvelteKit 分包布局（_app/immutable/...），校验直接
+  # FATAL_ERROR，整个编译失败（上游 issue #32780；master 已放宽，v1.0.0 tag
+  # 没带上）。这里对分包布局跳过旧校验；上游修好后本函数自动不再改动。
+  local f="${SOURCE_DIR}/scripts/ui-assets.cmake"
+  [ -f "${f}" ] || return 0
+  # 已经认识分包布局（或结构大改）就不再打补丁
+  grep -q '_app/immutable' "${f}" && return 0
+  if ! grep -q '^function(ui_validate_assets files in_dir)$' "${f}"; then
+    echo "WARN 未找到 ui_validate_assets，跳过 UI 资产校验补丁" >&2
+    return 0
+  fi
+  sed -i 's|^function(ui_validate_assets files in_dir)$|function(ui_validate_assets files in_dir)\n    if(EXISTS "${in_dir}/_app/immutable")\n        return()\n    endif()|' "${f}"
+  grep -q '_app/immutable' "${f}" || {
+    echo "ERROR UI 资产校验补丁未生效" >&2
+    return 1
+  }
+  echo "已放宽 SvelteKit 分包 UI 资产的校验（llama.cpp #32780）"
+}
+
 installLlamaCpp(){
   downloadSource || return 1
 
@@ -108,6 +130,8 @@ installLlamaCpp(){
   # GitHub 的归档目录名是 llama.cpp-<tag>，--strip-components=1 去掉这一层
   tar -xzf "${SOURCE_ARCHIVE}" -C "${SOURCE_DIR}" --strip-components=1 || return 1
   rm -f "${SOURCE_ARCHIVE}"
+
+  patchUiAssetValidation || return 1
 
   # 通用参数：
   #   GGML_NATIVE=OFF  绝不能用 -march=native：CI 上编出来的指令集必须能在目标机跑
@@ -226,6 +250,10 @@ llama-server -m /deployment/data/models/model.gguf --host 0.0.0.0 --port 8081
 # 量化
 llama-quantize model-f16.gguf model-q4_k_m.gguf Q4_K_M
 \`\`\`
+
+\`llama-server\` 在 \`/\` 提供内置 Web UI：构建期由上游脚本从 Hugging Face
+bucket 取预构建资产嵌入二进制；构建网络拿不到时该步只告警，产出的镜像不带
+Web UI，OpenAI 兼容 API 不受影响。
 
 模型文件不要打进镜像：挂载 \`/deployment/data/models\` 或运行时下载。
 
