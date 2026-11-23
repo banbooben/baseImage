@@ -4,6 +4,7 @@
 #
 # 两套发行版各两个 job（base / base-desktop）；base job 同时产出
 # base:<OS_TAG>（full，含工具链）与 base:<OS_TAG>-runtime（语言/中间件最终层用）。
+# 另有 Ubuntu 专属的 noble-desktop-gnome（ubuntu-desktop-minimal，与 Xfce 变体并存）。
 # 这里不用 parallel:matrix：
 # desktop 变体的 needs 要指向同发行版的 base，矩阵展开后 job 名带 [xxx] 后缀，
 # needs 引用会很脆；四个 job 显式写出更清楚。
@@ -78,6 +79,38 @@ noble-desktop:
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=noble
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:noble-desktop
+      --cache-to type=inline
+      --push
+      .
+
+# GNOME 变体（ubuntu-desktop-minimal）：仅 Ubuntu，openEuler 无对应打包。
+# 与 noble-desktop（Xfce）并存，不互相替代。
+noble-desktop-gnome:
+  stage: base
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "base"
+      needs:
+        - noble
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      needs:
+        - noble
+      when: manual
+  script:
+    - echo "开始构建基础镜像 ubuntu 24.04 desktop-gnome"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:noble-desktop-gnome
+      -f ./images/base/Dockerfile-desktop-gnome
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=noble
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:noble-desktop-gnome
       --cache-to type=inline
       --push
       .

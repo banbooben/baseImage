@@ -15,10 +15,14 @@ ENV PATH=/deployment/bin:$PATH \
 
 COPY ./images/common.sh /deployment/scripts/common.sh
 COPY ./images/base/install_desktop.sh /tmp/install_desktop.sh
-# 构建期不写任何密码：VNC 密码由使用者在运行期提供
-# （~/.vnc/passwd，见 install_desktop.sh 中的启动检查）
+# 构建期断言：桌面包必须真的装上。脚本已让 apt 失败向上传递，这里再兜一层——
+# 任何原因（源不可达、包名漂移）导致组件缺失都让构建失败，而不是像 2026-11-23
+# 那次一样推出一份"有 VNC 服务、没有桌面"的镜像。
 RUN set -eux; \
     /bin/bash /tmp/install_desktop.sh; \
+    command -v startxfce4; \
+    command -v Xvnc; \
+    command -v websockify; \
     echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
 
 ENTRYPOINT ["/init"]

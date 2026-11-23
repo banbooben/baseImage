@@ -161,3 +161,46 @@ jobs:
             --sbom=false \
             --push \
             .
+
+  # 4. 构建 base:<OS_TAG>-desktop-gnome（Ubuntu 专用）
+  #    ubuntu-desktop-minimal 是 Ubuntu 专有的 GNOME 打包，openEuler 没有对应物。
+  #    与 -desktop 变体并存：-desktop 仍是默认的 Xfce 方案。
+  build-base-desktop-gnome:
+    needs: build-base
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag: [noble]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录容器镜像仓库
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - name: 构建 base:${{ matrix.os_tag }}-desktop-gnome
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-desktop-gnome \
+            -f ./images/base/Dockerfile-desktop-gnome \
+            --build-arg REGISTRY=${{ env.REGISTRY }} \
+            --build-arg NAMESPACE=${{ env.NAMESPACE }} \
+            --build-arg OS_TAG=${{ matrix.os_tag }} \
+            --cache-from type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-desktop-gnome \
+            --cache-to type=inline \
+            --provenance=false \
+            --sbom=false \
+            --push \
+            .

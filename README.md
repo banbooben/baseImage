@@ -35,6 +35,9 @@
 - 桌面环境（base-desktop）
   - Xfce4 + VNC + noVNC
   - 中文输入法：Ubuntu 用 fcitx5，openEuler 用 fcitx4 + XIM
+- 桌面环境（base-desktop-gnome，仅 Ubuntu）
+  - GNOME（ubuntu-desktop-minimal）+ VNC + noVNC
+  - 与 Xfce 变体共用 VNC / noVNC / 输入法配置，只替换桌面会话
 
 > 上面是 Ubuntu 侧的包名；openEuler 侧同一份脚本经包名映射表换成 rpm 名，
 > 详见 [openEuler 支持](#openeuler-支持) 的差异表。
@@ -89,6 +92,7 @@
 | `${REGISTRY}/${NAMESPACE}/base:<os>` | 基础镜像（s6、SSH、开发工具链、用户） |
 | `${REGISTRY}/${NAMESPACE}/base:<os>-runtime` | 运行时基础镜像（只有运行期依赖，不含 gcc / -dev 头文件；语言与中间件镜像的最终层用它做 FROM） |
 | `${REGISTRY}/${NAMESPACE}/base:<os>-desktop` | 桌面基础镜像（Xfce + VNC + 中文字体） |
+| `${REGISTRY}/${NAMESPACE}/base:<os>-desktop-gnome` | GNOME 桌面变体（`ubuntu-desktop-minimal` + VNC + 中文字体，仅 Ubuntu；与 `-desktop` 并存，完整 GNOME 约多 500MB） |
 
 ### 语言镜像
 

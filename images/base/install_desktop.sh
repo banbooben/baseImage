@@ -12,7 +12,10 @@ installDesktop() {
   detect_distro || return 1
   echo "Installing RDP server..."
 
-  pkg_update
+  # 失败必须向上传递：脚本没有 set -e，不 return 1 的话本轮会继续跑完并
+  # 以成功退出，构建出一份没有任何桌面组件的镜像（见 Dockerfile-desktop
+  # 中的构建期断言）。
+  pkg_update || return 1
   pkg_install \
       tightvncserver \
       tigervnc-standalone-server \
@@ -27,12 +30,22 @@ installDesktop() {
       fcitx5-frontend-gtk3 fcitx5-frontend-gtk2 fcitx5-frontend-qt5 \
       fcitx5-module-cloudpinyin \
       fonts-wqy-zenhei fonts-wqy-microhei \
-      python3-numpy
+      python3-numpy || return 1
 
   # build-essential 等工具链 base 已提供；llvm 已从 base 移除且此处同样无使用方
   pkg_install build-essential libssl-dev zlib1g-dev libbz2-dev \
           libreadline-dev libsqlite3-dev wget curl libncurses5-dev \
-          xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+          xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev \
+      || return 1
+
+  # 桌面会话由 xfce 换成 GNOME 的变体（install_desktop_gnome.sh）复用这段
+  installVncRuntime startxfce4
+}
+
+# 与桌面环境无关的公共部分：xstartup（会话启动命令由 $1 传入）、noVNC、
+# 账号环境。xfce / gnome 两个 desktop 变体共用。
+installVncRuntime() {
+  local session_cmd="$1"
   # 镜像里不落密码文件：运行期由 15-vnc-password 用 VNC_PASSWORD 生成
   # （未设置时用默认密码），也可挂载 ~/.vnc/passwd（挂载文件优先）
   mkdir -p /deployment/accounts/sam/.vnc
@@ -92,14 +105,16 @@ fi
 # 启动输入法守护进程
 XSTARTUP_TAIL
   printf '%s\n' "$fcitx_daemon"
-  printf '\nexec startxfce4\n'
+  printf '\nexec %s\n' "$session_cmd"
   } > /deployment/accounts/sam/.vnc/xstartup
 
   chmod +x /deployment/accounts/sam/.vnc/xstartup
 
-  git clone https://github.com/novnc/noVNC.git /deployment/software/noVNC
+  git clone https://github.com/novnc/noVNC.git /deployment/software/noVNC \
+    || return 1
 
-  git clone https://github.com/novnc/websockify /deployment/software/noVNC/utils/websockify
+  git clone https://github.com/novnc/websockify /deployment/software/noVNC/utils/websockify \
+    || return 1
 
   # 自定义首页：跳转到 vnc.html 并开启自适应缩放
   cat > /deployment/software/noVNC/index.html << 'NOVNC_INDEX'
@@ -392,4 +407,9 @@ FCITX4_UI
   echo "input method configured (pinyin, Ctrl+Space toggle)"
 }
 
-autoExecuteFunc setEnv installDesktop initVncConfig initDesktopConfig initInputMethodConfig
+# 被 install_desktop_gnome.sh source 时只取公共函数（setEnv / installVncRuntime /
+# initVncConfig / initDesktopConfig / initInputMethodConfig），不在这里执行安装；
+# 只有作为脚本直接运行（Dockerfile-desktop）时才走完整流程。
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  autoExecuteFunc setEnv installDesktop initVncConfig initDesktopConfig initInputMethodConfig
+fi
