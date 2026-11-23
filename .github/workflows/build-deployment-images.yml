@@ -58,11 +58,13 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-${{ matrix.target.flavor }}-python${{ matrix.target.series }}-extension-pack
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/deployment:${{ matrix.os_tag }}-${{ matrix.target.flavor }}-python${{ matrix.target.series }}-extension-pack
           cache-to: type=inline
+          # 每次构建刷新 DBeaver 及驱动预取层（只重建这一层，chrome/WPS/VS Code/Apifox 仍走缓存）
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             OS_TAG=${{ matrix.os_tag }}
             PYTHON_SERIES=${{ matrix.target.series }}
+            DBEAVER_CACHE_BUST=${{ github.run_id }}
 
   # ── Server: OpenResty + code-server ───────────────────────────────────
   build-server-nginx-code:

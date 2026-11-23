@@ -20,14 +20,8 @@ ENV UV_DEFAULT_INDEX=${UV_DEFAULT_INDEX}
 ENV UV_LINK_MODE=copy
 
 ARG DBEAVER_PIN_VERSION
-ARG MYSQL_JDBC_VERSION
-ARG MARIADB_JDBC_VERSION
-ARG POSTGRES_JDBC_VERSION
-ARG ORACLE_JDBC_VERSION
-ARG MSSQL_JDBC_VERSION
-ARG SQLITE_JDBC_VERSION
-ARG DAMENG_JDBC_VERSION
-ARG DAMENG_JDBC_URL
+# 驱动预取：默认全部常用库；DBEAVER_DRIVER_IDS 传逗号分隔的 driver id 可裁剪
+ARG DBEAVER_DRIVER_IDS
 ARG MAVEN_CENTRAL_PRIMARY
 ARG MAVEN_CENTRAL_FALLBACK
 ARG WPS_PIN_VERSION
@@ -44,24 +38,31 @@ ARG APIFOX_DOWNLOAD_URL_FALLBACK
 # install chrome、 dbeaver、wps、vscode、apifox
 COPY ./images/software/desktop/install_chrome.sh /tmp/install_chrome.sh
 COPY ./images/software/desktop/install_dbeaver.sh /tmp/install_dbeaver.sh
+COPY ./images/software/desktop/dbeaver_prefetch.py /tmp/dbeaver_prefetch.py
 COPY ./images/software/desktop/install_wps.sh /tmp/install_wps.sh
 COPY ./images/software/desktop/install_vscode.sh /tmp/install_vscode.sh
 COPY ./images/software/desktop/install_apifox.sh /tmp/install_apifox.sh
 
 RUN set -eux; \
     /bin/bash /tmp/install_chrome.sh; \
-    /bin/bash /tmp/install_dbeaver.sh; \
     /bin/bash /tmp/install_wps.sh; \
     /bin/bash /tmp/install_vscode.sh; \
     /bin/bash /tmp/install_apifox.sh; \
     ldconfig;
+
+# DBeaver 单独一层：DBEAVER_CACHE_BUST 变化（CI 传 run_id）只重建驱动预取，
+# 不必连带重下 chrome/WPS/VS Code/Apifox
+ARG DBEAVER_CACHE_BUST
+RUN set -eux; \
+    echo "dbeaver driver cache bust: ${DBEAVER_CACHE_BUST}"; \
+    /bin/bash /tmp/install_dbeaver.sh; \
+    ldconfig
 
 # 统一 ENV（避免分散定义导致 PATH/DISPLAY 互相覆盖）
 ENV CHROME_HOME=/deployment/software/chrome \
     CHROME_DATA=/deployment/software/chrome/data \
     CHROME_OPTS="--no-sandbox --disable-gpu --disable-dev-shm-usage" \
     DBEAVER_HOME=/deployment/software/dbeaver \
-    DBEAVER_DRIVERS=/deployment/software/dbeaver/drivers \
     DBEAVER_DATA=/deployment/software/dbeaver/data \
     WPS_HOME=/deployment/software/wps \
     VSCODE_HOME=/deployment/software/vscode \

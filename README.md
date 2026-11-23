@@ -155,7 +155,7 @@
 | 镜像 | 说明 |
 |---|---|
 | `${REGISTRY}/${NAMESPACE}/software:<os>-chrome` | Chromium 浏览器（桌面快捷方式） |
-| `${REGISTRY}/${NAMESPACE}/software:<os>-dbeaver` | DBeaver 数据库管理工具（桌面快捷方式） |
+| `${REGISTRY}/${NAMESPACE}/software:<os>-dbeaver` | DBeaver 数据库管理工具（桌面快捷方式，预置常用 JDBC 驱动） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-wps` | WPS Office 办公套件（桌面快捷方式） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-vscode` | VS Code Desktop（含 Python 扩展） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-apifox` | Apifox API 工具（官方 AppImage 构建期解包，桌面快捷方式） |
@@ -166,6 +166,34 @@
 > AppImage runtime —— 后者在 qemu-user 下会 `Exec format error`，这样 arm64 变体
 > 也能在 amd64 runner 上构建。官方只提供 `-latest` 包，实际版本记录在 `APIFOX_VERSION`；
 > 需要固定版本时用 `--build-arg APIFOX_DOWNLOAD_URL=<自建 zip>` 覆盖。
+
+> DBeaver 构建期会**预置常用 JDBC 驱动**：读取当次安装的 DBeaver 自身 `plugin.xml` 驱动定义，
+> 从阿里云 Maven 拉取对应 jar/pom（含传递依赖），按 DBeaver 的缓存布局写入
+> `/deployment/software/dbeaver/data/DBeaverData/drivers/maven/aliyun`。覆盖
+> MySQL / MariaDB / PostgreSQL / Oracle / SQL Server / SQLite / H2 / ClickHouse /
+> StarRocks / Doris / TiDB / IoTDB / DuckDB / Hive / DB2 / Snowflake / Greenplum /
+> Firebird，以及达梦 / 人大金仓 / GBase 8s / OceanBase / 崖山 / 华为 GaussDB。
+> 版本随 DBeaver 升级自动更新；CI 每次构建都会传 `DBEAVER_CACHE_BUST`
+> 强制重建驱动层，所以每次产出的都是构建当时最新的 DBeaver 与驱动（本地重建时传
+> `--build-arg DBEAVER_CACHE_BUST=$(date +%s)` 同理）。
+> GaussDB（openGauss）的驱动是华为云 https 直链（gsjdbc4），按 DBeaver 远程库规则缓存到
+> `drivers/remote/...`。DBeaver CE 本身不带 Redis 驱动，镜像用社区驱动
+> dbVisitor 在 **Generic JDBC** 下预置了 **Redis**（`jdbc:dbvisitor:jedis://{host}:{port}?database={database}`，
+> 自包含 `-alone` 包，配置见 `<workspace>/.metadata/.config/drivers.xml`）。
+> RabbitMQ 是 AMQP 消息队列、没有 JDBC 驱动，DBeaver 不支持，请用 Management UI / `rabbitmqadmin`。
+> 用 `--build-arg DBEAVER_DRIVER_IDS=mysql8,postgres-jdbc,...` 可裁剪清单。
+> DBeaver 内 Maven 默认仓库已配置为阿里云，缺的驱动仍可在「驱动管理器 → 库 → 下载/更新」
+> 联网补装。内网部署时把 `DBeaverData/drivers` 目录整体拷到同一路径即可（保持 DBeaver
+> 版本与目录属主一致）。
+>
+> 构建期还会生成完整的 `custom-drivers.xml`（安装到 `<workspace>/.metadata/.config/drivers.xml`），
+> 为每个已预取库记录 `<file>` 条目。DBeaver 判断"驱动是否齐全"看的是这份记录而不是缓存
+> 目录本身——没有它，jar 虽然已在缓存里，首次连接仍会弹"下载驱动文件"对话框。H2 /
+> DuckDB / SQL Server 等定义里的 license 直链（`raw.githubusercontent.com`）也一并预取；
+> 构建网络拿不到时该库写成 `disabled="true"`，不影响连接。有了完整记录，即使
+> `RELEASE` / `[LATEST]` 形式的驱动（SQLite、DuckDB、TiDB、IoTDB、崖山）运行期也不再
+> 查 Maven 元数据；只会在缓存被删或手动更新驱动时重新联网。详见镜像内
+> `/deployment/software/dbeaver/README.md`。
 
 ### deployment 镜像
 

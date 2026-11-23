@@ -158,7 +158,10 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-${{ matrix.target.name }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-${{ matrix.target.name }}
           cache-to: type=inline
+          # dbeaver 每次构建都重新解析最新 DBeaver 版本并预取最新驱动；
+          # 其余镜像的 Dockerfile 不声明该参数，空值不影响缓存
           build-args: |
             REGISTRY=${{ env.REGISTRY }}
             NAMESPACE=${{ env.NAMESPACE }}
             OS_TAG=${{ matrix.os_tag }}
+            DBEAVER_CACHE_BUST=${{ matrix.target.name == 'dbeaver' && github.run_id || '' }}
