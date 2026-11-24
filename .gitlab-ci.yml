@@ -80,25 +80,51 @@ variables:
 
 before_script:
   - echo "开始准备构建环境"
-  # 注册 QEMU 模拟 ARM 架构。
-  # 必须用 tonistiigi/binfmt（qemu 10.x），不能用原来的
-  # multiarch-qemu-user-static（2023-01 构建，里面是 qemu 7.2.0）：
+  # 注册 QEMU 模拟 ARM 架构（qemu 10.x）。
+  #
+  # 为什么必须用 tonistiigi/binfmt 而不是原来的 multiarch-qemu-user-static
+  # （2023-01 构建，里面是 qemu 7.2.0）：
   #   - qemu 7.2 不认识 openat2（arm64 系统调用号 437）和 fchmodat2（452），
   #     Ubuntu 26.04 的 GNU tar 解包正好会走这两个调用；
   #   - 结果是 arm64 腿解 s6-overlay 时所有子目录/普通文件/软链全部报
-  #     "Function not implemented"，只有顶层的 /init 能落地——job 12019 就挂在这，
-  #     而旧版 install_base.sh 会把它吞成" /command 为空"的半空镜像；
+  #     "Function not implemented"，只有顶层的 /init 能落地，旧版 install_base.sh
+  #     会把它吞成 "/command 为空" 的半空镜像（job 12019 / 12047 / 12054 都是这个）；
   #   - noble / openEuler 的用户态不走这两个调用，所以只有 resolute 中招。
   #
-  # 只 install、不 uninstall：binfmt 是宿主机全局状态，拆掉注册的瞬间，宿主机上
-  # 任何 arm64 程序的新进程都会 exec 失败（已在运行的进程不受影响，binfmt 只作用于
-  # execve），而且万一 install 失败就会把宿主机留在"没有 arm64 模拟器"的状态。
-  # 条目已存在时 --install 只打印 "already registered" 并跳过（退出码 0），
-  # 所以这一步可以每个 job 无脑跑。
-  # 例外：某个 runner 若曾用旧的 multiarch 镜像注册过，需要一次性手动
-  #   docker run --privileged --rm <本镜像> --uninstall all && ... --install all
-  # 换成 qemu 10（本机已做；全新/重启后的宿主机没有旧注册，直接 install 即可）。
-  - docker run --privileged --rm ${REGISTRY}/${COMMON_NAMESPACE}/common:tonistiigi-binfmt-latest --install all
+  # 为什么不能无脑 --install all：binfmt_misc 是宿主机全局状态，条目已存在时
+  # --install 只打印一句跳过、退出码 0，并不会把旧的 qemu 7.2 换成新的；而
+  # --uninstall all 在这版镜像里把 "all" 当成架构名，输出
+  # "uninstalling: all not found" 等于没拆——所以「先 uninstall all 再 install all」
+  # 修不好卡在旧 qemu 的宿主机（实测踩过，job 12054 因此继续用 7.2 构建）。
+  # 真正替换必须先 --uninstall arm64。
+  #
+  # 也不能每个 job 都拆一遍重装：拆掉的瞬间宿主机上任何 arm64 程序的新进程都会
+  # exec 失败（已在运行的进程不受影响，binfmt 只作用于 execve）。所以先做一次
+  # 行为探测——arm64 下用 tar 建/解一个带子目录的包，qemu 7.2 必失败、qemu 10 必成功——
+  # 只有探测失败才拆掉 arm64 重装。探测约 0.7s，命中时纯 no-op。
+  - |
+    BINFMT_IMG="${REGISTRY}/${COMMON_NAMESPACE}/common:tonistiigi-binfmt-latest"
+    PROBE_IMG="${REGISTRY}/${NAMESPACE}/ubuntu:resolute"
+    probe_arm64() {
+      docker run --rm --platform linux/arm64 --entrypoint sh "${PROBE_IMG}" \
+        -c 'mkdir -p /t/a/b && echo x > /t/a/b/f && tar -cf /t.tar -C /t a && mkdir -p /x && tar -xf /t.tar -C /x && cat /x/a/b/f > /dev/null' \
+        > /dev/null 2>&1
+    }
+    if probe_arm64; then
+      echo "arm64 模拟器可用（qemu 支持 openat2/fchmodat2），保持现有注册"
+    else
+      echo "arm64 模拟器缺失或过旧，重新注册（只动 arm64，其他架构不受影响）"
+      docker run --privileged --rm "${BINFMT_IMG}" --uninstall arm64
+      docker run --privileged --rm "${BINFMT_IMG}" --install all
+      if probe_arm64; then
+        echo "binfmt 重注册后探测通过"
+      else
+        # 不中断：探测镜像本身拉不到也会走到这里，直接失败会波及所有 job。
+        # 但 resolute 的 arm64 腿接下来几乎必然报 Function not implemented，先在这里点名。
+        echo "警告：binfmt 重注册后 arm64 探测仍失败（也可能是 ${PROBE_IMG} 拉取失败），" >&2
+        echo "      resolute 的 arm64 腿大概率会报 Function not implemented" >&2
+      fi
+    fi
   # 初始化Buildx构建器
   # buildkit 是独立容器，不继承 job 容器的代理变量；network=host 下 127.0.0.1 即宿主机
   # （mihomo 监听 *:7890）。ACR/前端源走直连，其余出网走代理。
