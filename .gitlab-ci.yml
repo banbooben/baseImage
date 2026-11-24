@@ -19,7 +19,7 @@ variables:
   BUILDX_NO_DEFAULT_ATTESTATIONS: "1"
   GIT_STRATEGY: none
   project_repo_name: baseImage
-  # 构建辅助镜像（qemu-user-static / moby-buildkit）所在命名空间，与产物镜像的
+  # 构建辅助镜像（binfmt / moby-buildkit）所在命名空间，与产物镜像的
   # NAMESPACE 无关：它们在 sarmn_public 下且匿名可拉，而这两步在 docker login 之前执行
   COMMON_NAMESPACE: "sarmn_public"
   # 需在 GitLab / GitHub 配置同名变量（建议 Masked / Protected）：
@@ -80,8 +80,25 @@ variables:
 
 before_script:
   - echo "开始准备构建环境"
-  # 注册QEMU模拟ARM架构
-  - docker run --rm --privileged ${REGISTRY}/${COMMON_NAMESPACE}/common:multiarch-qemu-user-static-latest --reset -p yes
+  # 注册 QEMU 模拟 ARM 架构。
+  # 必须用 tonistiigi/binfmt（qemu 10.x），不能用原来的
+  # multiarch-qemu-user-static（2023-01 构建，里面是 qemu 7.2.0）：
+  #   - qemu 7.2 不认识 openat2（arm64 系统调用号 437）和 fchmodat2（452），
+  #     Ubuntu 26.04 的 GNU tar 解包正好会走这两个调用；
+  #   - 结果是 arm64 腿解 s6-overlay 时所有子目录/普通文件/软链全部报
+  #     "Function not implemented"，只有顶层的 /init 能落地——job 12019 就挂在这，
+  #     而旧版 install_base.sh 会把它吞成" /command 为空"的半空镜像；
+  #   - noble / openEuler 的用户态不走这两个调用，所以只有 resolute 中招。
+  #
+  # 只 install、不 uninstall：binfmt 是宿主机全局状态，拆掉注册的瞬间，宿主机上
+  # 任何 arm64 程序的新进程都会 exec 失败（已在运行的进程不受影响，binfmt 只作用于
+  # execve），而且万一 install 失败就会把宿主机留在"没有 arm64 模拟器"的状态。
+  # 条目已存在时 --install 只打印 "already registered" 并跳过（退出码 0），
+  # 所以这一步可以每个 job 无脑跑。
+  # 例外：某个 runner 若曾用旧的 multiarch 镜像注册过，需要一次性手动
+  #   docker run --privileged --rm <本镜像> --uninstall all && ... --install all
+  # 换成 qemu 10（本机已做；全新/重启后的宿主机没有旧注册，直接 install 即可）。
+  - docker run --privileged --rm ${REGISTRY}/${COMMON_NAMESPACE}/common:tonistiigi-binfmt-latest --install all
   # 初始化Buildx构建器
   # buildkit 是独立容器，不继承 job 容器的代理变量；network=host 下 127.0.0.1 即宿主机
   # （mihomo 监听 *:7890）。ACR/前端源走直连，其余出网走代理。
