@@ -270,9 +270,12 @@ pkg_extract() {
   esac
 }
 
-# rpm 解包。首选 rpm2cpio | cpio —— 最通用；但有两类包会失败：
+# rpm 解包。首选 rpm2cpio | cpio —— 最通用；但有三类包会失败：
 #   1. 负载用 lzma-alone 压缩（如 WPS Office），老版 rpm2cpio 解不了；
-#   2. 新版本 rpm 里 rpm2cpio 是 rpm2archive 的别名，输出的是 tar 而非 cpio。
+#   2. 新版本 rpm 里 rpm2cpio 是 rpm2archive 的别名，输出的是 tar 而非 cpio；
+#   3. 包内任一条目超过 4GB（cpio 格式上限），rpm2cpio 直接拒绝
+#      （"files over 4GB not supported by cpio"）——2026-11 的 Google Chrome
+#      stable rpm 起就是这样。
 # 因此 cpio 路径失败或没产出任何文件时，退回 rpm2archive + tar。
 _rpm_extract() {
   local archive="$1" dest="$2"
@@ -290,8 +293,17 @@ _rpm_extract() {
   echo "rpm2cpio 解包失败或结果为空，改用 rpm2archive: ${archive}" >&2
   rm -rf "$dest"; mkdir -p "$dest"
 
-  # rpm2archive 默认把归档写到当前目录的 <包名>.tgz，不接受输出到 stdout 的
-  # 稳定写法，故复制到临时目录里跑，再解 tar
+  # rpm2archive 的输出方式随 rpm 版本而异：
+  #   - openEuler 24.03 的 rpm 4.18 直接把 gzip 压缩的 tar 流写到 stdout，
+  #     不落文件（原实现只找当前目录的 <包名>.tgz，结果是永远失败）；
+  #   - 部分版本写当前目录的 <包名>.tgz 文件。
+  # 先按 stdout 流解，失败再退回找产出的 .tgz。
+  if rpm2archive "$archive" 2>/dev/null | tar -xzf - -C "$dest" 2>/dev/null \
+     && [ -n "$(ls -A "$dest" 2>/dev/null)" ]; then
+    return 0
+  fi
+
+  rm -rf "$dest"; mkdir -p "$dest"
   local work
   work="$(mktemp -d)" || return 1
   cp -f "$archive" "${work}/pkg.rpm" || { rm -rf "$work"; return 1; }
@@ -300,7 +312,7 @@ _rpm_extract() {
   local tgz=""
   tgz="$(find "$work" -maxdepth 1 -name '*.tgz' | head -n 1)"
   if [ -z "$tgz" ]; then
-    echo "rpm2archive 未产出归档: ${archive}" >&2
+    echo "rpm2archive 解包失败（stdout 流式与 <包名>.tgz 文件两种方式都没成功）: ${archive}" >&2
     rm -rf "$work"
     return 1
   fi
