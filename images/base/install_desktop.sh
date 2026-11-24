@@ -333,6 +333,28 @@ EOF
 }
 
 
+# GNOME 会话（VNC 与 RDP 两个变体）需要 system bus：gnome-session / headless
+# gnome-shell 连不上 /run/dbus/system_bus_socket 会直接 abort 或部分组件异常
+# 退出。s6 基座没有 systemd，这个 socket 不会自己出现；xfce 不依赖 system bus，
+# 所以只有 GNOME 变体调用这里。
+#
+# 同时清理 /run/systemd：gnome-shell 用 /run/systemd/seats 是否存在判断
+# "系统由 systemd 管理"，存在就走 logind 分支（见 gnome-shell 的
+# loginManager.js）。s6 基座没有 logind，走那条分支会因 D-Bus JS 异常直接退出；
+# 清掉后 shell 回退到 dummy login manager。apt postinst 会在镜像里留下这些空目录。
+initSystemBus() {
+  mkdir -p /etc/cont-init.d
+  cat > /etc/cont-init.d/05-dbus-system <<'EOF'
+#!/command/with-contenv bash
+rm -rf /run/systemd
+mkdir -p /run/dbus
+if [ ! -S /run/dbus/system_bus_socket ]; then
+  dbus-daemon --system --fork --nopidfile || true
+fi
+EOF
+  chmod 0755 /etc/cont-init.d/05-dbus-system
+}
+
 initInputMethodConfig(){
   detect_distro || return 1
   local cfg_root="/deployment/accounts/sam/.config"

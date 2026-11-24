@@ -28,6 +28,10 @@ jobs:
           - name: ubuntu-noble
             target: ubuntu:noble
             source: docker.io/library/ubuntu:noble
+          # desktop-rdp 变体（GNOME 50 + headless RDP）只支持 resolute
+          - name: ubuntu-resolute
+            target: ubuntu:resolute
+            source: docker.io/library/ubuntu:resolute
           - name: openeuler-2403
             target: openeuler:24.03-lts
             source: quay.io/openeuler/openeuler:24.03-lts
@@ -66,6 +70,9 @@ jobs:
           # 只放 <repo>:<tag> 后缀——strategy.matrix 求值时 env 上下文不可用
           - os_tag: noble
             base_os_image: ubuntu:noble
+          # resolute：Ubuntu 26.04，供 desktop-rdp 变体（GNOME 50 + RDP）使用
+          - os_tag: resolute
+            base_os_image: ubuntu:resolute
           - os_tag: openeuler-24.03
             base_os_image: openeuler:24.03-lts
     steps:
@@ -199,6 +206,50 @@ jobs:
             --build-arg NAMESPACE=${{ env.NAMESPACE }} \
             --build-arg OS_TAG=${{ matrix.os_tag }} \
             --cache-from type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-desktop-gnome \
+            --cache-to type=inline \
+            --provenance=false \
+            --sbom=false \
+            --push \
+            .
+
+  # 5. 构建 base:<OS_TAG>-desktop-rdp（仅 resolute）
+  #    GNOME 50（Ubuntu 26.04）只有 Wayland 会话，远程桌面改用 gnome-remote-desktop
+  #    的 headless RDP（端口 3389），不再是 TigerVNC + noVNC。
+  #    noble 上没有 GNOME 50，对应方案仍是 -desktop-gnome（VNC）。
+  build-base-desktop-rdp:
+    needs: build-base
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag: [resolute]
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v7
+
+      - name: 设置 QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: 登录容器镜像仓库
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+
+      - name: 构建 base:${{ matrix.os_tag }}-desktop-rdp
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-desktop-rdp \
+            -f ./images/base/Dockerfile-desktop-rdp \
+            --build-arg REGISTRY=${{ env.REGISTRY }} \
+            --build-arg NAMESPACE=${{ env.NAMESPACE }} \
+            --build-arg OS_TAG=${{ matrix.os_tag }} \
+            --cache-from type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/base:${{ matrix.os_tag }}-desktop-rdp \
             --cache-to type=inline \
             --provenance=false \
             --sbom=false \

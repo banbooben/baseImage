@@ -1,0 +1,35 @@
+ARG REGISTRY=registry.cn-hangzhou.aliyuncs.com
+ARG NAMESPACE=sarmn
+# 见 Dockerfile 中同名参数的说明。desktop-rdp 变体只支持 resolute（Ubuntu 26.04）：
+# GNOME 50 只有 Wayland 会话，远程桌面走 gnome-remote-desktop 的 headless RDP。
+# noble（GNOME 46）对应的是 -desktop-gnome 变体（TigerVNC）。
+ARG OS_TAG=resolute
+ARG BASE_IMAGE=${REGISTRY}/${NAMESPACE}/base:${OS_TAG}
+FROM ${BASE_IMAGE}
+
+LABEL authors="sarmn"
+
+ENV PATH=/deployment/bin:$PATH \
+    LANG=zh_CN.UTF-8 \
+    LANGUAGE=zh_CN:zh \
+    LC_ALL=zh_CN.UTF-8
+
+COPY ./images/common.sh /deployment/scripts/common.sh
+COPY ./images/base/install_desktop.sh /tmp/install_desktop.sh
+COPY ./images/base/install_desktop_rdp.sh /tmp/install_desktop_rdp.sh
+# 构建期断言：桌面包、RDP 服务端、s6 服务必须真的装上。install_desktop_rdp.sh
+# 已让 apt 失败向上传递，这里再兜一层——任何原因导致组件缺失都让构建失败，
+# 而不是推出一份"有系统、没有远程桌面"的镜像。
+RUN set -eux; \
+    /bin/bash /tmp/install_desktop_rdp.sh; \
+    command -v gnome-shell; \
+    test -x /usr/libexec/gnome-remote-desktop-daemon; \
+    command -v grdctl; \
+    command -v pipewire; \
+    command -v rdp-primary-monitor; \
+    test -x /etc/s6-overlay/s6-rc.d/rdp/run; \
+    echo 'source /deployment/scripts/common.sh' >> /etc/bash.bashrc
+
+EXPOSE 3389
+
+ENTRYPOINT ["/init"]

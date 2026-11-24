@@ -61,25 +61,7 @@ installGnomeDesktop() {
       "env GNOME_SHELL_SESSION_MODE=ubuntu gnome-session --session=ubuntu-vnc"
 }
 
-# GNOME 会话需要 system bus：gnome-session 连不上 /run/dbus/system_bus_socket 会
-# 直接 abort（"Failed to connect to system bus"）。s6 基座没有 systemd，
-# 这个 socket 不会自己出现；xfce 不依赖 system bus，所以这是 GNOME 变体独有的一步。
-#
-# 同时清理 /run/systemd：gnome-shell 用 /run/systemd/seats 是否存在判断
-# "系统由 systemd 管理"，存在就走 logind 分支（见 gnome-shell 的
-# loginManager.js）。s6 基座没有 logind，走那条分支会因 D-Bus JS 异常直接退出；
-# 清掉后 shell 回退到 dummy login manager。apt postinst 会在镜像里留下这些空目录。
-initSystemBus() {
-  mkdir -p /etc/cont-init.d
-  cat > /etc/cont-init.d/05-dbus-system <<'EOF'
-#!/command/with-contenv bash
-rm -rf /run/systemd
-mkdir -p /run/dbus
-if [ ! -S /run/dbus/system_bus_socket ]; then
-  dbus-daemon --system --fork --nopidfile || true
-fi
-EOF
-  chmod 0755 /etc/cont-init.d/05-dbus-system
-}
+# GNOME 会话需要的 system bus 与 /run/systemd 清理：与 desktop-rdp 变体共用
+# （函数定义在 install_desktop.sh，上面 source 已引入）。
 
 autoExecuteFunc setEnv installGnomeDesktop initVncConfig initDesktopConfig initInputMethodConfig initSystemBus

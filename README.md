@@ -9,6 +9,7 @@
 - [middleware 镜像](#middleware-镜像)
 - [software 镜像](#software-镜像)
 - [deployment 镜像](#deployment-镜像)
+- [RDP 桌面](#rdp-桌面baseos-desktop-rdp)
 - [openEuler 支持](#openeuler-支持)
 - [CI 变量](#ci-变量)
 - [认证与密码](#认证与密码)
@@ -38,6 +39,10 @@
 - 桌面环境（base-desktop-gnome，仅 Ubuntu）
   - GNOME（ubuntu-desktop-minimal）+ VNC + noVNC
   - 与 Xfce 变体共用 VNC / noVNC / 输入法配置，只替换桌面会话
+- 桌面环境（base-desktop-rdp，仅 resolute / Ubuntu 26.04）
+  - GNOME 50（ubuntu-desktop-minimal，Wayland 会话）+ gnome-remote-desktop 的 headless RDP
+  - 中文输入法：ibus-libpinyin（Wayland 会话用 GNOME 内建的 ibus）
+  - 没有 VNC / noVNC：客户端直接连 RDP 端口 3389
 
 > 上面是 Ubuntu 侧的包名；openEuler 侧同一份脚本经包名映射表换成 rpm 名，
 > 详见 [openEuler 支持](#openeuler-支持) 的差异表。
@@ -79,9 +84,12 @@
 | `<os>` | 发行版 |
 |---|---|
 | `noble` | Ubuntu 24.04 LTS |
+| `resolute` | Ubuntu 26.04 LTS（目前只有 `-desktop-rdp` 变体） |
 | `openeuler-24.03` | openEuler 24.03 LTS |
 
-即 `base:<os>` 实际对应 `base:noble` 与 `base:openeuler-24.03` 两个镜像。
+即 `base:<os>` 实际对应 `base:noble` 与 `base:openeuler-24.03` 两个镜像；
+`resolute` 只为 `base:resolute-desktop-rdp` 构建 `base:resolute` 与
+`base:resolute-runtime`，语言/中间件/software 层仍只有 noble 与 openeuler。
 
 ### 基础镜像
 
@@ -93,6 +101,7 @@
 | `${REGISTRY}/${NAMESPACE}/base:<os>-runtime` | 运行时基础镜像（只有运行期依赖，不含 gcc / -dev 头文件；语言与中间件镜像的最终层用它做 FROM） |
 | `${REGISTRY}/${NAMESPACE}/base:<os>-desktop` | 桌面基础镜像（Xfce + VNC + 中文字体） |
 | `${REGISTRY}/${NAMESPACE}/base:<os>-desktop-gnome` | GNOME 桌面变体（`ubuntu-desktop-minimal` + VNC + 中文字体，仅 Ubuntu；与 `-desktop` 并存，完整 GNOME 约多 500MB） |
+| `${REGISTRY}/${NAMESPACE}/base:<os>-desktop-rdp` | GNOME 50 Wayland 桌面 + gnome-remote-desktop 的 headless RDP（仅 `resolute`；端口 3389，无 VNC/noVNC，运行期需要 `/dev/fuse` 等权限，见 [RDP 桌面](#rdp-桌面baseos-desktop-rdp)） |
 
 ### 语言镜像
 
@@ -255,7 +264,11 @@ QEMU、网络波动：一旦某次变慢，后一层拉到的仍是上周推上�
 | `<os>` | 上游基础镜像 | 同步来源 | 架构 |
 |---|---|---|---|
 | `noble` | `ubuntu:24.04` | `docker.io/library/ubuntu:noble` | amd64, arm64 |
+| `resolute` | `ubuntu:26.04` | `docker.io/library/ubuntu:resolute` | amd64, arm64 |
 | `openeuler-24.03` | `openeuler/openeuler:24.03-lts` | `quay.io/openeuler/openeuler:24.03-lts` | amd64, arm64 |
+
+> `resolute` 目前只有 `base:<os>`、`base:<os>-runtime` 与 `base:<os>-desktop-rdp`，
+> 供需要 GNOME 50 的 RDP 桌面使用；其余镜像仍以 noble / openEuler 为准。
 
 > openEuler 走 quay.io 而不是 Docker Hub：Hub 在部分网络下不可达。`24.03-lts` 是原地更新的滚动 tag。
 
@@ -337,6 +350,7 @@ GitHub Secrets 与 GitLab CI/CD Variables **同名**：
 |---|---|---|
 | `SAM_PASSWORD` | 设置业务用户 `sam` 的密码；同时开启 SSH 密码登录，并把 `sam` 的 sudo 切回**需要密码** | 账户锁定，仅密钥登录，免密 sudo |
 | `VNC_PASSWORD` | 桌面镜像启动时生成 `~/.vnc/passwd`（TigerVNC 只取前 8 个字符） | 使用默认密码 `Sam.5H8g` |
+| `RDP_PASSWORD` | `-desktop-rdp` 变体的 RDP 登录密码（用户名固定 `sam`） | 使用默认密码 `Sam.5H8g` |
 | `REDIS_PASSWORD` | Redis 启动时生成追加 `requirepass` 的运行期配置（覆盖 conf 里的同名指令） | 无 `requirepass` |
 
 ```bash
@@ -400,3 +414,51 @@ docker run -d \
 - 只影响 uid/gid，不改变家目录（始终 `/deployment/accounts/sam`）。
 - 非法值（非数字）只告警跳过，不会把容器 init 打挂。
 - `sshd` / `code-server` / `openresty` 等本来就是 root 的服务不受影响。
+
+### RDP 桌面（`base:<os>-desktop-rdp`）
+
+`resolute`（Ubuntu 26.04）的 GNOME 50 只有 Wayland 会话，远程桌面改用
+`gnome-remote-desktop` 的 **headless RDP**（端口 3389），没有 VNC / noVNC。
+
+运行期需要四项容器权限，缺一不可：
+
+| 需要 | 原因 |
+|---|---|
+| `--device /dev/fuse` | RDP 剪贴板文件传输要挂 FUSE；缺失时客户端一连上，守护进程就 `g_error` 退出 |
+| `--cap-add SYS_ADMIN` | `fusermount3` 以 setuid root 挂载 FUSE 需要这个能力 |
+| `--security-opt apparmor=unconfined` | docker 默认 AppArmor profile 禁止 `mount()` |
+| `--security-opt seccomp=unconfined` | GNOME 50 的所有图片（壁纸、应用图标）都由 glycin 加载，glycin 用 `bwrap` 沙箱；`bwrap` 需要 `pivot_root`，被 docker 默认 seccomp 拒绝——缺了它桌面能连上，但壁纸和图标全是空白 |
+
+```bash
+docker run -d --name desktop-rdp \
+  -p 3389:3389 \
+  --device /dev/fuse --cap-add SYS_ADMIN \
+  --security-opt apparmor=unconfined \
+  --security-opt seccomp=unconfined \
+  -e RDP_PASSWORD='你的密码' \
+  registry.cn-hangzhou.aliyuncs.com/sarmn/base:resolute-desktop-rdp
+```
+
+客户端用 Windows 自带的 mstsc，或 FreeRDP（服务端要求 NLA）：
+
+```bash
+xfreerdp3 /v:<host>:3389 /u:sam /p:'你的密码' /cert:ignore /sec:nla
+```
+
+- **证书**：首次启动时在容器内自签生成 `~/.local/share/gnome-remote-desktop/rdp-tls.{crt,key}`
+  （不进镜像）。客户端首次连接信任一次即可；`/cert:ignore` 跳过校验。
+- **分辨率**：由客户端决定（`/w:` `/h:`）；没有客户端时用
+  `-e RESOLUTION=1920x1080`（默认）的虚拟显示器。
+- **端口**：`-e RDP_PORT=3389`（默认）可改；对外暴露时映射同一端口。
+- **日志**：会话相关日志都在容器的 `/deployment/logs/rdp-*.log`。
+- **fusermount3**：镜像把 `/usr/bin/fusermount3` 挪到 `/usr/local/libexec` 再软链回来。
+  Ubuntu 25.10+ 的 apparmor 包给该二进制套了按路径命中的 profile（容器里
+  `apparmor=unconfined` 也挡不住），不挪开会拒绝挂载，RDP 会话刚建立就退出。
+- **会话结构**：一条 `dbus-run-session` 里依次起 pipewire → headless
+  `gnome-shell --headless --mode=ubuntu` → 写 GRD 配置 → `gnome-remote-desktop-daemon`。
+  GRD 只在客户端连上时才创建虚拟显示器，`rdp-primary-monitor` 负责把它切成主显示器，
+  否则客户端只能看到一块壁纸。
+- **外观**：会话按 Ubuntu 官方桌面配置运行（`--mode=ubuntu` + `XDG_CURRENT_DESKTOP=ubuntu:GNOME`
+  启用 ubuntu 一整组 GSettings 默认值）：Yaru 主题、左侧常驻 Dock、桌面图标。
+  cont-init 会预建 `~/Desktop`、`~/Downloads` 等标准目录——DING 找不到 `~/Desktop`
+  会反复崩溃重启。

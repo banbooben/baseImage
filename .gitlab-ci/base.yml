@@ -4,7 +4,8 @@
 #
 # 两套发行版各两个 job（base / base-desktop）；base job 同时产出
 # base:<OS_TAG>（full，含工具链）与 base:<OS_TAG>-runtime（语言/中间件最终层用）。
-# 另有 Ubuntu 专属的 noble-desktop-gnome（ubuntu-desktop-minimal，与 Xfce 变体并存）。
+# 另有 Ubuntu 专属的 noble-desktop-gnome（ubuntu-desktop-minimal，与 Xfce 变体并存）
+# 与 resolute-desktop-rdp（GNOME 50 + gnome-remote-desktop headless RDP）。
 # 这里不用 parallel:matrix：
 # desktop 变体的 needs 要指向同发行版的 base，矩阵展开后 job 名带 [xxx] 后缀，
 # needs 引用会很脆；四个 job 显式写出更清楚。
@@ -111,6 +112,84 @@ noble-desktop-gnome:
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=noble
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:noble-desktop-gnome
+      --cache-to type=inline
+      --push
+      .
+
+# Ubuntu 26.04：base:<os> 与 base:<os>-runtime；desktop-rdp 变体的上游
+resolute:
+  stage: base
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "base"
+      needs:
+        - ubuntu-resolute
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      when: manual
+  script:
+    - echo "开始构建基础镜像 ubuntu 26.04"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:resolute
+      -f ./images/base/Dockerfile
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=resolute
+      --build-arg BASE_OS_IMAGE=${REGISTRY}/${NAMESPACE}/ubuntu:resolute
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:resolute
+      --cache-to type=inline
+      --push
+      .
+    - echo "开始构建运行时基础镜像 ubuntu 26.04"
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:resolute-runtime
+      -f ./images/base/Dockerfile
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=resolute
+      --build-arg BASE_OS_IMAGE=${REGISTRY}/${NAMESPACE}/ubuntu:resolute
+      --build-arg BASE_PROFILE=runtime
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:resolute-runtime
+      --cache-to type=inline
+      --push
+      .
+
+# RDP 变体（gnome-remote-desktop headless，端口 3389）：GNOME 50 只有 Wayland
+# 会话，Ubuntu 26.04 才有；noble 的对应方案是 noble-desktop-gnome（VNC）。
+resolute-desktop-rdp:
+  stage: base
+  tags:
+    - sync
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BUILD_GROUP == "base"
+      needs:
+        - resolute
+    - if: $CI_PIPELINE_SOURCE != "schedule"
+      needs:
+        - resolute
+      when: manual
+  script:
+    - echo "开始构建基础镜像 ubuntu 26.04 desktop-rdp"
+    - cd $ROOT_PATH/${project_repo_name}
+    - >
+      docker buildx build
+      --builder builder
+      --platform linux/amd64,linux/arm64
+      -t ${REGISTRY}/${NAMESPACE}/base:resolute-desktop-rdp
+      -f ./images/base/Dockerfile-desktop-rdp
+      --build-arg REGISTRY=${REGISTRY}
+      --build-arg NAMESPACE=${NAMESPACE}
+      --build-arg OS_TAG=resolute
+      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/base:resolute-desktop-rdp
       --cache-to type=inline
       --push
       .
