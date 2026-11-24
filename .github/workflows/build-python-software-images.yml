@@ -42,7 +42,7 @@ jobs:
           - { series: "3.11", suffix: "", fallback: "3.11.0" }
           - { series: "3.10", suffix: "", fallback: "3.10.0" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Resolve latest Python version
         id: version
         run: |
@@ -50,14 +50,14 @@ jobs:
           [ "${{ matrix.python.prerelease || false }}" = "true" ] && ARGS+=(--prerelease)
           VERSION=$(ci/resolve_versions.sh "${ARGS[@]}")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.ALY_ARC_USERNAME }}
           password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v7
         with:
           provenance: false
           sbom: false
@@ -87,15 +87,15 @@ jobs:
           - noble
           - openeuler-24.03
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.ALY_ARC_USERNAME }}
           password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v7
         with:
           provenance: false
           sbom: false
@@ -139,15 +139,15 @@ jobs:
           - { flavor: desktop, name: wps }
           - { flavor: desktop, name: vscode }
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.ALY_ARC_USERNAME }}
           password: ${{ secrets.ALY_ARC_PASSWORD }}
-      - uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v7
         with:
           provenance: false
           sbom: false
