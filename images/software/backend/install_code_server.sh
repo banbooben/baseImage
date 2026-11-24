@@ -41,8 +41,10 @@ extensions-dir: /deployment/software/code-server/extensions
 EOF
 
   # 启动脚本
+  # 必须用 with-contenv：s6-rc 的 longrun 服务不继承容器环境，普通 #!/bin/bash
+  # 读不到 -e 注入的 PASSWORD，code-server 会因无密码反复退出。
   cat > /etc/s6-overlay/s6-rc.d/code-server/run <<'EOF'
-#!/bin/bash
+#!/command/with-contenv bash
 export PATH=/deployment/software/code-server/bin:$PATH
 
 exec /deployment/software/code-server/bin/code-server --config /deployment/software/code-server/config.yaml --extensions-dir /deployment/software/code-server/extensions
