@@ -54,4 +54,5 @@ python:
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/language:${OS_TAG}-python-${PYTHON_SERIES}${TAG_SUFFIX}
       --cache-to type=inline
       --push
+      $BUILD_PROXY_ARGS
       .

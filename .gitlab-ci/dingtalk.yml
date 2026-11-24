@@ -41,6 +41,7 @@ dingtalk-hermes-backend:
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-dingtalk-hermes
       --cache-to type=inline
       --push
+      $BUILD_PROXY_ARGS
       .
 
 desktop-ext-dingtalk-hermes:
@@ -75,4 +76,5 @@ desktop-ext-dingtalk-hermes:
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-desktop-python${PYTHON_SERIES}-extension-pack-dingtalk-hermes
       --cache-to type=inline
       --push
+      $BUILD_PROXY_ARGS
       .

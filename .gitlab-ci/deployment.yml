@@ -47,6 +47,7 @@ python-ext-pack:
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-${FLAVOR}-python${PYTHON_SERIES}-extension-pack
       --cache-to type=inline
       --push
+      $BUILD_PROXY_ARGS
       .
 
 nginx-code:
@@ -72,4 +73,5 @@ nginx-code:
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-server-nginx-code
       --cache-to type=inline
       --push
+      $BUILD_PROXY_ARGS
       .

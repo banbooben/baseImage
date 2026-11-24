@@ -72,15 +72,23 @@ setEnv(){
 installS6(){
   mkdir -p /opt/s6-overlay
   cd /opt/s6-overlay || exit 1
-  wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz
-  tar -xf s6-overlay-noarch.tar.xz -C /
 
+  # 下载/解包失败必须显式返回非零，交给 autoExecuteFunc 重试：
+  #   - wget 默认没有超时，连接卡住时整个 RUN 会一直挂着（GitHub 上同一份
+  #     resolute 构建已经挂了数小时，无法从日志上确认卡在哪一步）；
+  #   - 失败若被吞掉，函数末尾的 `cd -` 仍然返回 0，重试机制当作成功，
+  #     最终只剩脚本末尾的 "/init 缺失" 断言报 exit 1，看不出根因
+  #     （本机 GitLab runner 上 base:resolute 构建成功、随后的
+  #     base:resolute-runtime 只报了这个裸 exit 1）。
+  local s6_url="https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}"
+  # 用 -nv 而不是 -q：-q 连错误信息一起吞掉，失败时日志里只剩重试告警、查不到原因
+  wget -nv --timeout=30 --tries=2 "${s6_url}/s6-overlay-noarch.tar.xz" || return 1
+  tar -xf s6-overlay-noarch.tar.xz -C / || return 1
 
-  wget https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${TARGET_ARCH}.tar.xz
-  tar -xf s6-overlay-${TARGET_ARCH}.tar.xz -C /
+  wget -nv --timeout=30 --tries=2 "${s6_url}/s6-overlay-${TARGET_ARCH}.tar.xz" || return 1
+  tar -xf "s6-overlay-${TARGET_ARCH}.tar.xz" -C / || return 1
 
-  rm -f s6-overlay-noarch.tar.xz
-  rm -f s6-overlay-${TARGET_ARCH}.tar.xz
+  rm -f s6-overlay-noarch.tar.xz "s6-overlay-${TARGET_ARCH}.tar.xz"
   cd - || exit 1
 
 }

@@ -26,6 +26,12 @@ variables:
   #   REGISTRY, NAMESPACE
   #   ALY_ARC_USERNAME, ALY_ARC_PASSWORD
   GIT_CLONE_BASE: "ssh://git@git.sarmn.cn:30102/deployment"
+  # 构建期出网代理。buildx 不会把客户端环境变量自动注入 RUN 步骤（实测按
+  # --build-arg 传入才会出现在容器的 $HTTP_PROXY 里），所以每个 buildx build
+  # 都要带上这个参数串；脚本里按空格展开，不要加引号。
+  # 本机 runner 的 buildkit 实例以 network=host 运行，127.0.0.1 即宿主机
+  # （mihomo 监听 *:7890）。镜像仓库拉取/推送由 buildkit 自己完成，不受影响。
+  BUILD_PROXY_ARGS: "--build-arg HTTP_PROXY=http://127.0.0.1:7890 --build-arg HTTPS_PROXY=http://127.0.0.1:7890 --build-arg http_proxy=http://127.0.0.1:7890 --build-arg https_proxy=http://127.0.0.1:7890 --build-arg NO_PROXY=localhost,127.0.0.1 --build-arg no_proxy=localhost,127.0.0.1"
 
 # ---------------------------------------------------------------------------
 # 定时分组（GitLab 无法按 job 设 cron，用多个 Schedule + BUILD_GROUP 变量）

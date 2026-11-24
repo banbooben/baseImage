@@ -43,4 +43,5 @@ software:
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-${NAME}
       --cache-to type=inline
       --push
+      $BUILD_PROXY_ARGS
       .
