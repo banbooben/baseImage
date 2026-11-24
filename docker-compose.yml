@@ -1,0 +1,74 @@
+# 本地测试：deployment:noble-desktop-python3.14-extension-pack
+#
+# 启动：
+#   sudo docker compose up -d
+#   sudo docker compose logs -f
+#   sudo docker compose down          # 加 -v 连数据卷一起删
+#
+# 访问：
+#   noVNC 桌面    http://127.0.0.1:6080   VNC 密码见 VNC_PASSWORD
+#   code-server   http://127.0.0.1:8080   密码见 CODE_SERVER_PASSWORD
+#   SSH           ssh -p 2222 sam@127.0.0.1   密码见 SAM_PASSWORD
+#   原生 VNC      vncviewer 127.0.0.1:5901
+#
+# 当前镜像的已知问题：registry 上 2026-11-23 构建的 base:noble-desktop 没装
+# tigervnc / Xfce / websockify，vnc、desktop 两个 s6 服务会启动失败，6080/5901
+# 打不开，桌面里的 Chrome / DBeaver / WPS / VS Code / Apifox 也就无从点开。
+# 重建 base:noble-desktop 与 deployment 镜像后即恢复。
+
+name: desktop-extension-pack
+
+services:
+  desktop:
+    image: ${IMAGE:-registry.cn-hangzhou.aliyuncs.com/sarmn/deployment:noble-desktop-python3.14-extension-pack}
+    container_name: desktop-extension-pack
+    hostname: dev-desktop
+    restart: unless-stopped
+
+    # GUI 应用（Chromium/WPS/VS Code/Apifox）共用内存盘
+    shm_size: "2gb"
+
+    ports:
+      # 默认只监听本机；需要局域网访问时设 BIND_ADDR=0.0.0.0
+      - "${BIND_ADDR:-127.0.0.1}:6080:6080"   # noVNC 网页桌面
+      - "${BIND_ADDR:-127.0.0.1}:8080:8080"   # code-server
+      - "${BIND_ADDR:-127.0.0.1}:2222:22"     # SSH
+      - "${BIND_ADDR:-127.0.0.1}:5901:5901"   # 原生 VNC 客户端
+
+    environment:
+      TZ: "${TZ:-Asia/Shanghai}"
+      # 与宿主机 uid/gid 对齐，挂 bind mount 时避免 sam 写不进去
+      PUID: "${PUID:-1000}"
+      PGID: "${PGID:-1000}"
+      RESOLUTION: "${RESOLUTION:-1920x1080}"
+
+      # 桌面密码（TigerVNC 只取前 8 个字符）
+      VNC_PASSWORD: "${VNC_PASSWORD:-Sam.5H8g}"
+      # 设置后 sam 可密码登录 SSH，且 sudo 需要密码；留空则仅密钥登录 + 免密 sudo
+      SAM_PASSWORD: "${SAM_PASSWORD:-Sam.5H8g}"
+      # code-server 必需，不提供会拒绝启动
+      PASSWORD: "${CODE_SERVER_PASSWORD:-Sam.5H8g}"
+
+    volumes:
+      # sam 的家目录：SSH 密钥、VNC 密码、各应用配置都在这里
+      - sam-home:/deployment/accounts/sam
+      # 代码工作区（code-server / VS Code 打开的就是它）
+      - workspace:/deployment/workspace
+      # 可选：持久化 code-server 已安装的扩展
+      # - code-server-extensions:/deployment/software/code-server/extensions
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS http://127.0.0.1:6080/ >/dev/null &&
+          curl -fsS http://127.0.0.1:8080/healthz >/dev/null
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  sam-home:
+  workspace:
+  # code-server-extensions:
