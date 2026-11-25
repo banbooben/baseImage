@@ -11,10 +11,26 @@
 #   SSH           ssh -p 2222 sam@127.0.0.1   密码见 SAM_PASSWORD
 #   原生 VNC      vncviewer 127.0.0.1:5901
 #
-# 当前镜像的已知问题：registry 上 2026-11-23 构建的 base:noble-desktop 没装
-# tigervnc / Xfce / websockify，vnc、desktop 两个 s6 服务会启动失败，6080/5901
-# 打不开，桌面里的 Chrome / DBeaver / WPS / VS Code / Apifox 也就无从点开。
-# 重建 base:noble-desktop 与 deployment 镜像后即恢复。
+# 当前镜像（2026-11-25 16:09 构建，digest sha256:53c3cbd3…）的已知问题：
+# 下面 1~6 都已在工作区修好（install_base.sh / install_desktop.sh /
+# install_wps.sh / install_code_server.sh），提交并重建镜像后即消失；
+# 当前容器里只有 5、6 打了临时补丁，1~4 仍是镜像里的老行为。
+#   1) 原生 VNC 5901 连不上：tigervncserver 默认 -localhost=1，只监听容器回环，
+#      端口映射到宿主机也没用（noVNC 的 websockify 在容器内转发，不受影响）。
+#   2) 新建的 workspace 卷属主是 root，桌面里的 sam 写不进去。卷是空的时每次重建
+#      容器 Docker 都会重新把镜像目录的属主刷回去，手工 chown 撑不过 recreate，
+#      需要在镜像里加一个 cont-init（参考 10-fix-sam-home）。
+#   3) code-server 以 root 运行（HOME=/root），它写进 workspace 的文件是 root 所有，
+#      桌面里的 sam 改不了。
+#   4) vnc/start.sh 直接读 $RESOLUTION，但 longrun 不继承容器环境，自定义分辨率不生效。
+#   5) 桌面应用（chrome/dbeaver/vscode/apifox）打不开：镜像里 sam 建在 uid 1001
+#      （ubuntu 基础层已占 1000），构建期 /deployment/software/*/data 全是 1001；
+#      而 compose 默认 PUID=1000，运行期 05-puid-pgid 只 chown 了 home，应用以 1000
+#      跑却写不了 1001 的 profile 目录。临时解法：chown -R 1000:1000 /deployment/software
+#      （11GB，约 4 分钟）；根治应在 05-puid-pgid 里补 chown /deployment/software/*/data。
+#   6) WPS 起不来：office6 自带 libstdc++.so.6.0.28 通过 LD_LIBRARY_PATH 盖住系统版，
+#      noble 的 libicuuc.so.74 需要 GLIBCXX_3.4.30 → dlopen libwpsmain.so 失败。
+#      临时解法：把 /deployment/software/wps/opt/office6/libstdc++.so.6 改名禁用。
 
 name: desktop-extension-pack
 

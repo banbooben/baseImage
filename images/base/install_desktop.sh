@@ -157,6 +157,10 @@ initVncConfig(){
   cat > /etc/cont-init.d/10-fix-sam-home << 'EOF'
 #!/bin/bash
 chown -R sam:sam /deployment/accounts/sam 2>/dev/null || true
+# workspace 一般是空卷：Docker 会把镜像里该目录的属主（root）复制到新卷上，
+# 桌面里的 sam 就写不进去。只改根目录、不递归——workspace 可能有大量文件，
+# 每次启动全量 chown 代价太大；新文件由 sam 创建后自然就是正确属主。
+chown sam:sam /deployment/workspace 2>/dev/null || true
 EOF
   chmod 0755 /etc/cont-init.d/10-fix-sam-home
 
@@ -237,6 +241,16 @@ EOF
   cat > /etc/s6-overlay/s6-rc.d/vnc/start.sh <<'EOF'
 #!/bin/bash
 set -e
+# s6 的 oneshot/longrun 都不继承容器 -e 环境，RESOLUTION 要从 15-vnc-password
+# 导出的 /tmp/container-env 里取。不能直接 source 整个文件：里面有带空格的值
+# （CHROME_OPTS=--no-sandbox --disable-gpu …），source 会把它当命令执行，
+# 配合 set -e 直接让 VNC 起不来。桌面会话的环境由 xstartup 自己按行导入。
+if [ -r /tmp/container-env ]; then
+  _res="$(sed -n 's/^RESOLUTION=//p' /tmp/container-env | head -n1)"
+  if [ -n "${_res}" ]; then
+    RESOLUTION="${_res}"
+  fi
+fi
 export HOME=/deployment/accounts/sam
 export USER=sam
 export DISPLAY=:1
@@ -251,7 +265,9 @@ fi
 # 容器环境变量由 cont-init 15-vnc-password 以 root 从 s6 container_environment
 # 导出到 /tmp/container-env。缺失时补个空文件，别让 VNC 起不来。
 [ -e /tmp/container-env ] || : > /tmp/container-env || true
-vncserver :1 -geometry "$RESOLUTION" -depth 24
+# -localhost no：tigervncserver 默认只监听 127.0.0.1，容器把 5901 映射出去
+# 也连不上（docker-proxy 从网关进不来）。noVNC 走容器内 websockify 不受影响。
+vncserver :1 -geometry "$RESOLUTION" -depth 24 -localhost no
 EOF
 
   # 停止脚本

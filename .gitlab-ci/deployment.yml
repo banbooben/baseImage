@@ -34,6 +34,10 @@ python-ext-pack:
   script:
     - echo "开始构建 ${FLAVOR} 开发环境镜像（Python ${PYTHON_SERIES} extension-pack）"
     - cd $ROOT_PATH/${project_repo_name}
+    # DBEAVER_CACHE_BUST：desktop 的 Dockerfile 用它强制刷新 DBeaver 驱动预取层
+    # （GitHub Actions 传 run_id，这里传 pipeline id）。不传时 ARG 未定义，
+    # `set -u` 下 ${DBEAVER_CACHE_BUST} 直接报 parameter not set，构建失败。
+    # server 的 Dockerfile 没有这个 ARG，buildx 只提示未被使用，不影响构建。
     - >
       docker buildx build
       --builder builder
@@ -44,6 +48,7 @@ python-ext-pack:
       --build-arg NAMESPACE=${NAMESPACE}
       --build-arg OS_TAG=${OS_TAG}
       --build-arg PYTHON_SERIES=${PYTHON_SERIES}
+      --build-arg DBEAVER_CACHE_BUST=${CI_PIPELINE_ID}
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-${FLAVOR}-python${PYTHON_SERIES}-extension-pack
       --cache-to type=inline
       --push

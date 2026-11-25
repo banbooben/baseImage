@@ -347,6 +347,17 @@ fi
 # 后者会再无条件 chown 一次 home（既有行为，幂等）。
 if [ "${changed}" = "1" ]; then
   chown -R "${RUN_USER}:${RUN_USER}" "/deployment/accounts/${RUN_USER}" 2>/dev/null || true
+  # 应用数据目录（chrome / dbeaver / vscode / apifox …）是构建期以旧 uid 建出来的。
+  # 只改 passwd 不跟着 chown，应用就会以新 uid 运行却写不了旧属主的 profile 目录，
+  # 表现是点图标没反应（构建期 sam 常被基础镜像的默认用户挤到 1001）。
+  # 这些目录只是各应用的配置/缓存，体积小，递归开销可以忽略。
+  for _d in /deployment/software/*/data; do
+    [ -d "${_d}" ] && chown -R "${RUN_USER}:${RUN_USER}" "${_d}" 2>/dev/null || true
+  done
+  # code-server 以 sam 运行（见 install_code_server.sh），扩展目录需可写
+  if [ -d /deployment/software/code-server ]; then
+    chown -R "${RUN_USER}:${RUN_USER}" /deployment/software/code-server 2>/dev/null || true
+  fi
 fi
 EOF
   chmod 0755 /etc/cont-init.d/05-puid-pgid

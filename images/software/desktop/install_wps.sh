@@ -146,6 +146,18 @@ installWps(){
     return 1
   fi
 
+  # ── 禁用 WPS 自带的 libstdc++ ────────────────────────────────
+  # 安装包在 opt/office6 下带 libstdc++.so.6.0.28，而启动器把 office6 放在
+  # LD_LIBRARY_PATH 最前面，会遮蔽系统 libstdc++。较新的发行版（如 noble 的
+  # libicuuc.so.74）要求 GLIBCXX_3.4.30+，于是 libwpsmain.so 的 dlopen 直接失败：
+  #   libstdc++.so.6: version `GLIBCXX_3.4.30' not found
+  # 改名而不是删除：旧版 libstdc++ 是向后兼容的，系统版可直接顶上。
+  local wps_libstdcpp="${INSTALL_PATH}/opt/office6/libstdc++.so.6"
+  if [ -e "${wps_libstdcpp}" ] || [ -L "${wps_libstdcpp}" ]; then
+    mv -f "${wps_libstdcpp}" "${wps_libstdcpp}.bundled-off" || return 1
+    echo "WPS 自带 libstdc++.so.6 已禁用（回落到系统版）"
+  fi
+
   export WPS_BIN="${wps_bin}"
   export WPP_BIN="${wpp_bin}"
   export ET_BIN="${et_bin}"

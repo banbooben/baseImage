@@ -43,11 +43,15 @@ EOF
   # 启动脚本
   # 必须用 with-contenv：s6-rc 的 longrun 服务不继承容器环境，普通 #!/bin/bash
   # 读不到 -e 注入的 PASSWORD，code-server 会因无密码反复退出。
+  # 以 sam 运行：否则在 workspace 里新建的文件都是 root 所有，桌面里的 sam
+  # 改不了；HOME 也要显式给，s6-setuidgid 不会改 HOME，继承下来的 /root 会让
+  # code-server 写不了自己的 user-data-dir。
   cat > /etc/s6-overlay/s6-rc.d/code-server/run <<'EOF'
 #!/command/with-contenv bash
 export PATH=/deployment/software/code-server/bin:$PATH
+export HOME=/deployment/accounts/sam
 
-exec /deployment/software/code-server/bin/code-server --config /deployment/software/code-server/config.yaml --extensions-dir /deployment/software/code-server/extensions
+exec s6-setuidgid sam /deployment/software/code-server/bin/code-server --config /deployment/software/code-server/config.yaml --extensions-dir /deployment/software/code-server/extensions
 EOF
 
   # 启动类型
@@ -97,6 +101,10 @@ installCodeServer(){
   for EXTENSION in "${EXTENSIONS[@]}"; do
     code-server --extensions-dir /deployment/software/code-server/extensions --install-extension "$EXTENSION"
   done
+
+  # 运行期以 sam 跑 code-server（见 initConfigFile 的 run 脚本）：整个安装目录
+  # 归 sam 所有，运行时装/删扩展才有权限。PUID 改变后 05-puid-pgid 会再 chown 一次。
+  chown -R sam:sam /deployment/software/code-server
 
 }
 
