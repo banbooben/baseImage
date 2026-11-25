@@ -265,9 +265,10 @@ fi
 # 容器环境变量由 cont-init 15-vnc-password 以 root 从 s6 container_environment
 # 导出到 /tmp/container-env。缺失时补个空文件，别让 VNC 起不来。
 [ -e /tmp/container-env ] || : > /tmp/container-env || true
-# -localhost no：tigervncserver 默认只监听 127.0.0.1，容器把 5901 映射出去
-# 也连不上（docker-proxy 从网关进不来）。noVNC 走容器内 websockify 不受影响。
-vncserver :1 -geometry "$RESOLUTION" -depth 24 -localhost no
+# 不对外暴露原生 VNC：保持 tigervncserver 默认的 -localhost=1，只监听容器回环，
+# 外部一律走 noVNC（websockify 在容器内把它代理到 6080）。这样对外只需开 6080，
+# 5901 不需要发布，也不要把 -localhost 改成 no。
+vncserver :1 -geometry "$RESOLUTION" -depth 24
 EOF
 
   # 停止脚本

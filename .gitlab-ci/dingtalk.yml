@@ -1,9 +1,17 @@
 # 钉钉数字同事（DWS + Hermes + dingtalk-bridge 群桥）独立构建入口 —— 单独重建
-# 这一组镜像，不必跑完整条 base → language → software → deployment 链。
+# 这个镜像，不必跑完整条 base → language → software → deployment 链。
 # 对应 GitHub 侧 build-dingtalk-hermes-images.yml（workflow_dispatch）；
 # GitHub 的 hermes_version / dws_version 输入在这里用同名变量覆盖实现
 # （手动触发 pipeline 时改值）。
 # 仅手动；job 级 needs: [] 打断 stage 顺序
+#
+# 产物只有 server 版：software:resolute-dingtalk-hermes（FROM base:resolute，
+# Ubuntu 26.04）。运行期由 s6 常驻两个服务 —— dingtalk-hermes（hermes gateway，
+# 原生钉钉平台承载私聊）与 dingtalk-bridge（群聊监控桥），注册逻辑见
+# install_dingtalk_hermes.sh 的 initS6Config。
+#
+# desktop 变体（deployment:<os>-desktop-python3.12/3.14-extension-pack-dingtalk-hermes）
+# 已移除，需要时从 git 历史恢复 Dockerfile 与本文件对应 job。
 #
 # 历史：dsh 方案（software:<os>-dingtalk-dsh）已于 2026-11 移除 —— DSH 与插件版本
 # 迭代过快、镜像很快失效；DSH 稳定后再评估。源码/脚本/CI 可从 git 历史
@@ -14,18 +22,17 @@ variables:
   HERMES_VERSION: "v0.22.4"
   DWS_VERSION: ""
 
-dingtalk-hermes-backend:
+dingtalk-hermes:
   extends: .manual_only
-  # 同时产出 Ubuntu(noble) 与 openEuler(openeuler-24.03) 两套标签。
+  # 只产出 Ubuntu 26.04（resolute）一套标签：base:resolute 已由 base 流水线产出。
   # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
   parallel:
     matrix:
       - OS_TAG:
-          - noble
-          - openeuler-24.03
+          - resolute
   stage: software
   script:
-    - echo "开始构建钉钉数字同事 hermes 版 backend 镜像"
+    - echo "开始构建钉钉数字同事 hermes 版 server 镜像"
     - cd $ROOT_PATH/${project_repo_name}
     - >
       docker buildx build
@@ -39,41 +46,6 @@ dingtalk-hermes-backend:
       --build-arg HERMES_PIN_VERSION=${HERMES_VERSION}
       --build-arg DWS_PIN_VERSION=${DWS_VERSION}
       --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/software:${OS_TAG}-dingtalk-hermes
-      --cache-to type=inline
-      --push
-      $BUILD_PROXY_ARGS
-      .
-
-desktop-ext-dingtalk-hermes:
-  extends: .manual_only
-  # PYTHON_SERIES 矩阵条目：透传同名 build-arg 派生上游 deployment 镜像与产物 tag
-  parallel:
-    matrix:
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-        PYTHON_SERIES: "3.12"
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
-        PYTHON_SERIES: "3.14"
-  stage: deployment
-  script:
-    - echo "开始构建钉钉数字同事 hermes 版桌面镜像（Python ${PYTHON_SERIES} extension-pack）"
-    - cd $ROOT_PATH/${project_repo_name}
-    - >
-      docker buildx build
-      --builder builder
-      --platform linux/amd64,linux/arm64
-      -t ${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-desktop-python${PYTHON_SERIES}-extension-pack-dingtalk-hermes
-      -f ./deployment/common/desktop/python-extension-pack/Dockerfile-dingtalk-hermes
-      --build-arg REGISTRY=${REGISTRY}
-      --build-arg NAMESPACE=${NAMESPACE}
-      --build-arg OS_TAG=${OS_TAG}
-      --build-arg PYTHON_SERIES=${PYTHON_SERIES}
-      --build-arg HERMES_PIN_VERSION=${HERMES_VERSION}
-      --build-arg DWS_PIN_VERSION=${DWS_VERSION}
-      --cache-from type=registry,ref=${REGISTRY}/${NAMESPACE}/deployment:${OS_TAG}-desktop-python${PYTHON_SERIES}-extension-pack-dingtalk-hermes
       --cache-to type=inline
       --push
       $BUILD_PROXY_ARGS

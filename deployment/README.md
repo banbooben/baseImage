@@ -17,8 +17,6 @@
 | --- | --- | --- |
 | `deployment:<os>-desktop-python3.12-extension-pack` | [desktop/python-extension-pack/Dockerfile](common/desktop/python-extension-pack/Dockerfile)（`PYTHON_SERIES=3.12`） | Python 3.12 + code-server + SSH + Chrome + DBeaver + WPS + VS Code + Apifox |
 | `deployment:<os>-desktop-python3.14-extension-pack` | 同上（`PYTHON_SERIES=3.14`） | Python 3.14 + code-server + SSH + Chrome + DBeaver + WPS + VS Code + Apifox |
-| `deployment:<os>-desktop-python3.12-extension-pack-dingtalk-hermes` | [desktop/python-extension-pack/Dockerfile-dingtalk-hermes](common/desktop/python-extension-pack/Dockerfile-dingtalk-hermes)（`PYTHON_SERIES=3.12`） | 上述 Python 3.12 桌面环境 + 钉钉数字同事（DWS + Hermes + dingtalk-bridge） |
-| `deployment:<os>-desktop-python3.14-extension-pack-dingtalk-hermes` | 同上（`PYTHON_SERIES=3.14`） | 上述 Python 3.14 桌面环境 + 钉钉数字同事（DWS + Hermes + dingtalk-bridge） |
 
 ### 服务器开发环境
 
@@ -103,8 +101,7 @@ docker run -d --name nginx-code \
 deployment/common/
 ├── desktop/
 │   └── python-extension-pack/
-│       ├── Dockerfile                # PYTHON_SERIES 必填（3.12 / 3.14）
-│       └── Dockerfile-dingtalk-hermes # 同上，叠加钉钉数字同事
+│       └── Dockerfile                # PYTHON_SERIES 必填（3.12 / 3.14）
 └── server/
     ├── nginx-code/
     │   └── openresty-nginx

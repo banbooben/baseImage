@@ -297,6 +297,20 @@ addUser(){
 
 }
 
+# /deployment 下运行期要写的目录归 sam：容器内的服务（vnc/desktop/code-server、
+# 各语言运行时、dingtalk-hermes 等）默认都以 sam 启动。空命名卷首次挂载时 Docker
+# 会把镜像里该目录的属主与权限原样复制到卷上——bake 成 sam，新卷开箱即可写；
+# 否则要等容器起来再手工 chown（实测重建一次就被刷回 root）。
+# 必须在 addUser 之后调用：sam 还没创建时 chown 会失败。
+# 只改目录本身（此刻都是空目录），不递归，避免以后 data 里放大文件时拖慢构建。
+initDeploymentOwnership(){
+  local d
+  for d in workspace data logs configs; do
+    [ -d "/deployment/${d}" ] || continue
+    as_root chown sam:sam "/deployment/${d}" || return 1
+  done
+}
+
 # PUID/PGID 全局对齐：cont-init.d 在**所有** s6-rc 服务启动之前执行一次。
 # 之后启动的服务（vnc/desktop/clash-verge/redis/dingtalk-hermes …）用 s6-setuidgid
 # sam 时按名字查 /etc/passwd，查到的就是这里改过的新 uid/gid —— 各服务零改动生效。
@@ -345,6 +359,17 @@ fi
 # 新 sam 读写不了。没变（带相同 PUID 重启）则跳过，避免每次启动全量扫 home。
 # 注意 cont-init.d 按文件名序执行：本脚本 05 先于 desktop 的 10-fix-sam-home，
 # 后者会再无条件 chown 一次 home（既有行为，幂等）。
+
+# 只要配置了 PUID/PGID 就会执行到这里：把运行期可写目录对齐到 sam 的当前 uid/gid。
+# 不能只在「uid 变了」时做——workspace 是持久卷，可能保留着上一次部署的属主
+# （例如上一次以 PUID=1000 跑过，这次没设 PUID、sam 回到 bake 时的 1001），
+# 不 chown 就写不进去。data/logs/configs 是镜像层目录，同理兜底。
+# 只改目录本身、不递归：volume 里可能有大量文件，全量 chown 太慢；
+# 目录归 sam 后新文件自然就是正确属主。
+for _d in /deployment/workspace /deployment/data /deployment/logs /deployment/configs; do
+  [ -d "${_d}" ] && chown "${RUN_USER}:${RUN_USER}" "${_d}" 2>/dev/null || true
+done
+
 if [ "${changed}" = "1" ]; then
   chown -R "${RUN_USER}:${RUN_USER}" "/deployment/accounts/${RUN_USER}" 2>/dev/null || true
   # 应用数据目录（chrome / dbeaver / vscode / apifox …）是构建期以旧 uid 建出来的。
@@ -436,7 +461,7 @@ EOF
   chmod 0755 /etc/cont-init.d/15-runtime-password
 }
 
-autoExecuteFunc setEnv initFolder installBase initSudoers installS6 initSshd addUser initChineseEnv initConfigFile initPuidPgid initRuntimePassword
+autoExecuteFunc setEnv initFolder installBase initSudoers installS6 initSshd addUser initDeploymentOwnership initChineseEnv initConfigFile initPuidPgid initRuntimePassword
 
 # 兜底断言：autoExecuteFunc 在某个步骤重试 5 次后仍失败时只告警不中断，
 # 曾导致 runtime 档缺 xz-utils → s6 解包失败 → 产物没有 /init 却构建成功。

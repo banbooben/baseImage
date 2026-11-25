@@ -150,11 +150,8 @@
 | `${REGISTRY}/${NAMESPACE}/software:<os>-claude` | Claude Code CLI（基于 Node.js 22） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-llama-cpp` | llama.cpp（CPU 推理，源码构建；x86_64 运行时按 CPU 特性分派，含 llama-cli / llama-server / llama-quantize 等） |
 | `${REGISTRY}/${NAMESPACE}/software:<os>-openresty` | OpenResty（Nginx + LuaJIT，源码编译，s6 自启动，端口 80） |
-| `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-hermes` | 钉钉数字同事 backend（DWS + Hermes Agent + dingtalk-bridge 群桥守护进程） |
+| `${REGISTRY}/${NAMESPACE}/software:<os>-dingtalk-hermes` | 钉钉数字同事 server 版（DWS + Hermes Agent + dingtalk-bridge 群桥；s6 常驻这两个服务） |
 
-> 钉钉数字同事另有 desktop 变体：`deployment:<os>-desktop-python3.12/3.14-extension-pack-dingtalk-hermes`
-> （基于桌面 extension-pack，Dockerfile 位于
-> `deployment/common/desktop/python-extension-pack/Dockerfile-dingtalk-hermes`）。
 > hermes 版另有宿主机文件系统约束：`~/.hermes` 卷必须在 POSIX 文件系统上
 > （gateway 要 bind unix 控制套接字，exFAT 不支持会致命退出），详见镜像内
 > `/deployment/software/dingtalk-hermes/README.md`。
