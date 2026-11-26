@@ -111,6 +111,8 @@
 
 **Python**（编译阶段用 `base:<os>`，最终镜像用 `base:<os>-runtime`）
 
+统一用 python.org 官方源码包构建 CPython（不再提供 Miniconda 镜像）。
+
 | 镜像 | 说明 |
 |---|---|
 | `${REGISTRY}/${NAMESPACE}/language:<os>-python-3.10` | Python 3.10 |
@@ -122,7 +124,6 @@
 | `${REGISTRY}/${NAMESPACE}/language:<os>-python-3.14-ft` | Python 3.14 free-threaded |
 | `${REGISTRY}/${NAMESPACE}/language:<os>-python-3.15` | Python 3.15 |
 | `${REGISTRY}/${NAMESPACE}/language:<os>-python-3.15-ft` | Python 3.15 free-threaded |
-| `${REGISTRY}/${NAMESPACE}/language:<os>-miniconda-3` | Miniconda 3 |
 
 **Java / OpenJDK**（多阶段构建：构建阶段用 `base:<os>`，最终镜像用 `base:<os>-runtime`）
 
@@ -213,15 +214,16 @@ CI 由 `.github/workflows/build-all.yml` 每周日 UTC 18:00（北京时间周�
 层序由 `needs:` 表达：上游 workflow 内**全部 job 成功**才触发下一层，任一层失败则下游不产出。
 
 ```text
-base ─┬─ python ────┐
-      ├─ java       │
-      ├─ middleware │
-      └─ software ──┘
-           └─────────┴─→ deployment（needs: base, python, software）
+base ─┬─ software
+      └─ middleware
 ```
 
-deployment 的 7 个 Dockerfile 只 `FROM` base / language(python) / software 三者的产物，
-不消费 java 与 middleware，所以它不 gate 在那两者上 —— 它们照常并行构建。
+**语言层（python / openjdk）与 deployment 组合镜像不进定时链**，需要时手动触发对应
+workflow；它们只 `FROM` 上游已推送的同名 tag。
+
+**GitLab CI 只做手动构建**（`.gitlab-ci/` 下仅剩 languages / deployment / dingtalk 三个
+文件）：base / software / middleware 三层统一由 GitHub Actions 的 `build-all.yml` 产出，
+GitLab 侧不再建这些流水线。
 
 **不再按时间错峰。** 旧方案是 3.5 小时间隔（base 18:00 → 语言/中间件/软件 21:30 →
 deployment 次日 01:00），错峰要求"上一层整套构建+推送的耗时 < 固定间隔"，而耗时随版本、
@@ -229,23 +231,30 @@ QEMU、网络波动：一旦某次变慢，后一层拉到的仍是上周推上�
 跨周混合的镜像（这周的 base + 上周的 python）且不报错。改用 `needs:` 后顺序是确定性的，
 层与层之间也没有空等。
 
-单层重建：手动触发（`workflow_dispatch`）对应的 `build-<层>-images.yml`；整链重跑：手动触发 `build-all.yml`。
-单个镜像重建：llama.cpp 用 `build-llama-cpp-images.yml`（可指定版本，留空取最新 release），
-钉钉数字同事用 `build-dingtalk-hermes-images.yml`，Apifox 用 `build-apifox-images.yml`
-（可覆盖下载地址；不进入每周链，需要时手动触发）。
+分层入口（均 `workflow_dispatch` 手动触发）：
+
+| workflow | 产物 |
+|---|---|
+| `build-language-images.yml` | `language:<os>-python-<series>[-ft]`（3.10~3.15）、`language:<os>-openjdk-<major>`（21/24/25） |
+| `build-software-images.yml` | `software:<os>-<name>`（code-server / chrome / dbeaver / …） |
+| `build-middleware-images.yml` | `middleware:<os>-redis-<series>` |
+| `build-deployment-images.yml` | `deployment:<os>-<flavor>-python<series>-extension-pack` |
+
+单个镜像重建：钉钉数字同事用 `build-dingtalk-hermes-images.yml`，Apifox 用
+`build-apifox-images.yml`（可覆盖下载地址；不进入每周链，需要时手动触发）。
+llama.cpp 在 `build-software-images.yml` 的矩阵里，可用 `llamacpp_version` 输入钉死版本
+（留空取最新 release）。
 
 **桌面开发环境**（基于 `base:<os>-desktop`，含 Xfce + Chrome + DBeaver + WPS + VS Code + Apifox + code-server + SSH）
 
 | 镜像 | Python | tag |
 |---|---|---|
-| `${REGISTRY}/${NAMESPACE}/deployment:<os>-desktop-python3.12-extension-pack` | 3.12 | `noble-desktop-python3.12-extension-pack` |
 | `${REGISTRY}/${NAMESPACE}/deployment:<os>-desktop-python3.14-extension-pack` | 3.14 | `noble-desktop-python3.14-extension-pack` |
 
 **服务器开发环境**（基于 `base:<os>`，含 code-server + SSH）
 
 | 镜像 | Python | tag |
 |---|---|---|
-| `${REGISTRY}/${NAMESPACE}/deployment:<os>-server-python3.12-extension-pack` | 3.12 | `noble-server-python3.12-extension-pack` |
 | `${REGISTRY}/${NAMESPACE}/deployment:<os>-server-python3.14-extension-pack` | 3.14 | `noble-server-python3.14-extension-pack` |
 
 > Dockerfile 位于 `deployment/common/<desktop|server>/python-extension-pack/`，构建上下文为仓库根目录。
@@ -295,10 +304,10 @@ docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESP
 
 ```bash
 docker buildx build --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
-  --build-arg OS_TAG=openeuler-24.03 \
-  --build-arg PYTHON_SERIES=3.12 --build-arg PYTHON_PIN_VERSION=3.12.11 \
+  --build-arg OS_TAG=noble \
+  --build-arg PYTHON_SERIES=3.14 --build-arg PYTHON_PIN_VERSION=3.14.0 \
   -f images/languages/python/Dockerfile \
-  -t $REGISTRY/$NAMESPACE/language:openeuler-24.03-python-3.12 .
+  -t $REGISTRY/$NAMESPACE/language:noble-python-3.14 .
 ```
 
 #### 发行版差异

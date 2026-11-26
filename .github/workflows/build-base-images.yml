@@ -16,9 +16,7 @@ env:
   NAMESPACE: ${{ secrets.NAMESPACE }}
 
 jobs:
-  # 1. 同步官方基础镜像（Ubuntu / openEuler）
-  #    openEuler 官方镜像在 Docker Hub 与 quay.io 都有，用 quay.io——
-  #    Docker Hub 在部分网络（含构建机）不可达。24.03-lts 是原地更新的滚动 tag。
+  # 1. 同步官方基础镜像（Ubuntu；openEuler 24.03 已停用，2026-11）
   sync-base-image:
     runs-on: ubuntu-latest
     strategy:
@@ -32,9 +30,6 @@ jobs:
           - name: ubuntu-resolute
             target: ubuntu:resolute
             source: docker.io/library/ubuntu:resolute
-          - name: openeuler-2403
-            target: openeuler:24.03-lts
-            source: quay.io/openeuler/openeuler:24.03-lts
     steps:
       - name: 设置 QEMU
         uses: docker/setup-qemu-action@v4
@@ -73,8 +68,6 @@ jobs:
           # resolute：Ubuntu 26.04，供 desktop-rdp 变体（GNOME 50 + RDP）使用
           - os_tag: resolute
             base_os_image: ubuntu:resolute
-          - os_tag: openeuler-24.03
-            base_os_image: openeuler:24.03-lts
     steps:
       - name: 检出代码
         uses: actions/checkout@v7
@@ -135,7 +128,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os_tag: [noble, openeuler-24.03]
+        os_tag: [noble]
     steps:
       - name: 检出代码
         uses: actions/checkout@v7

@@ -6,28 +6,18 @@
 
 python-ext-pack:
   extends: .manual_only
-  # 上游 base / software 层都已双发行版化，这里跟着出两套。
+  # 上游 base / language / software 镜像统一由 GitHub Actions 产出，本 job
+  # 只做组合（FROM 已推送的同名 tag），需要时手动点。
+  # 上游只出 Ubuntu(noble)；openEuler 镜像已停用（2026-11）。
   # OS_TAG 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签
   parallel:
     matrix:
       - OS_TAG:
           - noble
-          - openeuler-24.03
-        FLAVOR: desktop
-        PYTHON_SERIES: "3.12"
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
         FLAVOR: desktop
         PYTHON_SERIES: "3.14"
       - OS_TAG:
           - noble
-          - openeuler-24.03
-        FLAVOR: server
-        PYTHON_SERIES: "3.12"
-      - OS_TAG:
-          - noble
-          - openeuler-24.03
         FLAVOR: server
         PYTHON_SERIES: "3.14"
   stage: deployment
@@ -61,7 +51,6 @@ nginx-code:
     matrix:
       - OS_TAG:
           - noble
-          - openeuler-24.03
   stage: deployment
   script:
     - echo "开始构建 OpenResty + code-server 组合镜像"

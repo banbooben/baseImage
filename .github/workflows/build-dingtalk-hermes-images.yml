@@ -4,7 +4,7 @@ name: 构建钉钉数字同事镜像
 # 这个镜像，不必跑完整条 base → language → software → deployment 链。
 #
 # 与分层 workflow 的关系：dingtalk-hermes 镜像不在分层链里 ——
-# `software:<os>-dingtalk-hermes` 不在 build-python-software-images.yml，只在这里构建。
+# `software:<os>-dingtalk-hermes` 不在 build-software-images.yml，只在这里构建。
 # 单独放这里，是为了迭代安装脚本（install_dingtalk_hermes.sh）时能一键只重建钉钉
 # 镜像，且不并入自动的 base → software → deployment 链。
 #

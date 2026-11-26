@@ -4,7 +4,7 @@ name: 构建 Apifox 镜像
 #
 # 为什么单独成文件：Apifox 的安装包不在发行版软件源里，构建期需要从官方
 # 渠道下载 AppImage zip（只有 -latest，约 200MB）再解包，下载源在不同网络下
-# 行为不一致（官方站点可能返回下载验证页）。把它从 build-python-software-images.yml
+# 行为不一致（官方站点可能返回下载验证页）。把它从 build-software-images.yml
 # 的矩阵里拆出来，迭代安装脚本 / 临时出包时不必跟着跑整批 software 镜像。
 #
 # 与分层 workflow 的关系：本镜像不被 deployment 链消费
@@ -51,7 +51,6 @@ jobs:
       matrix:
         os_tag:
           - noble
-          - openeuler-24.03
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v4

@@ -1,21 +1,26 @@
 name: 定时构建全部镜像
 
-# 全部镜像的唯一定时入口。层序由 needs: 表达（状态依赖），不再靠 cron 时间错峰。
+# 自动链只产出 base / software / middleware 三层；其余镜像（Python 语言层、
+# deployment 组合镜像、钉钉、apifox、llama-cpp 等）一律手动触发，不进本链。
 #
-# 为什么不再错峰：错峰要求"上一层整套构建+推送的耗时 < 固定间隔"，而耗时随版本、
-# QEMU、网络波动。一旦某次变慢，后一层 FROM / COPY --from 拉到的还是上周推上去的
-# 同名 tag，会**静默**产出跨周混合的镜像（这周的 base + 上周的 python）且不报错。
-# 用 needs: 后，上游全部 job 成功才触发下游，顺序是确定性的，也没有空等。
+# 层序由 needs: 表达（状态依赖），不靠 cron 时间错峰——错峰一旦某层变慢，
+# 下游会静默拉到来期版本的同名 tag，产出跨周混合镜像。
 #
 # 层次：
-#   base ─┬─ python-software ──┐
-#         └─ java-middleware   │
-#              └───────────────┴─→ deployment（needs: base, python-software）
+#   base ─┬─ software
+#         └─ middleware
+#
+# 语言层（language:<os>-python-* / -openjdk-*）不在本链：手动触发
+# build-language-images.yml。deployment 组合镜像同样不在本链，按需手动构建。
+#
+# 分层入口：
+#   build-language-images.yml    语言层（python / openjdk）
+#   build-software-images.yml    软件层（code-server / chrome / …）
+#   build-middleware-images.yml  中间件层（redis）
 
 on:
   schedule:
     # 每周日 UTC 18:00（北京时间周一 02:00）触发整条链。
-    # 这里只需一条 cron——各层之间不再靠时间错开。
     - cron: '0 18 * * 0'
   workflow_dispatch:
 
@@ -36,24 +41,14 @@ jobs:
     secrets: inherit
 
   # ── 第 2 层：两者并行，都只依赖 base ─────────────────────────────────
-  # python-software：deployment 的上游（python / miniconda3 / software 三个 job）
-  python-software:
+  # software：code-server / openresty / chrome 等
+  software:
     needs: base
-    uses: ./.github/workflows/build-python-software-images.yml
+    uses: ./.github/workflows/build-software-images.yml
     secrets: inherit
 
-  # java-middleware：无下游消费（openjdk / redis 两个 job），失败不挡 deployment
-  java-middleware:
+  # middleware：redis
+  middleware:
     needs: base
-    uses: ./.github/workflows/build-java-middleware-images.yml
-    secrets: inherit
-
-  # ── 第 3 层 ───────────────────────────────────────────────────────────
-  # deployment 的 Dockerfile 主要 FROM base / language(python) / software 三者
-  # 的产物，不消费 java 与 middleware —— 所以本层不 gate 在 java-middleware
-  # 上，它照常并行构建，失败也不会挡住 deployment。
-  # needs 里显式列出 base 是被 python-software 传递蕴含的，写出来用于自我说明。
-  deployment:
-    needs: [base, python-software]
-    uses: ./.github/workflows/build-deployment-images.yml
+    uses: ./.github/workflows/build-middleware-images.yml
     secrets: inherit

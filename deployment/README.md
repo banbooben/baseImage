@@ -15,8 +15,7 @@
 
 | 镜像 | Dockerfile | 包含组件 |
 | --- | --- | --- |
-| `deployment:<os>-desktop-python3.12-extension-pack` | [desktop/python-extension-pack/Dockerfile](common/desktop/python-extension-pack/Dockerfile)（`PYTHON_SERIES=3.12`） | Python 3.12 + code-server + SSH + Chrome + DBeaver + WPS + VS Code + Apifox |
-| `deployment:<os>-desktop-python3.14-extension-pack` | 同上（`PYTHON_SERIES=3.14`） | Python 3.14 + code-server + SSH + Chrome + DBeaver + WPS + VS Code + Apifox |
+| `deployment:<os>-desktop-python3.14-extension-pack` | [desktop/python-extension-pack/Dockerfile](common/desktop/python-extension-pack/Dockerfile)（`PYTHON_SERIES=3.14`） | Python 3.14 + code-server + SSH + Chrome + DBeaver + WPS + VS Code + Apifox |
 
 ### 服务器开发环境
 
@@ -24,8 +23,7 @@
 
 | 镜像 | Dockerfile | 包含组件 |
 | --- | --- | --- |
-| `deployment:<os>-server-python3.12-extension-pack` | [server/python-extension-pack/Dockerfile](common/server/python-extension-pack/Dockerfile)（`PYTHON_SERIES=3.12`） | Python 3.12 + code-server + SSH |
-| `deployment:<os>-server-python3.14-extension-pack` | 同上（`PYTHON_SERIES=3.14`） | Python 3.14 + code-server + SSH |
+| `deployment:<os>-server-python3.14-extension-pack` | [server/python-extension-pack/Dockerfile](common/server/python-extension-pack/Dockerfile)（`PYTHON_SERIES=3.14`） | Python 3.14 + code-server + SSH |
 | `deployment:<os>-server-nginx-code` | [server/nginx-code/openresty-nginx](common/server/nginx-code/openresty-nginx) | OpenResty + code-server |
 
 ## 构建
@@ -36,12 +34,12 @@
 ```bash
 export REGISTRY=registry.cn-hangzhou.aliyuncs.com NAMESPACE=sarmn
 
-# Desktop + Python 3.12
+# Desktop + Python 3.14
 docker build \
   -f deployment/common/desktop/python-extension-pack/Dockerfile \
-  -t $REGISTRY/$NAMESPACE/deployment:<os>-desktop-python3.12-extension-pack \
+  -t $REGISTRY/$NAMESPACE/deployment:<os>-desktop-python3.14-extension-pack \
   --build-arg REGISTRY=$REGISTRY --build-arg NAMESPACE=$NAMESPACE \
-  --build-arg OS_TAG=<os> --build-arg PYTHON_SERIES=3.12 .
+  --build-arg OS_TAG=<os> --build-arg PYTHON_SERIES=3.14 .
 
 # Server + Python 3.14
 docker build \
@@ -61,7 +59,7 @@ docker run -d --name dev-desktop \
   -p 6080:6080 -p 8080:8080 -p 2222:22 \
   -v $(pwd)/workspace:/deployment/workspace \
   -v $(pwd)/sam-home:/deployment/accounts/sam \
-  $REGISTRY/$NAMESPACE/deployment:<os>-desktop-python3.12-extension-pack
+  $REGISTRY/$NAMESPACE/deployment:<os>-desktop-python3.14-extension-pack
 # → http://localhost:6080 noVNC 桌面
 # → http://localhost:8080 code-server（需 -e PASSWORD=...）
 # → ssh sam@localhost -p 2222（仅密钥登录）
@@ -101,17 +99,17 @@ docker run -d --name nginx-code \
 deployment/common/
 ├── desktop/
 │   └── python-extension-pack/
-│       └── Dockerfile                # PYTHON_SERIES 必填（3.12 / 3.14）
+│       └── Dockerfile                # PYTHON_SERIES 必填（3.14）
 └── server/
     ├── nginx-code/
     │   └── openresty-nginx
     └── python-extension-pack/
-        └── Dockerfile                # PYTHON_SERIES 必填（3.12 / 3.14）
+        └── Dockerfile                # PYTHON_SERIES 必填（3.14）
 ```
 
 ## 依赖关系
 
-`<os>` ∈ {`noble`, `openeuler-24.03`}，两套发行版走完全相同的这张图：
+`<os>` 目前只有 `noble`（openEuler 24.03 已停用，2026-11），走这张图：
 
 ```text
 <os> 上游镜像 ──► base:<os> ──► base:<os>-desktop
@@ -127,9 +125,8 @@ deployment/common/
                 deployment ── (COPY --from 各层)
 ```
 
-> **二级依赖**：桌面版的 `-dingtalk-hermes` 两个镜像不直接 FROM 分层产物，而是在
-> `deployment:<os>-desktop-python3.12/3.14-extension-pack` **之上**再叠加
-> `install_dingtalk_hermes.sh`（复用 backend 的安装脚本），即 deployment 层内的第二次
-> 构建。dingtalk-hermes 的三个镜像（backend + 桌面两个）已移出分层链，改由独立的
-> `build-dingtalk-hermes-images.yml` 单独构建（需先推送 extension-pack 作为上游）。
+> **钉钉数字同事**：桌面版的 `-dingtalk-hermes` 变体已移除，只保留 server 版
+> `software:resolute-dingtalk-hermes`（`FROM base:resolute`，Ubuntu 26.04），由独立的
+> `build-dingtalk-hermes-images.yml` 单独构建。运行期由 s6 常驻两个服务：hermes gateway
+> 与 dingtalk-bridge 群桥。
 

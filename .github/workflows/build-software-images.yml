@@ -1,0 +1,79 @@
+name: 构建软件镜像
+
+# 软件类镜像（software:<os>-<name>）独立入口，仅手动触发。
+# 由原 build-python-software-images.yml 拆分而来（语言层见 build-language-images.yml）。
+#
+# 前置条件：base:<os> 已存在（build-base-images.yml 产出）。
+# 产物：software:<os>-<name>
+
+on:
+  workflow_call:
+  # 保留手动入口：单层重建直接 dispatch 本文件，不必跑整条链。
+  workflow_dispatch:
+    inputs:
+      llamacpp_version:
+        description: 'llama.cpp 版本（tag 或版本号，如 0.8.0 / v0.8.0；留空 = 最新 release）'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ${{ secrets.REGISTRY }}
+  NAMESPACE: ${{ secrets.NAMESPACE }}
+
+jobs:
+  build-software:
+    runs-on: ubuntu-latest
+    # 只产出 Ubuntu(noble)；openEuler 镜像已停用（2026-11）
+    # os_tag 既进产物 tag，也作为 build-arg 透传给 Dockerfile 派生上游层标签。
+    # target 矩阵条目：flavor=backend|desktop（Dockerfile 目录），name=镜像名
+    # （= Dockerfile 文件名 = tag 后缀）。dingtalk-hermes 不在此列（独立 workflow）
+    # apifox 已移出矩阵：它不在发行版软件源里、构建期要下载解包官方 AppImage，
+    # 单独由 build-apifox-images.yml 手动触发（deployment 链不消费这个镜像）
+    strategy:
+      fail-fast: false
+      matrix:
+        os_tag:
+          - noble
+        target:
+          - { flavor: backend, name: code-server }
+          - { flavor: backend, name: docker }
+          - { flavor: backend, name: claude }
+          - { flavor: backend, name: llama-cpp }
+          - { flavor: backend, name: openresty }
+          - { flavor: desktop, name: chrome }
+          - { flavor: desktop, name: clash-verge }
+          - { flavor: desktop, name: dbeaver }
+          - { flavor: desktop, name: wps }
+          - { flavor: desktop, name: vscode }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALY_ARC_USERNAME }}
+          password: ${{ secrets.ALY_ARC_PASSWORD }}
+      - uses: docker/build-push-action@v7
+        with:
+          provenance: false
+          sbom: false
+          context: .
+          file: ./images/software/${{ matrix.target.flavor }}/${{ matrix.target.name }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-${{ matrix.target.name }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.NAMESPACE }}/software:${{ matrix.os_tag }}-${{ matrix.target.name }}
+          cache-to: type=inline
+          # dbeaver 每次构建都重新解析最新 DBeaver 版本并预取最新驱动；
+          # llamacpp_version 可钉死版本（留空 = 最新 release）。
+          # 其余镜像的 Dockerfile 不声明这两个参数，空值不影响缓存
+          build-args: |
+            REGISTRY=${{ env.REGISTRY }}
+            NAMESPACE=${{ env.NAMESPACE }}
+            OS_TAG=${{ matrix.os_tag }}
+            DBEAVER_CACHE_BUST=${{ matrix.target.name == 'dbeaver' && github.run_id || '' }}
+            LLAMACPP_PIN_VERSION=${{ matrix.target.name == 'llama-cpp' && inputs.llamacpp_version || '' }}
